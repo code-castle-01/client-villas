@@ -3,6 +3,8 @@
 # https://github.com/refinedev/dockerfiles/blob/main/vite/Dockerfile.nginx
 FROM node:20-bookworm-slim AS base
 
+WORKDIR /app
+
 FROM base as deps
 
 COPY package.json yarn.lock* package-lock.json* pnpm-lock.yaml* .npmrc* ./
@@ -18,7 +20,7 @@ FROM base as builder
 
 ENV NODE_ENV production
 
-COPY --from=deps /app/refine/node_modules ./node_modules
+COPY --from=deps /app/node_modules ./node_modules
 
 COPY . .
 
@@ -30,8 +32,8 @@ ENV NODE_ENV production
 
 RUN npm install -g serve
 
-COPY --from=builder /app/refine/dist ./
+COPY --from=builder /app/dist ./
 
-USER refine
+USER node
 
 CMD ["sh", "-c", "serve -s . -l tcp://0.0.0.0:${PORT:-3000}"]
