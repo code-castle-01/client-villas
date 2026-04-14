@@ -1,0 +1,1 @@
+export { MisAsignacionesPage } from "./list";

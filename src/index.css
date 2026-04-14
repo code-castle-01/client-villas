@@ -1,0 +1,4 @@
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+/* Preflight disabled to avoid clashing with Ant Design's base styles. */
+@import "tailwindcss/utilities.css" layer(utilities);

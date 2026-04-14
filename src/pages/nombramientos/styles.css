@@ -1,0 +1,238 @@
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@600;700&display=swap");
+
+.nombramientos-page {
+  --brand: #22b45a;
+  --brand-strong: #1a944a;
+  --brand-soft: #e8f8f0;
+  --ink: #152238;
+  --muted: #6b7a90;
+  --line: #e6edf5;
+  --surface: #ffffff;
+  --surface-muted: #f7f9fc;
+  --shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
+  font-family: "Manrope", "Work Sans", "Noto Sans", sans-serif;
+  color: var(--ink);
+  background: radial-gradient(1100px 520px at 100% -10%, #eaf9f1 0%, rgba(234, 249, 241, 0) 60%), #f4f7fb;
+  min-height: calc(100vh - 64px);
+  padding: 24px;
+}
+
+.nombramientos-page--dark {
+  --brand-soft: rgba(34, 180, 90, 0.12);
+  --ink: #edf2ff;
+  --muted: #98a2b3;
+  --line: rgba(148, 163, 184, 0.18);
+  --surface: #14171f;
+  --surface-muted: #1a1f2b;
+  --shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
+  background:
+    radial-gradient(950px 420px at 100% -10%, rgba(34, 180, 90, 0.12) 0%, rgba(34, 180, 90, 0) 60%),
+    linear-gradient(180deg, #0d1016 0%, #11151d 100%);
+}
+
+.nombramientos-page__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.nombramientos-page__title {
+  font-family: "Space Grotesk", "Manrope", sans-serif;
+  margin: 0;
+  color: var(--ink);
+}
+
+.nombramientos-page__subtitle {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.nombramientos-btn {
+  height: 40px;
+  border-radius: 12px;
+  padding: 0 16px;
+  font-weight: 600;
+}
+
+.nombramientos-btn--ghost {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.nombramientos-card {
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+  background: var(--surface);
+}
+
+.nombramientos-card .ant-card-body {
+  padding: 16px;
+}
+
+.nombramientos-table .ant-table {
+  background: transparent;
+  color: var(--ink);
+}
+
+.nombramientos-table .ant-table-container {
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.nombramientos-table .ant-table-thead > tr > th {
+  background: var(--surface-muted);
+  color: var(--muted);
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--line);
+}
+
+.nombramientos-table .ant-table-tbody > tr > td {
+  border-bottom: 1px solid var(--line);
+  font-weight: 500;
+  color: var(--ink);
+  background: transparent;
+}
+
+.nombramientos-table .ant-table-tbody > tr:hover > td {
+  background: color-mix(in srgb, var(--surface-muted) 85%, transparent);
+}
+
+.nombramientos-tag {
+  border-radius: 999px;
+  font-weight: 600;
+  border: none;
+  padding: 4px 10px;
+}
+
+.nombramientos-tag--precursor_regular {
+  background: #eaf2ff;
+  color: #3562b3;
+}
+
+.nombramientos-tag--precursor_auxiliar {
+  background: #e8f7f2;
+  color: #1b8f73;
+}
+
+.nombramientos-tag--precursor_especial {
+  background: #f3edff;
+  color: #6d45d2;
+}
+
+.nombramientos-tag--publicador {
+  background: #e7f8ee;
+  color: #218a4f;
+}
+
+.nombramientos-tag--publicador_no_bautizado {
+  background: #fff2e0;
+  color: #b15a00;
+}
+
+.nombramientos-tag--anciano {
+  background: #edf4ff;
+  color: #1d4b8f;
+}
+
+.nombramientos-tag--siervo_ministerial {
+  background: #f0ecff;
+  color: #5141ad;
+}
+
+.nombramientos-filters {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  align-items: center;
+}
+
+.nombramientos-page .ant-select-selector,
+.nombramientos-page .ant-input {
+  border-radius: 12px !important;
+  border: 1px solid var(--line) !important;
+  box-shadow: none !important;
+  background: var(--surface) !important;
+  color: var(--ink) !important;
+}
+
+.nombramientos-page .ant-select-selection-placeholder,
+.nombramientos-page .ant-input::placeholder {
+  color: var(--muted) !important;
+}
+
+.nombramientos-page .ant-select-arrow,
+.nombramientos-page .ant-input-prefix {
+  color: var(--muted) !important;
+}
+
+.nombramientos-page .ant-card,
+.nombramientos-page .ant-table-wrapper,
+.nombramientos-page .ant-table,
+.nombramientos-page .ant-table-container table {
+  background: transparent;
+}
+
+.nombramientos-page .ant-table-cell,
+.nombramientos-page .ant-typography,
+.nombramientos-page .ant-empty-description {
+  color: var(--ink);
+}
+
+.nombramientos-page .ant-table-column-sorter,
+.nombramientos-page .ant-pagination-item-link,
+.nombramientos-page .ant-pagination-prev .anticon,
+.nombramientos-page .ant-pagination-next .anticon {
+  color: var(--muted);
+}
+
+.nombramientos-page .ant-pagination-item {
+  background: var(--surface);
+  border-color: var(--line);
+}
+
+.nombramientos-page .ant-pagination-item a {
+  color: var(--ink);
+}
+
+.nombramientos-page .ant-pagination-item-active {
+  border-color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 16%, var(--surface));
+}
+
+.nombramientos-page .ant-pagination-item-active a {
+  color: #fff;
+}
+
+.nombramientos-page .ant-btn-default {
+  border-color: var(--line);
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.nombramientos-page .ant-input:focus,
+.nombramientos-page .ant-select-focused .ant-select-selector {
+  border-color: var(--brand) !important;
+  box-shadow: 0 0 0 3px rgba(34, 180, 90, 0.15) !important;
+}
+
+@media (max-width: 768px) {
+  .nombramientos-page {
+    padding: 16px;
+  }
+
+  .nombramientos-page__header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .nombramientos-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
