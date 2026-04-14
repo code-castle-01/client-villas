@@ -1,37 +1,33 @@
-import React, { useState, useEffect } from "react";
-import { List } from "@refinedev/antd";
-import {
-  Table,
-  Button,
-  Modal,
-  Input,
-  DatePicker,
-  Tag,
-  Space,
-  Flex,
-  Typography,
-  Timeline,
-  Divider,
-  Card,
-  Select,
-  InputNumber,
-  Form,
-  Popconfirm,
-} from "antd";
 import {
   ClockCircleOutlined,
+  DollarCircleFilled,
+  EditOutlined,
+  EyeFilled,
   FilePdfTwoTone,
   SearchOutlined,
-  EditOutlined,
-  DollarCircleFilled,
-  EyeFilled,
 } from "@ant-design/icons";
-import moment from "moment";
-import { toPng } from "html-to-image";
 import { PDFDownloadLink } from "@react-pdf/renderer";
-import PDFDocument from "../../components/PDFDocument";
-import useMediaQuery from "../../hooks/useMediaQuery";
-import { useIsAdminApp } from "../../hooks/useIsAdminApp";
+import { List } from "@refinedev/antd";
+import {
+  Button,
+  Card,
+  DatePicker,
+  Divider,
+  Flex,
+  Form,
+  Input,
+  InputNumber,
+  Modal,
+  Select,
+  Space,
+  Table,
+  Tag,
+  Timeline,
+  Typography,
+} from "antd";
+import { toPng } from "html-to-image";
+import moment from "moment";
+import React, { useEffect, useState } from "react";
 import {
   createEntry,
   deleteEntry,
@@ -40,6 +36,9 @@ import {
   updateEntry,
   updateSingle,
 } from "../../api/client";
+import PDFDocument from "../../components/PDFDocument";
+import { useIsAdminApp } from "../../hooks/useIsAdminApp";
+import useMediaQuery from "../../hooks/useMediaQuery";
 
 interface Grupo {
   id: number;
