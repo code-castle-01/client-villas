@@ -14,6 +14,8 @@
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
     <div id="root"></div>
+    <!-- Runtime config: create `public/runtime.env.js` during deploy to set values at runtime -->
+    <script src="/runtime.env.js"></script>
     <script type="module" src="/src/index.tsx"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <!--
