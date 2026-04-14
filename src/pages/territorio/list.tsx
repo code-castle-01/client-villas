@@ -458,12 +458,10 @@ export const TerritoriosTable: React.FC = () => {
             </div>
             <div className="territorio-map territorio-map--full">
               <MapContainer
+                ref={mapRef}
                 center={mapCenter}
                 zoom={13}
                 scrollWheelZoom
-                whenCreated={(map) => {
-                  mapRef.current = map;
-                }}
               >
                 <LayersControl position="topright">
                   <LayersControl.BaseLayer checked name="Mapa">

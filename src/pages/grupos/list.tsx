@@ -101,13 +101,12 @@ type Miembro = {
   grupos: number[];
 };
 
+type Nombramiento = NonNullable<Miembro["nombramientos"]>[number];
+
 dayjs.extend(customParseFormat);
 dayjs.locale("es");
 
-const miembroNombramientoLabels: Record<
-  NonNullable<Miembro["nombramientos"]>[number],
-  string
-> = {
+const miembroNombramientoLabels: Record<Nombramiento, string> = {
   precursor_regular: "Precursor Regular",
   precursor_auxiliar: "Precursor Auxiliar",
   precursor_especial: "Precursor Especial",
@@ -117,10 +116,7 @@ const miembroNombramientoLabels: Record<
   siervo_ministerial: "Siervo Ministerial",
 };
 
-const nombramientoTagClass: Record<
-  NonNullable<Miembro["nombramientos"]>[number],
-  string
-> = {
+const nombramientoTagClass: Record<Nombramiento, string> = {
   precursor_regular: "grupos-tag grupos-tag--precursor_regular",
   precursor_auxiliar: "grupos-tag grupos-tag--precursor_auxiliar",
   precursor_especial: "grupos-tag grupos-tag--precursor_especial",
@@ -129,6 +125,9 @@ const nombramientoTagClass: Record<
   anciano: "grupos-tag grupos-tag--anciano",
   siervo_ministerial: "grupos-tag grupos-tag--siervo_ministerial",
 };
+
+const isNombramiento = (value: string): value is Nombramiento =>
+  Object.prototype.hasOwnProperty.call(miembroNombramientoLabels, value);
 
 const generoLabels: Record<NonNullable<Miembro["genero"]>, string> = {
   hombre: "Hombre",
@@ -163,7 +162,9 @@ const sanitizeNombramientos = (
   nombramientos: string[] | undefined,
   genero?: string,
 ) => {
-  const unique = Array.from(new Set(nombramientos ?? []));
+  const unique = Array.from(
+    new Set((nombramientos ?? []).filter(isNombramiento)),
+  );
 
   if (unique.includes("publicador_no_bautizado")) {
     return ["publicador_no_bautizado"];
@@ -1057,10 +1058,14 @@ export const GruposAdminPage: React.FC = () => {
           value,
         }),
       ),
-      onFilter: (value, record) =>
-        (record.nombramientos ?? []).includes(value as string),
-      render: (values) => {
-        const list = Array.isArray(values) ? values : [];
+      onFilter: (value, record) => {
+        const selected = String(value);
+        return isNombramiento(selected)
+          ? (record.nombramientos ?? []).includes(selected)
+          : false;
+      },
+      render: (values?: Miembro["nombramientos"]) => {
+        const list = (Array.isArray(values) ? values : []).filter(isNombramiento);
         return list.length ? (
           <Space wrap>
             {list.map((value) => (

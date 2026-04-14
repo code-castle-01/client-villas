@@ -423,9 +423,8 @@ export const GruposMiembrosList: React.FC = () => {
                     setVisibleRegistrarPago(true);
                   }}
                   size="small"
-                  disabled={completo}
+                  disabled={completo || isReadOnly}
                   icon={<DollarCircleFilled />}
-                  {...(isReadOnly ? { disabled: true } : {})}
                 />
                 {/* Edición/eliminación de miembros removida en transporte (solo pagos) */}
                 <div style={{ width: isSmallScreen ? "100%" : "100px" }}>

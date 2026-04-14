@@ -11,7 +11,7 @@ import { Button } from "antd";
 import { FilePdfFilled } from "@ant-design/icons";
 
 interface Reunion {
-  id: string;
+  id: number | string;
   fecha: string;
   presidente: string;
   lector: string;

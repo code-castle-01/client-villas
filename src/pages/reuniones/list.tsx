@@ -49,7 +49,7 @@ type ReunionResponse = {
   oracion?: ReunionRelation;
 };
 
-const mapReunion = (reunion: ReunionResponse & { id: number }) => ({
+const mapReunion = (reunion: ReunionResponse & { id: number }): Reunion => ({
   id: reunion.id,
   documentId: reunion.documentId,
   fecha: dayjs(reunion.fecha).format("DD-MM-YYYY"),

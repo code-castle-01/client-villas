@@ -112,7 +112,7 @@ export const NombramientosPorGrupo: React.FC = () => {
 
       setMiembros(
         miembrosData.map((m) => {
-          const gruposRaw: Array<{ id: number; nombre?: string }> =
+          const gruposRaw: Array<{ id: number; nombre: string }> =
             (m.grupos as any)?.data?.map((g: any) => ({
               id: g.id,
               nombre: g.attributes?.nombre ?? g.nombre ?? "",

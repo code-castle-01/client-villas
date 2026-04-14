@@ -186,6 +186,11 @@ type AssignmentMemberSummary =
   | null
   | undefined;
 
+const hasAssignmentMemberData = (
+  member?: AssignmentMemberSummary,
+): member is { data?: { id?: number; attributes?: { nombre?: string } } } =>
+  Boolean(member && typeof member === "object" && "data" in member);
+
 type AssignmentResponse = {
   documentId?: string;
   encargado?: AssignmentMemberSummary;
@@ -206,7 +211,7 @@ type VmHistoryAssignment = {
 
 const getAssignmentMemberId = (member?: AssignmentMemberSummary) => {
   if (!member) return 0;
-  if ("data" in member) {
+  if (hasAssignmentMemberData(member)) {
     return member.data?.id ?? 0;
   }
   return member.id ?? 0;
@@ -214,7 +219,7 @@ const getAssignmentMemberId = (member?: AssignmentMemberSummary) => {
 
 const getAssignmentMemberName = (member?: AssignmentMemberSummary) => {
   if (!member) return "";
-  if ("data" in member) {
+  if (hasAssignmentMemberData(member)) {
     return member.data?.attributes?.nombre ?? "";
   }
   return member.nombre ?? "";
@@ -1650,12 +1655,15 @@ export const MeetingAssignmentUI: React.FC = () => {
       const displayDate = formatIsoDateToDisplay(assignment.weekStart);
       const isBookAssignment =
         targetKey === "bookReader" || targetKey === "bookConductor";
+      const color: ParticipantTimelineItem["color"] = isBookAssignment
+        ? "purple"
+        : "gold";
 
       return [
         {
           key: `vm-${assignment.id}-${targetKey}`,
           date: displayDate,
-          color: isBookAssignment ? "purple" : "gold",
+          color,
           title: maleAssignmentLabelByKey[targetKey],
           tags: [displayDate],
           primaryText: isBookAssignment

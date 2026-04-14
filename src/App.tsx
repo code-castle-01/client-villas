@@ -1,4 +1,4 @@
-import { AuthBindings, Authenticated, Refine } from "@refinedev/core";
+import { Authenticated, Refine, type AuthProvider } from "@refinedev/core";
 import { DevtoolsPanel, DevtoolsProvider } from "@refinedev/devtools";
 import { RefineKbar, RefineKbarProvider } from "@refinedev/kbar";
 
@@ -51,7 +51,7 @@ function App() {
   const API_URL = "https://api.nestjsx-crud.refine.dev";
   const dataProvider = nestjsxCrudDataProvider(API_URL);
 
-  const authProvider: AuthBindings = {
+  const authProvider: AuthProvider = {
     login: async (values: { identifier: string; password: string }) => {
       try {
         const { data } = await api.post("/auth/local", {
@@ -72,7 +72,10 @@ function App() {
       } catch (error) {
         return {
           success: false,
-          error,
+          error:
+            error instanceof Error
+              ? error
+              : new Error("No se pudo iniciar sesión."),
         };
       }
     },
@@ -84,9 +87,14 @@ function App() {
         redirectTo: "/login",
       };
     },
-    onError: async (error) => {
+    onError: async (error: unknown) => {
       console.error(error);
-      return { error };
+      return {
+        error:
+          error instanceof Error
+            ? error
+            : new Error("Ocurrió un error inesperado."),
+      };
     },
     check: async () => {
       const token = localStorage.getItem("token");
@@ -237,7 +245,6 @@ function App() {
                 options={{
                   syncWithLocation: true,
                   warnWhenUnsavedChanges: true,
-                  useNewQueryKeys: true,
                   projectId: "zTrlv4-BzCRqD-cdj2mG",
                 }}
               >

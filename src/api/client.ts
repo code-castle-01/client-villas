@@ -1,6 +1,8 @@
 import axios from "axios";
 import { apiUrl } from "../config/env";
 
+export { apiUrl };
+
 export const api = axios.create({
   baseURL: `${apiUrl}/api`,
 });
@@ -32,11 +34,11 @@ const normalize = <T>(
       id: entity.id,
       documentId: entity.documentId,
       ...entity.attributes,
-    };
+    } as T & { id: number; documentId?: string };
   }
 
   const { id, ...rest } = entity as T & { id: number; documentId?: string };
-  return { id, ...rest };
+  return { id, ...rest } as T & { id: number; documentId?: string };
 };
 
 export const getCollection = async <T>(
