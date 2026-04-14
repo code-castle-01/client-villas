@@ -34,4 +34,4 @@ COPY --from=builder /app/refine/dist ./
 
 USER refine
 
-CMD ["serve"]
+CMD ["sh", "-c", "serve -s . -l tcp://0.0.0.0:${PORT:-3000}"]
