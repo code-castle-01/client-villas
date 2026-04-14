@@ -34,6 +34,7 @@ import { ColorModeContext } from "../../contexts/color-mode";
 import SelectVarones from "../../components/select-varones";
 import { ColumnsType } from "antd/es/table";
 import {
+  apiUrl,
   createEntry,
   deleteEntry,
   getCollection,
@@ -90,8 +91,7 @@ const fallbackPolygon: LatLngExpression[] = [
   [7.832, -72.493],
 ];
 const kmlFile = "LAS VILLAS - Villa Del Rosario NDS (46177).kml";
-const apiBase = import.meta.env.VITE_API_URL ?? "http://localhost:1337";
-const kmlUrl = `${apiBase}/${encodeURIComponent(kmlFile)}`;
+const kmlUrl = `${apiUrl}/${encodeURIComponent(kmlFile)}`;
 const lasVillasMarker: LatLngExpression = [7.835953, -72.471225];
 
 export const TerritoriosTable: React.FC = () => {

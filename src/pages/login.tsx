@@ -2,8 +2,7 @@ import { useLogin } from "@refinedev/core";
 import { useEffect, useState } from "react";
 
 import { Button, Flex, Form, Input, Typography } from "antd";
-
-const VITE_APP_NAME = import.meta.env.VITE_APP_NAME || "";
+import { appName } from "../config/env";
 
 // Array of landscape image URLs from Pixabay
 const landscapeImages = [
@@ -36,7 +35,7 @@ export const Login: React.FC = () => {
     >
       <Flex justify="center" align="center" vertical gap={12}>
         <Typography.Title level={1} className="text-sky-300">
-          {VITE_APP_NAME}
+          {appName}
         </Typography.Title>
         <Form
           layout="vertical"
