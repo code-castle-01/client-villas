@@ -1,7 +1,7 @@
 import { useLogin } from "@refinedev/core";
 import { useEffect, useState } from "react";
 
-import { Button, Flex, Form, Input, Typography } from "antd";
+import { Button, Card, Flex, Form, Input, Typography } from "antd";
 import { appName } from "../config/env";
 
 // Array of landscape image URLs from Pixabay
@@ -37,30 +37,32 @@ export const Login: React.FC = () => {
         <Typography.Title level={1} className="text-sky-300">
           {appName}
         </Typography.Title>
-        <Form
-          layout="vertical"
-          onFinish={(values) => login(values)}
-          style={{ width: 320 }}
-        >
-          <Form.Item
-            label="Email"
-            name="identifier"
-            rules={[{ required: true, message: "Ingresa tu email" }]}
+        <Card size="small">
+          <Form
+            size="large"
+            layout="vertical"
+            onFinish={(values) => login(values)}
+            style={{ width: 320 }}
           >
-            <Input placeholder="correo@ejemplo.com" />
-          </Form.Item>
-          <Form.Item
-            label="Contraseña"
-            name="password"
-            rules={[{ required: true, message: "Ingresa tu contraseña" }]}
-          >
-            <Input.Password placeholder="••••••••" />
-          </Form.Item>
-          <Button type="primary" htmlType="submit" block>
-            Entrar
-          </Button>
-        </Form>
-
+            <Form.Item
+              label="Email"
+              name="identifier"
+              rules={[{ required: true, message: "Ingresa tu email" }]}
+            >
+              <Input placeholder="correo@ejemplo.com" size="large" />
+            </Form.Item>
+            <Form.Item
+              label="Contraseña"
+              name="password"
+              rules={[{ required: true, message: "Ingresa tu contraseña" }]}
+            >
+              <Input.Password placeholder="••••••••" size="large" />
+            </Form.Item>
+            <Button type="primary" htmlType="submit" block size="large">
+              Entrar
+            </Button>
+          </Form>
+        </Card>
       </Flex>
     </Flex>
   );
