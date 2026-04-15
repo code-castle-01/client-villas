@@ -343,20 +343,59 @@
   --brand: #22b45a;
   --brand-strong: #1a944a;
   --line: #e6edf5;
+  --modal-surface: #ffffff;
+  --modal-surface-muted: #f7f9fc;
+  --modal-ink: #152238;
+  --modal-muted: #6b7a90;
+}
+
+.grupos-modal--dark {
+  --line: rgba(148, 163, 184, 0.18);
+  --modal-surface: #1a1f2b;
+  --modal-surface-muted: #141924;
+  --modal-ink: #edf2ff;
+  --modal-muted: #98a2b3;
+}
+
+.grupos-modal--light {
+  --line: #e6edf5;
+  --modal-surface: #ffffff;
+  --modal-surface-muted: #f7f9fc;
+  --modal-ink: #152238;
+  --modal-muted: #6b7a90;
+}
+
+.grupos-modal .ant-modal-content {
+  background: var(--modal-surface);
+  color: var(--modal-ink);
 }
 
 .grupos-modal .ant-modal-header {
   border-bottom: 1px solid var(--line);
+  background: var(--modal-surface);
 }
 
 .grupos-modal .ant-modal-title {
   font-weight: 700;
   font-family: "Space Grotesk", "Manrope", sans-serif;
+  color: var(--modal-ink);
+}
+
+.grupos-modal .ant-modal-close,
+.grupos-modal .ant-modal-close-x,
+.grupos-modal .ant-modal-close-icon,
+.grupos-modal .ant-form-item-label > label,
+.grupos-modal .ant-typography,
+.grupos-modal .ant-picker-suffix,
+.grupos-modal .ant-select-arrow,
+.grupos-modal .ant-input-prefix {
+  color: var(--modal-ink);
 }
 
 .grupos-modal .ant-modal-footer {
   border-top: 1px solid var(--line);
   padding: 16px 24px;
+  background: var(--modal-surface);
 }
 
 .grupos-modal .ant-btn-primary {
@@ -378,6 +417,9 @@
   border-radius: 12px;
   height: 40px;
   padding: 0 18px;
+  border-color: var(--line);
+  background: var(--modal-surface-muted);
+  color: var(--modal-ink);
 }
 
 .grupos-modal .ant-input,
@@ -385,9 +427,10 @@
 .grupos-modal .ant-select-selector,
 .grupos-modal .ant-picker {
   border-radius: 12px !important;
-  border: 1px solid #d6dee8 !important;
+  border: 1px solid var(--line) !important;
   box-shadow: none !important;
-  background: #fff !important;
+  background: var(--modal-surface-muted) !important;
+  color: var(--modal-ink) !important;
 }
 
 .grupos-modal .ant-input:focus,
@@ -401,6 +444,44 @@
 .grupos-modal .ant-select-multiple .ant-select-selector {
   min-height: 40px;
   padding: 4px 8px;
+}
+
+.grupos-modal .ant-select-selection-placeholder,
+.grupos-modal .ant-input::placeholder,
+.grupos-modal .ant-picker-input > input::placeholder {
+  color: var(--modal-muted) !important;
+}
+
+.grupos-modal .ant-select-selection-item,
+.grupos-modal .ant-picker-input > input,
+.grupos-modal .ant-input,
+.grupos-modal .ant-input-affix-wrapper input {
+  color: var(--modal-ink) !important;
+}
+
+.grupos-modal .ant-card {
+  background: color-mix(in srgb, var(--modal-surface-muted) 88%, transparent);
+  border-color: var(--line);
+}
+
+.grupos-modal .ant-card .ant-card-body,
+.grupos-modal .ant-divider,
+.grupos-modal .ant-upload-wrapper,
+.grupos-modal .ant-upload-drag,
+.grupos-modal .ant-upload-text,
+.grupos-modal .ant-upload-hint {
+  color: var(--modal-ink);
+  border-color: var(--line);
+}
+
+.grupos-modal .grupos-phone {
+  background: var(--modal-surface-muted);
+  border-color: var(--line);
+}
+
+.grupos-modal .grupos-phone .PhoneInputInput,
+.grupos-modal .grupos-phone .PhoneInputCountrySelectArrow {
+  color: var(--modal-ink);
 }
 
 .grupos-page .ant-btn-primary {

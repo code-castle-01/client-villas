@@ -670,6 +670,10 @@ export const GruposAdminPage: React.FC = () => {
     return availableUsers;
   }, [availableUsers, editingMiembro, usuarios]);
 
+  const modalClassName = `grupos-modal ${
+    mode === "dark" ? "grupos-modal--dark" : "grupos-modal--light"
+  }`;
+
   const createUserFromEmail = async (email: string) => {
     const normalized = email.trim().toLowerCase();
     if (!isValidEmail(normalized)) {
@@ -1273,7 +1277,7 @@ export const GruposAdminPage: React.FC = () => {
         onCancel={() => setGrupoModalOpen(false)}
         onOk={() => grupoForm.submit()}
         width={720}
-        className="grupos-modal"
+        className={modalClassName}
         okText="Aceptar"
         cancelText="Cancelar"
       >
@@ -1356,7 +1360,7 @@ export const GruposAdminPage: React.FC = () => {
         onCancel={() => setMiembroModalOpen(false)}
         onOk={() => miembroForm.submit()}
         width={820}
-        className="grupos-modal"
+        className={modalClassName}
         okText="Aceptar"
         cancelText="Cancelar"
       >
@@ -1679,7 +1683,7 @@ export const GruposAdminPage: React.FC = () => {
         }}
         okButtonProps={{ loading: importing }}
         width={640}
-        className="grupos-modal"
+        className={modalClassName}
         okText="Aceptar"
         cancelText="Cancelar"
       >
