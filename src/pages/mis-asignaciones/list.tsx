@@ -33,7 +33,7 @@ import {
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 import "dayjs/locale/es";
-import { api, getCollection, getSingle } from "../../api/client";
+import { api, getCollection, getCollectionPage, getSingle } from "../../api/client";
 import useMediaQuery from "../../hooks/useMediaQuery";
 
 dayjs.locale("es");
@@ -57,7 +57,18 @@ type UserRelation =
 
 type MiembroRow = {
   id: number;
+  documentId?: string;
   nombre: string;
+  nombres?: string;
+  apellidos?: string;
+  telefono?: string;
+  celular?: string;
+  direccion?: string;
+  fechaNacimiento?: string;
+  fechaInmersion?: string;
+  genero?: "hombre" | "mujer" | "";
+  nombramientos?: string[];
+  grupos?: GroupSummary[];
   usuario?: UserRelation;
 };
 
@@ -239,6 +250,8 @@ const parseCurrentUser = (): CurrentUser | null => {
   }
 };
 
+const AUTH_STORAGE_EVENT = "auth-storage-changed";
+
 const hasNestedUser = (
   relation?: UserRelation
 ): relation is { data?: { id?: number; email?: string; username?: string } } =>
@@ -291,6 +304,63 @@ const getTemaTitulo = (
   return tema.titulo ?? "";
 };
 
+const fetchAllCollection = async <T,>(
+  path: string,
+  params?: Record<string, unknown>
+): Promise<Array<T & { id: number }>> => {
+  const items: Array<T & { id: number }> = [];
+  let page = 1;
+  let pageCount = 1;
+
+  do {
+    const { data, pagination } = await getCollectionPage<T>(path, {
+      ...params,
+      "pagination[page]": page,
+      "pagination[pageSize]": 100,
+    });
+
+    items.push(...data);
+    pageCount = pagination?.pageCount ?? page;
+    page += 1;
+  } while (page <= pageCount);
+
+  return items;
+};
+
+const toProfileMember = (
+  member?: Partial<MiembroRow> | ProfileMember
+): ProfileMember => {
+  if (!member?.id) {
+    return null;
+  }
+
+  const nombreCompleto =
+    member.nombre?.trim() ||
+    [member.nombres, member.apellidos].filter(Boolean).join(" ").trim() ||
+    "Sin nombre";
+
+  return {
+    id: member.id,
+    documentId: member.documentId,
+    nombre: nombreCompleto,
+    nombres: member.nombres ?? "",
+    apellidos: member.apellidos ?? "",
+    telefono: member.telefono ?? "",
+    celular: member.celular ?? "",
+    direccion: member.direccion ?? "",
+    fechaNacimiento: member.fechaNacimiento ?? "",
+    fechaInmersion: member.fechaInmersion ?? "",
+    genero: member.genero ?? "",
+    nombramientos: Array.isArray(member.nombramientos) ? member.nombramientos : [],
+    grupos: Array.isArray(member.grupos)
+      ? member.grupos.map((group) => ({
+          id: group.id,
+          nombre: group.nombre,
+        }))
+      : [],
+  };
+};
+
 const getDateKey = (value: { format: (pattern: string) => string } | string) =>
   typeof value === "string" ? dayjs(value).format("YYYY-MM-DD") : value.format("YYYY-MM-DD");
 
@@ -337,21 +407,37 @@ const statusTag = (status?: AssignmentItem["status"]) => {
 
 export const MisAsignacionesPage: React.FC = () => {
   const isSmallScreen = useMediaQuery("(max-width: 992px)");
-  const currentUser = useMemo(() => parseCurrentUser(), []);
   const currentWeekLink = useMemo(() => {
     const { year, week } = getIsoWeekInfo(dayjs());
     return `https://wol.jw.org/es/wol/meetings/r4/lp-s/${year}/${week}`;
   }, []);
   const [profileForm] = Form.useForm();
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(() =>
+    parseCurrentUser()
+  );
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<ProfileResponse | null>(null);
-  const [currentMember, setCurrentMember] = useState<MiembroRow | null>(null);
+  const [currentMember, setCurrentMember] = useState<ProfileMember>(null);
   const [groups, setGroups] = useState<GroupSummary[]>([]);
   const [items, setItems] = useState<AssignmentItem[]>([]);
   const [panelMonth, setPanelMonth] = useState(() => getDateKey(dayjs()));
   const [selectedDate, setSelectedDate] = useState(() => getDateKey(dayjs()));
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
+
+  useEffect(() => {
+    const syncCurrentUser = () => {
+      setCurrentUser(parseCurrentUser());
+    };
+
+    window.addEventListener(AUTH_STORAGE_EVENT, syncCurrentUser);
+    window.addEventListener("storage", syncCurrentUser);
+
+    return () => {
+      window.removeEventListener(AUTH_STORAGE_EVENT, syncCurrentUser);
+      window.removeEventListener("storage", syncCurrentUser);
+    };
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -396,9 +482,8 @@ export const MisAsignacionesPage: React.FC = () => {
           getCollection<GroupSummary>("grupos", {
             "pagination[pageSize]": 1000,
           }),
-          getCollection<MiembroRow>("miembros", {
-            populate: ["usuario"],
-            "pagination[pageSize]": 1000,
+          fetchAllCollection<MiembroRow>("miembros", {
+            populate: ["usuario", "grupos"],
           }),
           getCollection<ReunionRow>("reunions", {
             "pagination[pageSize]": 1000,
@@ -427,13 +512,7 @@ export const MisAsignacionesPage: React.FC = () => {
         ]);
 
         const profileData = profileResult.data.data ?? fallbackProfile;
-        const member =
-          (profileData.member
-            ? {
-                id: profileData.member.id,
-                nombre: profileData.member.nombre,
-              }
-            : null) ??
+        const fallbackMember =
           miembros.find((item) => getUserId(item.usuario) === currentUser.id) ??
           miembros.find(
             (item) =>
@@ -441,21 +520,27 @@ export const MisAsignacionesPage: React.FC = () => {
               (currentUser.email ?? "").toLowerCase()
           ) ??
           null;
+        const resolvedMember =
+          toProfileMember(profileData.member) ?? toProfileMember(fallbackMember);
+        const resolvedProfile: ProfileResponse = {
+          user: profileData.user ?? fallbackProfile.user,
+          member: resolvedMember,
+        };
 
         if (!mounted) return;
 
-        setProfile(profileData);
+        setProfile(resolvedProfile);
         setGroups(grupos.sort((a, b) => a.nombre.localeCompare(b.nombre)));
-        setCurrentMember(member);
+        setCurrentMember(resolvedMember);
 
-        if (!member) {
+        if (!resolvedMember) {
           setItems([]);
           return;
         }
 
         const nextItems: AssignmentItem[] = [];
-        const memberName = member.nombre;
-        const memberId = member.id;
+        const memberName = resolvedMember.nombre;
+        const memberId = resolvedMember.id;
         const matchesMember = (relation?: RelationSummary) =>
           Boolean(
             relation &&
@@ -767,21 +852,23 @@ export const MisAsignacionesPage: React.FC = () => {
 
     if (!activeProfile) return;
 
+    const activeMember = activeProfile.member ?? currentMember;
+
     profileForm.setFieldsValue({
       username: activeProfile.user.username,
       email: activeProfile.user.email,
-      nombres: activeProfile.member?.nombres || activeProfile.user.firstname || "",
-      apellidos: activeProfile.member?.apellidos || activeProfile.user.lastname || "",
-      telefono: activeProfile.member?.telefono || "",
-      celular: activeProfile.member?.celular || "",
-      direccion: activeProfile.member?.direccion || "",
-      genero: activeProfile.member?.genero || undefined,
-      grupo: activeProfile.member?.grupos?.[0]?.id,
-      fechaNacimiento: activeProfile.member?.fechaNacimiento
-        ? dayjs(activeProfile.member.fechaNacimiento)
+      nombres: activeMember?.nombres || activeProfile.user.firstname || "",
+      apellidos: activeMember?.apellidos || activeProfile.user.lastname || "",
+      telefono: activeMember?.telefono || "",
+      celular: activeMember?.celular || "",
+      direccion: activeMember?.direccion || "",
+      genero: activeMember?.genero || undefined,
+      grupo: activeMember?.grupos?.[0]?.id,
+      fechaNacimiento: activeMember?.fechaNacimiento
+        ? dayjs(activeMember.fechaNacimiento)
         : null,
-      fechaInmersion: activeProfile.member?.fechaInmersion
-        ? dayjs(activeProfile.member.fechaInmersion)
+      fechaInmersion: activeMember?.fechaInmersion
+        ? dayjs(activeMember.fechaInmersion)
         : null,
       currentPassword: "",
       newPassword: "",
@@ -823,15 +910,16 @@ export const MisAsignacionesPage: React.FC = () => {
         });
       }
 
-      setProfile(data.data);
-      if (data.data.member) {
-        setCurrentMember({
-          id: data.data.member.id,
-          nombre: data.data.member.nombre,
-        });
-      }
+      const updatedProfile: ProfileResponse = {
+        ...data.data,
+        member: toProfileMember(data.data.member),
+      };
+
+      setProfile(updatedProfile);
+      setCurrentMember(updatedProfile.member);
 
       localStorage.setItem("user", JSON.stringify(data.data.user));
+      window.dispatchEvent(new Event(AUTH_STORAGE_EVENT));
       setProfileModalOpen(false);
       message.success("Perfil actualizado correctamente.");
     } catch (error: any) {
