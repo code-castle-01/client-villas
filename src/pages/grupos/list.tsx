@@ -103,6 +103,11 @@ type Miembro = {
 
 type Nombramiento = NonNullable<Miembro["nombramientos"]>[number];
 
+type GrupoMemberSummary = {
+  id: number;
+  nombre: string;
+};
+
 dayjs.extend(customParseFormat);
 dayjs.locale("es");
 
@@ -196,6 +201,29 @@ const getInitials = (miembro: Miembro) => {
     .join("")
     .toUpperCase();
   return initials || "M";
+};
+
+const attachMembersToGroups = (grupos: Grupo[], miembros: Miembro[]): Grupo[] => {
+  const membersByGroupId = new Map<number, GrupoMemberSummary[]>();
+
+  miembros.forEach((miembro) => {
+    miembro.grupos.forEach((groupId) => {
+      const current = membersByGroupId.get(groupId) ?? [];
+      current.push({
+        id: miembro.id,
+        nombre:
+          miembro.nombre ||
+          `${miembro.nombres ?? ""} ${miembro.apellidos ?? ""}`.trim() ||
+          `Miembro ${miembro.id}`,
+      });
+      membersByGroupId.set(groupId, current);
+    });
+  });
+
+  return grupos.map((grupo) => ({
+    ...grupo,
+    miembros: membersByGroupId.get(grupo.id) ?? [],
+  }));
 };
 
 export const GruposAdminPage: React.FC = () => {
@@ -327,12 +355,9 @@ export const GruposAdminPage: React.FC = () => {
         | { id: number; nombre?: string };
       auxiliar?:
         | { data: { id: number; attributes?: { nombre?: string } } }
-        | { id: number; nombre?: string };
-      miembros?:
-        | { data: Array<{ id: number; attributes?: { nombre?: string } }> }
         | Array<{ id: number; nombre?: string }>;
     }>("grupos", {
-      populate: ["miembros", "superintendente", "auxiliar"],
+      populate: ["superintendente", "auxiliar"],
       "pagination[pageSize]": 1000,
     });
 
@@ -349,12 +374,7 @@ export const GruposAdminPage: React.FC = () => {
       auxiliarNombre:
         (g.auxiliar as any)?.data?.attributes?.nombre ??
         (g.auxiliar as any)?.nombre,
-      miembros: ((g.miembros as any)?.data ?? (g.miembros as any) ?? []).map(
-        (m: any) => ({
-          id: m.id,
-          nombre: m.attributes?.nombre ?? m.nombre ?? "",
-        }),
-      ),
+      miembros: [],
     }));
   };
 
@@ -372,7 +392,7 @@ export const GruposAdminPage: React.FC = () => {
       setRoles(rolesData);
       setUsuarios(usuariosData);
       setMiembros(miembrosData);
-      setGrupos(gruposData);
+      setGrupos(attachMembersToGroups(gruposData, miembrosData));
     } catch (error) {
       notifyError(
         "No se pudieron cargar los datos",
