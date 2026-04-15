@@ -372,15 +372,7 @@ export const GruposAdminPage: React.FC = () => {
       setRoles(rolesData);
       setUsuarios(usuariosData);
       setMiembros(miembrosData);
-
-      // Construir la lista de grupos usando `miembros` como fuente de la verdad
-      const mappedGrupos = gruposData.map((g) => ({
-        ...g,
-        miembros: miembrosData
-          .filter((m) => m.grupos.includes(g.id))
-          .map((m) => ({ id: m.id, nombre: m.nombre })),
-      }));
-      setGrupos(mappedGrupos);
+      setGrupos(gruposData);
     } catch (error) {
       notifyError(
         "No se pudieron cargar los datos",
@@ -460,11 +452,24 @@ export const GruposAdminPage: React.FC = () => {
   }, [generoValue, nombramientosValue]);
 
   const groupedMemberRows = useMemo(() => {
+    const memberById = new Map(miembros.map((member) => [member.id, member]));
+
     const groupRows = grupos
       .map((g) => ({
         id: g.id,
         nombre: g.nombre,
-        miembros: miembros.filter((m) => m.grupos.includes(g.id)),
+        miembros: g.miembros.map((groupMember) => {
+          const fullMember = memberById.get(groupMember.id);
+          if (fullMember) {
+            return fullMember;
+          }
+
+          return {
+            id: groupMember.id,
+            nombre: groupMember.nombre,
+            grupos: [g.id],
+          } as Miembro;
+        }),
       }))
       .sort((a, b) => {
         const getNum = (value: string) => Number(value.match(/\d+/)?.[0] ?? 0);
@@ -472,7 +477,12 @@ export const GruposAdminPage: React.FC = () => {
         return diff !== 0 ? diff : a.nombre.localeCompare(b.nombre);
       });
 
-    const sinGrupo = miembros.filter((m) => m.grupos.length === 0);
+    const groupedIds = new Set(
+      grupos.flatMap((group) => group.miembros.map((member) => member.id)),
+    );
+    const sinGrupo = miembros.filter(
+      (member) => member.grupos.length === 0 && !groupedIds.has(member.id),
+    );
     if (sinGrupo.length) {
       groupRows.push({
         id: 0,
