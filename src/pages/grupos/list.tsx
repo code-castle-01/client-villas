@@ -862,7 +862,9 @@ export const GruposAdminPage: React.FC = () => {
       genero: values.genero,
       nombramientos,
       usuario: userId ?? null,
-      grupos: values.grupo ? [values.grupo] : [],
+      grupos: {
+        set: values.grupo ? [values.grupo] : [],
+      },
     };
 
     try {
@@ -1227,7 +1229,7 @@ export const GruposAdminPage: React.FC = () => {
               icon={<UserAddOutlined />}
               onClick={() => openMiembroModal()}
             >
-              Crear Miembro
+              Crear o Vincular Miembro
             </Button>
             <Button
               type="primary"
@@ -1356,7 +1358,7 @@ export const GruposAdminPage: React.FC = () => {
       </Modal>
 
       <Modal
-        title={editingMiembro ? "Editar Miembro" : "Crear Miembro"}
+        title={editingMiembro ? "Editar Miembro" : "Crear o Vincular Miembro"}
         open={miembroModalOpen}
         onCancel={() => setMiembroModalOpen(false)}
         onOk={() => miembroForm.submit()}
