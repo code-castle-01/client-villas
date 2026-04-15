@@ -794,7 +794,7 @@ export const MisAsignacionesPage: React.FC = () => {
   const handleSaveProfile = async (values: any) => {
     setSavingProfile(true);
     try {
-      const payload = {
+      const payload: Record<string, unknown> = {
         username: values.username,
         nombres: values.nombres,
         apellidos: values.apellidos,
@@ -802,10 +802,13 @@ export const MisAsignacionesPage: React.FC = () => {
         celular: values.celular,
         direccion: values.direccion,
         genero: values.genero ?? null,
-        grupo: values.grupo ?? null,
         fechaNacimiento: values.fechaNacimiento?.format?.("YYYY-MM-DD") ?? null,
         fechaInmersion: values.fechaInmersion?.format?.("YYYY-MM-DD") ?? null,
       };
+
+      if (profileForm.isFieldTouched("grupo")) {
+        payload.grupo = values.grupo ?? null;
+      }
 
       const { data } = await api.put<{ data: ProfileResponse }>(
         "/profile/me",

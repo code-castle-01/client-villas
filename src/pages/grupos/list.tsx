@@ -869,11 +869,12 @@ export const GruposAdminPage: React.FC = () => {
       const targetMiembro = editingMiembro ?? selectedLinkedMiembro;
 
       if (targetMiembro) {
+        const primaryId = targetMiembro.documentId ?? targetMiembro.id;
         try {
-          await updateEntry("miembros", targetMiembro.id, payload);
+          await updateEntry("miembros", primaryId, payload);
         } catch (error) {
-          if (targetMiembro.documentId) {
-            await updateEntry("miembros", targetMiembro.documentId, payload);
+          if (primaryId !== targetMiembro.id) {
+            await updateEntry("miembros", targetMiembro.id, payload);
           } else {
             throw error;
           }
