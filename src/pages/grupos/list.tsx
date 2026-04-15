@@ -35,6 +35,7 @@ import {
   api,
   createEntry,
   getCollection,
+  getCollectionPage,
   updateEntry,
   deleteEntry,
 } from "../../api/client";
@@ -288,7 +289,8 @@ export const GruposAdminPage: React.FC = () => {
   };
 
   const fetchMiembros = async () => {
-    const data = await getCollection<{
+    const allData: Array<{
+      id: number;
       documentId?: string;
       nombre: string;
       nombres?: string;
@@ -310,12 +312,45 @@ export const GruposAdminPage: React.FC = () => {
           }
         | { id: number; email: string; username: string };
       grupos?: { data: Array<{ id: number }> } | Array<{ id: number }>;
-    }>("miembros", {
-      populate: ["usuario", "grupos"],
-      "pagination[pageSize]": 1000,
-    });
+    }> = [];
+    let page = 1;
+    let pageCount = 1;
 
-    return data.map((m) => ({
+    do {
+      const { data, pagination } = await getCollectionPage<{
+        documentId?: string;
+        nombre: string;
+        nombres?: string;
+        apellidos?: string;
+        telefono?: string;
+        celular?: string;
+        direccion?: string;
+        fechaNacimiento?: string;
+        fechaInmersion?: string;
+        genero?: "hombre" | "mujer";
+        nombramientos?: Miembro["nombramientos"];
+        categoria?: string;
+        usuario?:
+          | {
+              data: {
+                id: number;
+                attributes: { email: string; username: string };
+              };
+            }
+          | { id: number; email: string; username: string };
+        grupos?: { data: Array<{ id: number }> } | Array<{ id: number }>;
+      }>("miembros", {
+        populate: ["usuario", "grupos"],
+        "pagination[page]": page,
+        "pagination[pageSize]": 100,
+      });
+
+      allData.push(...data);
+      pageCount = pagination?.pageCount ?? page;
+      page += 1;
+    } while (page <= pageCount);
+
+    return allData.map((m) => ({
       id: m.id,
       documentId: m.documentId,
       nombre: m.nombre,

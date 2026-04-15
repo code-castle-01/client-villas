@@ -22,6 +22,13 @@ type StrapiEntity<T> = {
   attributes?: T;
 };
 
+type StrapiPagination = {
+  page: number;
+  pageSize: number;
+  pageCount: number;
+  total: number;
+};
+
 const normalize = <T>(
   entity: StrapiEntity<T> | (T & { id: number })
 ): T & { id: number; documentId?: string } => {
@@ -45,10 +52,25 @@ export const getCollection = async <T>(
   path: string,
   params?: Record<string, unknown>
 ): Promise<Array<T & { id: number }>> => {
+  const { data } = await getCollectionPage<T>(path, params);
+  return data;
+};
+
+export const getCollectionPage = async <T>(
+  path: string,
+  params?: Record<string, unknown>
+): Promise<{
+  data: Array<T & { id: number }>;
+  pagination?: StrapiPagination;
+}> => {
   const { data } = await api.get<{ data: Array<StrapiEntity<T>> }>(`/${path}`, {
     params,
   });
-  return data.data.map(normalize);
+  return {
+    data: data.data.map(normalize),
+    pagination: (data as { meta?: { pagination?: StrapiPagination } }).meta
+      ?.pagination,
+  };
 };
 
 export const getSingle = async <T>(

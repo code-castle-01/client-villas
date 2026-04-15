@@ -18,6 +18,7 @@ import routerBindings, {
   UnsavedChangesNotifier,
 } from "@refinedev/react-router";
 import { App as AntdApp, Typography } from "antd";
+import { useEffect, useState } from "react";
 import { BrowserRouter, Outlet, Route, Routes } from "react-router";
 import { isAxiosError } from "axios";
 import { Header } from "./components/header";
@@ -49,9 +50,41 @@ import { GruposAdminPage } from "./pages/grupos";
 import { NombramientosPorGrupo } from "./pages/nombramientos";
 import { MisAsignacionesPage } from "./pages/mis-asignaciones";
 
+type AuthIdentity = {
+  id: number | string;
+  role?: {
+    type?: string;
+  };
+  [key: string]: unknown;
+};
+
+const AUTH_STORAGE_EVENT = "auth-storage-changed";
+
+const emitAuthStorageChanged = () => {
+  window.dispatchEvent(new Event(AUTH_STORAGE_EVENT));
+};
+
 const clearAuthStorage = () => {
   localStorage.removeItem("token");
   localStorage.removeItem("user");
+  emitAuthStorageChanged();
+};
+
+const storeAuthUser = (user: Record<string, unknown>) => {
+  localStorage.setItem("user", JSON.stringify(user));
+  emitAuthStorageChanged();
+};
+
+const readStoredUser = (): AuthIdentity | null => {
+  const cached = localStorage.getItem("user");
+  if (!cached) return null;
+
+  try {
+    const parsed = JSON.parse(cached);
+    return isValidIdentity(parsed) ? (parsed as AuthIdentity) : null;
+  } catch {
+    return null;
+  }
 };
 
 const isStoredTokenValid = (token: string | null): token is string =>
@@ -89,10 +122,27 @@ const documentTitleBase = appName || "Las Villas";
 function App() {
   const API_URL = "https://api.nestjsx-crud.refine.dev";
   const dataProvider = nestjsxCrudDataProvider(API_URL);
+  const [authUser, setAuthUser] = useState<AuthIdentity | null>(() =>
+    readStoredUser(),
+  );
+
+  useEffect(() => {
+    const syncAuthUser = () => {
+      setAuthUser(readStoredUser());
+    };
+
+    window.addEventListener(AUTH_STORAGE_EVENT, syncAuthUser);
+    window.addEventListener("storage", syncAuthUser);
+    return () => {
+      window.removeEventListener(AUTH_STORAGE_EVENT, syncAuthUser);
+      window.removeEventListener("storage", syncAuthUser);
+    };
+  }, []);
 
   const authProvider: AuthProvider = {
     login: async (values: { identifier: string; password: string }) => {
       clearAuthStorage();
+      setAuthUser(null);
 
       try {
         const { data } = await api.post("/auth/local", {
@@ -113,7 +163,8 @@ function App() {
           throw new Error("No se pudo cargar el usuario autenticado.");
         }
 
-        localStorage.setItem("user", JSON.stringify(me));
+        storeAuthUser(me);
+        setAuthUser(me as AuthIdentity);
 
         return {
           success: true,
@@ -121,6 +172,7 @@ function App() {
         };
       } catch (error) {
         clearAuthStorage();
+        setAuthUser(null);
 
         return {
           success: false,
@@ -130,6 +182,7 @@ function App() {
     },
     logout: async () => {
       clearAuthStorage();
+      setAuthUser(null);
       return {
         success: true,
         redirectTo: "/login",
@@ -148,6 +201,7 @@ function App() {
       const token = localStorage.getItem("token");
       if (!isStoredTokenValid(token)) {
         clearAuthStorage();
+        setAuthUser(null);
 
         return {
           authenticated: false,
@@ -161,10 +215,17 @@ function App() {
       }
 
       try {
-        await api.get("/users/me", { params: { populate: "role" } });
+        const { data } = await api.get("/users/me", {
+          params: { populate: "role" },
+        });
+        if (isValidIdentity(data)) {
+          storeAuthUser(data);
+          setAuthUser(data as AuthIdentity);
+        }
         return { authenticated: true };
       } catch {
         clearAuthStorage();
+        setAuthUser(null);
 
         return {
           authenticated: false,
@@ -175,17 +236,9 @@ function App() {
     },
     getPermissions: async () => null,
     getIdentity: async () => {
-      const cached = localStorage.getItem("user");
-      if (cached) {
-        try {
-          const parsed = JSON.parse(cached);
-
-          if (isValidIdentity(parsed)) {
-            return parsed;
-          }
-        } catch {
-          clearAuthStorage();
-        }
+      const cachedUser = readStoredUser();
+      if (cachedUser) {
+        return cachedUser;
       }
 
       try {
@@ -195,26 +248,21 @@ function App() {
 
         if (!isValidIdentity(data)) {
           clearAuthStorage();
+          setAuthUser(null);
           return null;
         }
 
-        localStorage.setItem("user", JSON.stringify(data));
+        storeAuthUser(data);
+        setAuthUser(data as AuthIdentity);
         return data;
       } catch {
         clearAuthStorage();
+        setAuthUser(null);
         return null;
       }
     },
   };
-
-  const currentUser = (() => {
-    try {
-      return JSON.parse(localStorage.getItem("user") || "null");
-    } catch {
-      return null;
-    }
-  })();
-  const isAdminApp = currentUser?.role?.type === "admin-app";
+  const isAdminApp = authUser?.role?.type === "admin-app";
 
   const resources = [
     {
