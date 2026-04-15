@@ -46,6 +46,7 @@ import dayjs from "dayjs";
 import customParseFormat from "dayjs/plugin/customParseFormat";
 import "dayjs/locale/es";
 import PDFGrupos from "../../components/PDFGrupos";
+import { MiembroProfileFields } from "../../components/member/MiembroProfileFields";
 import { ColorModeContext } from "../../contexts/color-mode";
 import "./styles.css";
 
@@ -1587,131 +1588,25 @@ export const GruposAdminPage: React.FC = () => {
               </Row>
             )}
 
-          <Divider />
-          <Typography.Text className="grupos-section-title">
-            Información Personal
-          </Typography.Text>
-          <Row gutter={16}>
-            <Col xs={24} md={12}>
-              <Form.Item
-                name="nombres"
-                label="Nombres"
-                rules={[{ required: true, message: "Ingresa los nombres" }]}
-              >
-                <Input />
-              </Form.Item>
-            </Col>
-            <Col xs={24} md={12}>
-              <Form.Item
-                name="apellidos"
-                label="Apellidos"
-                rules={[{ required: true, message: "Ingresa los apellidos" }]}
-              >
-                <Input />
-              </Form.Item>
-            </Col>
-            <Col xs={24} md={12}>
-              <Form.Item name="celular" label="Celular">
-                <PhoneInput
-                  className="grupos-phone"
-                  defaultCountry="CO"
-                  international
-                  countryCallingCodeEditable={false}
-                  placeholder="Ej: +57 3201234567"
-                  value={miembroForm.getFieldValue("celular")}
-                  onChange={(value) =>
-                    miembroForm.setFieldValue("celular", value)
-                  }
-                />
-              </Form.Item>
-            </Col>
-            <Col xs={24} md={12}>
-              <Form.Item name="telefono" label="Teléfono fijo">
-                <PhoneInput
-                  className="grupos-phone"
-                  defaultCountry="CO"
-                  international
-                  countryCallingCodeEditable={false}
-                  placeholder="Ej: +57 571234567"
-                  value={miembroForm.getFieldValue("telefono")}
-                  onChange={(value) =>
-                    miembroForm.setFieldValue("telefono", value)
-                  }
-                />
-              </Form.Item>
-            </Col>
-            <Col xs={24}>
-              <Form.Item name="direccion" label="Dirección de residencia">
-                <Input />
-              </Form.Item>
-            </Col>
-          </Row>
-
-          <Divider />
-          <Typography.Text className="grupos-section-title">
-            Provilegios
-          </Typography.Text>
-          <Row gutter={16}>
-            <Col xs={24} md={12}>
-              <Form.Item name="fechaNacimiento" label="Fecha de Nacimiento">
-                <DatePicker style={{ width: "100%" }} format="YYYY-MM-DD" />
-              </Form.Item>
-            </Col>
-            <Col xs={24} md={12}>
-              <Form.Item name="fechaInmersion" label="Fecha de Inmersión">
-                <DatePicker style={{ width: "100%" }} format="YYYY-MM-DD" />
-              </Form.Item>
-            </Col>
-            <Col xs={24} md={12}>
-              <Form.Item
-                name="genero"
-                label="Género"
-                rules={[{ required: true, message: "Selecciona el género" }]}
-              >
-                <Select
-                  options={[
-                    { value: "hombre", label: "Hombre" },
-                    { value: "mujer", label: "Mujer" },
-                  ]}
-                />
-              </Form.Item>
-            </Col>
-            <Col xs={24} md={12}>
-              <Form.Item
-                name="nombramientos"
-                label="Nombramientos"
-                rules={[
-                  { required: true, message: "Selecciona el nombramiento" },
-                ]}
-              >
-                <Select
-                  mode="multiple"
-                  options={nombramientoOptions}
-                  placeholder="Selecciona nombramientos"
-                  onChange={(values) => {
-                    const next = sanitizeNombramientos(values, generoValue);
-                    if (JSON.stringify(next) !== JSON.stringify(values)) {
-                      message.info(
-                        "Se ajustaron los nombramientos según las reglas.",
-                      );
-                    }
-                    miembroForm.setFieldsValue({ nombramientos: next });
-                  }}
-                />
-              </Form.Item>
-            </Col>
-            <Col xs={24}>
-              <Form.Item name="grupo" label="Asignar a grupo">
-                <Select
-                  options={grupos.map((g) => ({
-                    value: g.id,
-                    label: g.nombre,
-                  }))}
-                  placeholder="Selecciona un grupo"
-                />
-              </Form.Item>
-            </Col>
-          </Row>
+          <MiembroProfileFields
+            form={miembroForm}
+            groupOptions={grupos.map((g) => ({
+              value: g.id,
+              label: g.nombre,
+            }))}
+            nombramientosMode="editable"
+            nombramientosOptions={nombramientoOptions}
+            sectionTitleClassName="grupos-section-title"
+            onNombramientosChange={(values) => {
+              const next = sanitizeNombramientos(values, generoValue);
+              if (JSON.stringify(next) !== JSON.stringify(values)) {
+                message.info(
+                  "Se ajustaron los nombramientos según las reglas.",
+                );
+              }
+              miembroForm.setFieldsValue({ nombramientos: next });
+            }}
+          />
         </Form>
       </Modal>
 
