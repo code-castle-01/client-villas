@@ -19,6 +19,7 @@ import routerBindings, {
 } from "@refinedev/react-router";
 import { App as AntdApp, Typography } from "antd";
 import { BrowserRouter, Outlet, Route, Routes } from "react-router";
+import { isAxiosError } from "axios";
 import { Header } from "./components/header";
 import { ColorModeContextProvider } from "./contexts/color-mode";
 import { api } from "./api/client";
@@ -47,22 +48,68 @@ import { GruposAdminPage } from "./pages/grupos";
 import { NombramientosPorGrupo } from "./pages/nombramientos";
 import { MisAsignacionesPage } from "./pages/mis-asignaciones";
 
+const clearAuthStorage = () => {
+  localStorage.removeItem("token");
+  localStorage.removeItem("user");
+};
+
+const isStoredTokenValid = (token: string | null): token is string =>
+  Boolean(token && token !== "undefined" && token !== "null");
+
+const isValidAuthResponse = (value: unknown): value is { jwt: string } =>
+  typeof value === "object" &&
+  value !== null &&
+  "jwt" in value &&
+  typeof value.jwt === "string" &&
+  value.jwt.trim().length > 0;
+
+const isValidIdentity = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" &&
+  value !== null &&
+  !Array.isArray(value) &&
+  "id" in value;
+
+const getAuthError = (error: unknown) => {
+  if (isAxiosError(error)) {
+    const message = error.response?.data?.error?.message;
+
+    if (typeof message === "string" && message.trim().length > 0) {
+      return new Error(message);
+    }
+  }
+
+  return error instanceof Error
+    ? error
+    : new Error("No se pudo iniciar sesión.");
+};
+
 function App() {
   const API_URL = "https://api.nestjsx-crud.refine.dev";
   const dataProvider = nestjsxCrudDataProvider(API_URL);
 
   const authProvider: AuthProvider = {
     login: async (values: { identifier: string; password: string }) => {
+      clearAuthStorage();
+
       try {
         const { data } = await api.post("/auth/local", {
           identifier: values.identifier,
           password: values.password,
         });
 
+        if (!isValidAuthResponse(data)) {
+          throw new Error("La respuesta del servidor no contiene un token válido.");
+        }
+
         localStorage.setItem("token", data.jwt);
         const { data: me } = await api.get("/users/me", {
           params: { populate: "role" },
         });
+
+        if (!isValidIdentity(me)) {
+          throw new Error("No se pudo cargar el usuario autenticado.");
+        }
+
         localStorage.setItem("user", JSON.stringify(me));
 
         return {
@@ -70,18 +117,16 @@ function App() {
           redirectTo: "/",
         };
       } catch (error) {
+        clearAuthStorage();
+
         return {
           success: false,
-          error:
-            error instanceof Error
-              ? error
-              : new Error("No se pudo iniciar sesión."),
+          error: getAuthError(error),
         };
       }
     },
     logout: async () => {
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
+      clearAuthStorage();
       return {
         success: true,
         redirectTo: "/login",
@@ -98,7 +143,9 @@ function App() {
     },
     check: async () => {
       const token = localStorage.getItem("token");
-      if (!token) {
+      if (!isStoredTokenValid(token)) {
+        clearAuthStorage();
+
         return {
           authenticated: false,
           error: {
@@ -114,6 +161,8 @@ function App() {
         await api.get("/users/me", { params: { populate: "role" } });
         return { authenticated: true };
       } catch {
+        clearAuthStorage();
+
         return {
           authenticated: false,
           logout: true,
@@ -124,15 +173,32 @@ function App() {
     getPermissions: async () => null,
     getIdentity: async () => {
       const cached = localStorage.getItem("user");
-      if (cached) return JSON.parse(cached);
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached);
+
+          if (isValidIdentity(parsed)) {
+            return parsed;
+          }
+        } catch {
+          clearAuthStorage();
+        }
+      }
 
       try {
         const { data } = await api.get("/users/me", {
           params: { populate: "role" },
         });
+
+        if (!isValidIdentity(data)) {
+          clearAuthStorage();
+          return null;
+        }
+
         localStorage.setItem("user", JSON.stringify(data));
         return data;
       } catch {
+        clearAuthStorage();
         return null;
       }
     },
