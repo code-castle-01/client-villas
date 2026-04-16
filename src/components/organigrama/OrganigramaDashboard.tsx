@@ -14,236 +14,76 @@ import {
   Spin,
   Typography,
 } from "antd";
-import { EditOutlined, SaveOutlined } from "@ant-design/icons";
-import { Tree, TreeNode } from "react-organizational-chart";
+import { DownloadOutlined, EditOutlined, SaveOutlined } from "@ant-design/icons";
+import { pdf } from "@react-pdf/renderer";
 import { getOptionalSingle, updateSingle } from "../../api/client";
 import { useDirectory } from "../../contexts/directory";
+import useMediaQuery from "../../hooks/useMediaQuery";
 import { useIsAdminApp } from "../../hooks/useIsAdminApp";
+import { OrganigramaPdfDocument } from "./OrganigramaPdfDocument";
+import {
+  committeeBranches,
+  editableSections,
+  normalizeOrganigramaRecord,
+  normalizeOrganigramaValues,
+  otherAssignments,
+  type OrganigramaFormValues,
+  type OrganigramaRecord,
+  type OrganigramaRoleDefinition,
+} from "./organigrama.schema";
 import "./organigrama.css";
-
-type OrganigramaRoleKey =
-  | "secretary"
-  | "bodyCoordinator"
-  | "serviceOverseer"
-  | "accounts"
-  | "digitalSupport"
-  | "publicTalks"
-  | "attendants"
-  | "audioVideo"
-  | "cleaning"
-  | "publications"
-  | "territories"
-  | "watchtowerConductor"
-  | "lifeMinistryOverseer"
-  | "assistantCounselor";
-
-type OrganigramaMemberAssignment = {
-  memberId?: number;
-  auxiliaryMemberId?: number;
-};
-
-type OrganigramaAssignments = Record<
-  OrganigramaRoleKey,
-  OrganigramaMemberAssignment
->;
-
-type OrganigramaRecord = {
-  id: number;
-  congregationName?: string;
-  assignments?: Partial<OrganigramaAssignments>;
-};
-
-type OrganigramaFormValues = {
-  congregationName: string;
-  assignments: OrganigramaAssignments;
-};
 
 type PositionCardProps = {
   title: string;
   memberName: string;
-  auxiliaryName?: string;
+  auxiliaryName: string;
   compact?: boolean;
+  emphasize?: boolean;
 };
-
-const DEFAULT_CONGREGATION_NAME = "Congregación Central";
-
-const createEmptyAssignment = (): OrganigramaMemberAssignment => ({
-  memberId: undefined,
-  auxiliaryMemberId: undefined,
-});
-
-const createDefaultAssignments = (): OrganigramaAssignments => ({
-  secretary: createEmptyAssignment(),
-  bodyCoordinator: createEmptyAssignment(),
-  serviceOverseer: createEmptyAssignment(),
-  accounts: createEmptyAssignment(),
-  digitalSupport: createEmptyAssignment(),
-  publicTalks: createEmptyAssignment(),
-  attendants: createEmptyAssignment(),
-  audioVideo: createEmptyAssignment(),
-  cleaning: createEmptyAssignment(),
-  publications: createEmptyAssignment(),
-  territories: createEmptyAssignment(),
-  watchtowerConductor: createEmptyAssignment(),
-  lifeMinistryOverseer: createEmptyAssignment(),
-  assistantCounselor: createEmptyAssignment(),
-});
-
-const normalizeRoleAssignment = (
-  value?: Partial<OrganigramaMemberAssignment> | null,
-): OrganigramaMemberAssignment => ({
-  memberId: typeof value?.memberId === "number" ? value.memberId : undefined,
-  auxiliaryMemberId:
-    typeof value?.auxiliaryMemberId === "number"
-      ? value.auxiliaryMemberId
-      : undefined,
-});
-
-const normalizeAssignments = (
-  value?: Partial<OrganigramaAssignments> | null,
-): OrganigramaAssignments => ({
-  secretary: normalizeRoleAssignment(value?.secretary),
-  bodyCoordinator: normalizeRoleAssignment(value?.bodyCoordinator),
-  serviceOverseer: normalizeRoleAssignment(value?.serviceOverseer),
-  accounts: normalizeRoleAssignment(value?.accounts),
-  digitalSupport: normalizeRoleAssignment(value?.digitalSupport),
-  publicTalks: normalizeRoleAssignment(value?.publicTalks),
-  attendants: normalizeRoleAssignment(value?.attendants),
-  audioVideo: normalizeRoleAssignment(value?.audioVideo),
-  cleaning: normalizeRoleAssignment(value?.cleaning),
-  publications: normalizeRoleAssignment(value?.publications),
-  territories: normalizeRoleAssignment(value?.territories),
-  watchtowerConductor: normalizeRoleAssignment(value?.watchtowerConductor),
-  lifeMinistryOverseer: normalizeRoleAssignment(value?.lifeMinistryOverseer),
-  assistantCounselor: normalizeRoleAssignment(value?.assistantCounselor),
-});
-
-const normalizeOrganigramaRecord = (
-  record?: OrganigramaRecord | null,
-): OrganigramaFormValues => ({
-  congregationName: record?.congregationName?.trim() || DEFAULT_CONGREGATION_NAME,
-  assignments: normalizeAssignments(record?.assignments),
-});
-
-const normalizeOrganigramaValues = (
-  values: OrganigramaFormValues,
-): OrganigramaFormValues => ({
-  congregationName: values.congregationName?.trim() || DEFAULT_CONGREGATION_NAME,
-  assignments: normalizeAssignments(values.assignments),
-});
-
-const editableSections: Array<{
-  key: string;
-  title: string;
-  fields: Array<{
-    role: OrganigramaRoleKey;
-    label: string;
-    auxiliaryLabel?: string;
-  }>;
-}> = [
-  {
-    key: "committee",
-    title: "Comité de servicio",
-    fields: [
-      { role: "secretary", label: "Secretario" },
-      {
-        role: "bodyCoordinator",
-        label: "Coordinador del cuerpo de ancianos",
-      },
-      {
-        role: "serviceOverseer",
-        label: "Superintendente de servicio",
-      },
-    ],
-  },
-  {
-    key: "secretary-branch",
-    title: "Rama del secretario",
-    fields: [
-      {
-        role: "accounts",
-        label: "Siervo de cuentas",
-        auxiliaryLabel: "Auxiliar de cuentas",
-      },
-      {
-        role: "digitalSupport",
-        label: "Ayuda a usuarios de JW.ORG y JW HUB",
-      },
-    ],
-  },
-  {
-    key: "coordination-branch",
-    title: "Rama de coordinación",
-    fields: [
-      { role: "publicTalks", label: "Coordinador de discursos públicos" },
-      { role: "attendants", label: "Coordinador de acomodadores" },
-      {
-        role: "audioVideo",
-        label: "Coordinador de audio y video",
-        auxiliaryLabel: "Auxiliar de audio y video",
-      },
-      {
-        role: "cleaning",
-        label: "Coordinador de limpieza",
-        auxiliaryLabel: "Auxiliar de limpieza",
-      },
-    ],
-  },
-  {
-    key: "service-branch",
-    title: "Rama de servicio",
-    fields: [
-      {
-        role: "publications",
-        label: "Siervo de publicaciones",
-        auxiliaryLabel: "Auxiliar de publicaciones",
-      },
-      { role: "territories", label: "Siervo de territorios" },
-    ],
-  },
-  {
-    key: "others",
-    title: "Otros encargos",
-    fields: [
-      { role: "watchtowerConductor", label: "Conductor de la Atalaya" },
-      {
-        role: "lifeMinistryOverseer",
-        label: "Superintendente de la reunión Vida y Ministerio",
-        auxiliaryLabel: "Auxiliar de Vida y Ministerio",
-      },
-      { role: "assistantCounselor", label: "Consejero auxiliar" },
-    ],
-  },
-];
 
 const PositionCard = ({
   title,
   memberName,
   auxiliaryName,
   compact = false,
+  emphasize = false,
 }: PositionCardProps) => (
   <div
-    className={`organigrama-node ${compact ? "organigrama-node--compact" : ""}`}
+    className={[
+      "organigrama-node",
+      compact ? "organigrama-node--compact" : "",
+      emphasize ? "organigrama-node--emphasize" : "",
+    ]
+      .filter(Boolean)
+      .join(" ")}
   >
     <div className="organigrama-node__title">{title}</div>
     <div className="organigrama-node__name">{memberName}</div>
-    {typeof auxiliaryName === "string" && (
-      <>
-        <div className="organigrama-node__aux-label">Auxiliar:</div>
-        <div className="organigrama-node__name">{auxiliaryName}</div>
-      </>
-    )}
+    <div className="organigrama-node__aux-label">Auxiliar:</div>
+    <div className="organigrama-node__name">{auxiliaryName}</div>
   </div>
 );
+
+const downloadBlob = (filename: string, blob: Blob) => {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
+};
 
 export const OrganigramaDashboard: React.FC = () => {
   const { notification } = AntdApp.useApp();
   const isAdminApp = useIsAdminApp();
+  const isTabletOrLess = useMediaQuery("(max-width: 1024px)");
+  const isMobile = useMediaQuery("(max-width: 768px)");
   const { grupos, miembros, loading: directoryLoading } = useDirectory();
   const [form] = Form.useForm<OrganigramaFormValues>();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [recordId, setRecordId] = useState<number | null>(null);
   const [organigrama, setOrganigrama] = useState<OrganigramaFormValues>(
     normalizeOrganigramaRecord(null),
@@ -284,10 +124,9 @@ export const OrganigramaDashboard: React.FC = () => {
     try {
       const data = await getOptionalSingle<OrganigramaRecord>("organigrama");
       const normalized = normalizeOrganigramaRecord(data);
-
       setRecordId(data?.id ?? null);
       setOrganigrama(normalized);
-    } catch (error) {
+    } catch {
       notification.error({
         message: "No se pudo cargar el organigrama",
         description: "Revisa permisos o la conexión con el servidor.",
@@ -330,7 +169,7 @@ export const OrganigramaDashboard: React.FC = () => {
         message: "Organigrama actualizado",
         placement: "topRight",
       });
-    } catch (error) {
+    } catch {
       notification.error({
         message: "No se pudo guardar el organigrama",
         description: "Intenta nuevamente en unos segundos.",
@@ -341,15 +180,44 @@ export const OrganigramaDashboard: React.FC = () => {
     }
   };
 
+  const handleDownloadPdf = async () => {
+    setDownloadingPdf(true);
+
+    try {
+      const blob = await pdf(
+        <OrganigramaPdfDocument
+          congregationName={organigrama.congregationName}
+          assignments={organigrama.assignments}
+          groups={sortedGroups}
+          resolveMemberName={resolveMemberName}
+        />,
+      ).toBlob();
+
+      const safeName = organigrama.congregationName
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+
+      downloadBlob(`organigrama-${safeName || "congregacion"}.pdf`, blob);
+    } catch {
+      notification.error({
+        message: "No se pudo descargar el PDF",
+        description: "Intenta nuevamente en unos segundos.",
+        placement: "topRight",
+      });
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
+
   const renderMemberSelect = (
-    role: OrganigramaRoleKey,
-    label: string,
-    field: "memberId" | "auxiliaryMemberId" = "memberId",
+    field: OrganigramaRoleDefinition,
+    kind: "memberId" | "auxiliaryMemberId",
   ) => (
     <Form.Item
-      key={`${role}-${field}`}
-      label={label}
-      name={["assignments", role, field]}
+      key={`${field.role}-${kind}`}
+      label={kind === "memberId" ? field.title : field.auxiliaryLabel}
+      name={["assignments", field.role, kind]}
       className="organigrama-form__item"
     >
       <Select
@@ -363,7 +231,6 @@ export const OrganigramaDashboard: React.FC = () => {
   );
 
   const assignments = organigrama.assignments;
-
   const isBusy = loading || directoryLoading;
 
   return (
@@ -371,11 +238,20 @@ export const OrganigramaDashboard: React.FC = () => {
       className="organigrama-card"
       title="Organigrama"
       extra={
-        isAdminApp ? (
-          <Button icon={<EditOutlined />} onClick={openEditor}>
-            Editar
+        <Space wrap>
+          <Button
+            icon={<DownloadOutlined />}
+            onClick={handleDownloadPdf}
+            loading={downloadingPdf}
+          >
+            Descargar PDF
           </Button>
-        ) : null
+          {isAdminApp ? (
+            <Button icon={<EditOutlined />} onClick={openEditor}>
+              Editar
+            </Button>
+          ) : null}
+        </Space>
       }
     >
       {isBusy ? (
@@ -383,182 +259,77 @@ export const OrganigramaDashboard: React.FC = () => {
           <Spin size="large" />
         </div>
       ) : (
-        <>
+        <div className="organigrama-shell">
           <div className="organigrama-header">
             <Typography.Title level={2} className="organigrama-title">
               {organigrama.congregationName}
             </Typography.Title>
-            <Typography.Text type="secondary">
-              El comité de servicio y los encargos principales se administran
-              aquí. Los grupos del servicio del campo se sincronizan desde la
-              escena de Grupos.
+            <Typography.Text type="secondary" className="organigrama-subtitle">
+              Un organigrama limpio, legible y editable para visualizar
+              rápidamente la estructura principal de servicio.
             </Typography.Text>
           </div>
 
-          <div className="organigrama-scroll">
-            <div className="organigrama-tree">
-              <Tree
-                label={<div className="organigrama-root">Comité de servicio</div>}
-                lineWidth="2px"
-                lineColor="#8aa8e8"
-                lineBorderRadius="8px"
-                lineHeight="34px"
-              >
-                <TreeNode
-                  label={
-                    <PositionCard
-                      title="Secretario"
-                      memberName={resolveMemberName(assignments.secretary.memberId)}
-                    />
-                  }
-                >
-                  <TreeNode
-                    label={
-                      <PositionCard
-                        title="Siervo de cuentas"
-                        memberName={resolveMemberName(assignments.accounts.memberId)}
-                        auxiliaryName={resolveMemberName(
-                          assignments.accounts.auxiliaryMemberId,
-                        )}
-                      />
-                    }
-                  />
-                  <TreeNode
-                    label={
-                      <PositionCard
-                        title="Ayuda a usuarios de JW.ORG y JW HUB"
-                        memberName={resolveMemberName(
-                          assignments.digitalSupport.memberId,
-                        )}
-                      />
-                    }
-                  />
-                </TreeNode>
-
-                <TreeNode
-                  label={
-                    <PositionCard
-                      title="Coordinador del cuerpo de ancianos"
-                      memberName={resolveMemberName(
-                        assignments.bodyCoordinator.memberId,
-                      )}
-                    />
-                  }
-                >
-                  <TreeNode
-                    label={
-                      <PositionCard
-                        title="Coordinador de discursos públicos"
-                        memberName={resolveMemberName(
-                          assignments.publicTalks.memberId,
-                        )}
-                      />
-                    }
-                  />
-                  <TreeNode
-                    label={
-                      <PositionCard
-                        title="Coordinador de acomodadores"
-                        memberName={resolveMemberName(
-                          assignments.attendants.memberId,
-                        )}
-                      />
-                    }
-                  />
-                  <TreeNode
-                    label={
-                      <PositionCard
-                        title="Coordinador de audio y video"
-                        memberName={resolveMemberName(
-                          assignments.audioVideo.memberId,
-                        )}
-                        auxiliaryName={resolveMemberName(
-                          assignments.audioVideo.auxiliaryMemberId,
-                        )}
-                      />
-                    }
-                  />
-                  <TreeNode
-                    label={
-                      <PositionCard
-                        title="Coordinador de limpieza"
-                        memberName={resolveMemberName(assignments.cleaning.memberId)}
-                        auxiliaryName={resolveMemberName(
-                          assignments.cleaning.auxiliaryMemberId,
-                        )}
-                      />
-                    }
-                  />
-                </TreeNode>
-
-                <TreeNode
-                  label={
-                    <PositionCard
-                      title="Superintendente de servicio"
-                      memberName={resolveMemberName(
-                        assignments.serviceOverseer.memberId,
-                      )}
-                    />
-                  }
-                >
-                  <TreeNode
-                    label={
-                      <PositionCard
-                        title="Siervo de publicaciones"
-                        memberName={resolveMemberName(
-                          assignments.publications.memberId,
-                        )}
-                        auxiliaryName={resolveMemberName(
-                          assignments.publications.auxiliaryMemberId,
-                        )}
-                      />
-                    }
-                  />
-                  <TreeNode
-                    label={
-                      <PositionCard
-                        title="Siervo de territorios"
-                        memberName={resolveMemberName(
-                          assignments.territories.memberId,
-                        )}
-                      />
-                    }
-                  />
-                </TreeNode>
-              </Tree>
+          <section className="organigrama-committee">
+            <div className="organigrama-root-shell">
+              <div className="organigrama-root">Comité de servicio</div>
             </div>
-          </div>
+
+            <div className="organigrama-branches">
+              {committeeBranches.map((branch) => (
+                <section key={branch.key} className="organigrama-branch">
+                  <div className="organigrama-branch__lead">
+                    <PositionCard
+                      title={branch.lead.title}
+                      memberName={resolveMemberName(
+                        assignments[branch.lead.role].memberId,
+                      )}
+                      auxiliaryName={resolveMemberName(
+                        assignments[branch.lead.role].auxiliaryMemberId,
+                      )}
+                      emphasize
+                    />
+                  </div>
+
+                  <div className="organigrama-branch__children">
+                    {branch.children.map((child) => (
+                      <PositionCard
+                        key={child.role}
+                        title={child.title}
+                        memberName={resolveMemberName(
+                          assignments[child.role].memberId,
+                        )}
+                        auxiliaryName={resolveMemberName(
+                          assignments[child.role].auxiliaryMemberId,
+                        )}
+                        compact={isTabletOrLess}
+                      />
+                    ))}
+                  </div>
+                </section>
+              ))}
+            </div>
+          </section>
 
           <Divider />
 
-          <Typography.Title level={4} className="organigrama-section-title">
-            Otros encargos
-          </Typography.Title>
+          <div className="organigrama-section-head">
+            <Typography.Title level={4} className="organigrama-section-title">
+              Otros encargos
+            </Typography.Title>
+          </div>
           <div className="organigrama-grid organigrama-grid--secondary">
-            <PositionCard
-              title="Conductor de la Atalaya"
-              memberName={resolveMemberName(
-                assignments.watchtowerConductor.memberId,
-              )}
-              compact
-            />
-            <PositionCard
-              title="Superintendente de la reunión Vida y Ministerio"
-              memberName={resolveMemberName(
-                assignments.lifeMinistryOverseer.memberId,
-              )}
-              auxiliaryName={resolveMemberName(
-                assignments.lifeMinistryOverseer.auxiliaryMemberId,
-              )}
-              compact
-            />
-            <PositionCard
-              title="Consejero auxiliar"
-              memberName={resolveMemberName(
-                assignments.assistantCounselor.memberId,
-              )}
-              compact
-            />
+            {otherAssignments.map((field) => (
+              <PositionCard
+                key={field.role}
+                title={field.title}
+                memberName={resolveMemberName(assignments[field.role].memberId)}
+                auxiliaryName={resolveMemberName(
+                  assignments[field.role].auxiliaryMemberId,
+                )}
+                compact
+              />
+            ))}
           </div>
 
           <Divider />
@@ -583,12 +354,12 @@ export const OrganigramaDashboard: React.FC = () => {
               />
             ))}
           </div>
-        </>
+        </div>
       )}
 
       <Drawer
         title="Editar organigrama"
-        width={760}
+        width={isMobile ? "100%" : 840}
         open={drawerOpen}
         onClose={closeEditor}
         destroyOnClose
@@ -597,7 +368,12 @@ export const OrganigramaDashboard: React.FC = () => {
           <Form.Item
             label="Nombre de la congregación"
             name="congregationName"
-            rules={[{ required: true, message: "Ingrese el nombre de la congregación" }]}
+            rules={[
+              {
+                required: true,
+                message: "Ingrese el nombre de la congregación",
+              },
+            ]}
           >
             <Input placeholder="Congregación Central" />
           </Form.Item>
@@ -608,14 +384,8 @@ export const OrganigramaDashboard: React.FC = () => {
               <Row gutter={16}>
                 {section.fields.map((field) => (
                   <Col key={field.role} xs={24} md={12}>
-                    {renderMemberSelect(field.role, field.label)}
-                    {field.auxiliaryLabel
-                      ? renderMemberSelect(
-                          field.role,
-                          field.auxiliaryLabel,
-                          "auxiliaryMemberId",
-                        )
-                      : null}
+                    {renderMemberSelect(field, "memberId")}
+                    {renderMemberSelect(field, "auxiliaryMemberId")}
                   </Col>
                 ))}
               </Row>
@@ -623,7 +393,7 @@ export const OrganigramaDashboard: React.FC = () => {
           ))}
 
           <Divider />
-          <Space>
+          <Space wrap>
             <Button onClick={closeEditor}>Cancelar</Button>
             <Button
               type="primary"

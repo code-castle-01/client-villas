@@ -36,6 +36,7 @@ import { MeetingInstructionsForm } from "./pages/presidencia";
 
 import "./index.css";
 import {
+  BookOutlined,
   CalendarOutlined,
   DashboardOutlined,
   TeamOutlined,
@@ -50,6 +51,7 @@ import { UsuariosList } from "./pages/usuarios";
 import { GruposAdminPage } from "./pages/grupos";
 import { NombramientosPorGrupo } from "./pages/nombramientos";
 import { MisAsignacionesPage } from "./pages/mis-asignaciones";
+import { RevisitasPage } from "./pages/revisitas";
 
 type AuthIdentity = {
   id: number | string;
@@ -284,6 +286,15 @@ function App() {
       },
     },
     {
+      name: "Revisitas",
+      list: "/revisitas",
+      meta: {
+        canDelete: false,
+        icon: <BookOutlined />,
+        label: "Revisitas",
+      },
+    },
+    {
       name: "Pastoreo",
       list: "/pastoreo",
       meta: {
@@ -404,6 +415,9 @@ function App() {
 
                       <Route path="/pastoreo">
                         <Route index element={<MiembrosList />} />
+                      </Route>
+                      <Route path="/revisitas">
+                        <Route index element={<RevisitasPage />} />
                       </Route>
                       <Route path="/conferencias">
                         <Route index element={<ConferenciasTable />} />
