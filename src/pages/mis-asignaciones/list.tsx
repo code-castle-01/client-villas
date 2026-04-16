@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Form, Skeleton, message } from "antd";
 import dayjs from "dayjs";
 import "dayjs/locale/es";
-import { api, getCollection, getSingle } from "../../api/client";
+import { api, getCollection, getOptionalSingle } from "../../api/client";
 import useMediaQuery from "../../hooks/useMediaQuery";
 import { buildAssignmentItems, groupAssignmentItemsByDate } from "./assignments";
 import { AUTH_STORAGE_EVENT } from "./constants";
@@ -132,7 +132,7 @@ export const MisAsignacionesPage: React.FC = () => {
           getCollection<VisitaRow>("visitas", {
             "pagination[pageSize]": 1000,
           }),
-          getSingle<PresidenciaSingle>("presidencia", {
+          getOptionalSingle<PresidenciaSingle>("presidencia", {
             populate: [
               "presidente",
               "conductorAtalaya",

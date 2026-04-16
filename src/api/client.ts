@@ -83,6 +83,20 @@ export const getSingle = async <T>(
   return data.data ? normalize(data.data) : null;
 };
 
+export const getOptionalSingle = async <T>(
+  path: string,
+  params?: Record<string, unknown>
+): Promise<(T & { id: number }) | null> => {
+  try {
+    return await getSingle<T>(path, params);
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 404) {
+      return null;
+    }
+    throw error;
+  }
+};
+
 export const createEntry = async <T>(
   path: string,
   payload: Record<string, unknown>
