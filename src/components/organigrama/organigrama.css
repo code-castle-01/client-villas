@@ -1,0 +1,124 @@
+.organigrama-card {
+  border-radius: 18px;
+  overflow: hidden;
+}
+
+.organigrama-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 360px;
+}
+
+.organigrama-header {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.organigrama-title.ant-typography {
+  margin-bottom: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.organigrama-scroll {
+  overflow-x: auto;
+  padding: 10px 0 20px;
+}
+
+.organigrama-tree {
+  min-width: 1120px;
+  width: max-content;
+  margin: 0 auto;
+}
+
+.organigrama-root {
+  min-width: 320px;
+  padding: 16px 24px;
+  border: 2px solid #121212;
+  border-radius: 16px;
+  background: #ffffff;
+  font-size: 2rem;
+  font-weight: 800;
+  text-align: center;
+  box-shadow: 0 16px 40px rgba(35, 52, 94, 0.08);
+}
+
+.organigrama-node {
+  min-width: 250px;
+  max-width: 290px;
+  padding: 18px 20px;
+  border: 2px solid #121212;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8faff 100%);
+  text-align: center;
+  box-shadow: 0 18px 44px rgba(35, 52, 94, 0.08);
+}
+
+.organigrama-node--compact {
+  min-width: 220px;
+  width: 100%;
+  max-width: none;
+}
+
+.organigrama-node__title {
+  margin-bottom: 10px;
+  font-size: 1.05rem;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.organigrama-node__name {
+  font-size: 0.98rem;
+  line-height: 1.45;
+}
+
+.organigrama-node__aux-label {
+  margin-top: 10px;
+  font-size: 0.96rem;
+  font-weight: 800;
+}
+
+.organigrama-section-title.ant-typography {
+  margin-bottom: 10px;
+}
+
+.organigrama-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.organigrama-grid--secondary {
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+}
+
+.organigrama-grid--groups {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  margin-top: 16px;
+}
+
+.organigrama-groups-head {
+  width: 100%;
+}
+
+.organigrama-form__item {
+  margin-bottom: 14px;
+}
+
+.organigrama-meta.ant-typography {
+  margin-top: 16px;
+}
+
+@media (max-width: 768px) {
+  .organigrama-root {
+    min-width: 260px;
+    font-size: 1.5rem;
+  }
+
+  .organigrama-tree {
+    min-width: 920px;
+  }
+}
