@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Select } from "antd";
-import { getCollection } from "../api/client";
+import { getAllCollection } from "../api/client";
 
 interface SelectMiembrosCongregacionProps {
   value?: number;
@@ -25,6 +25,20 @@ const getMemberFullName = (member: Member) => {
   return `${member.nombres ?? ""} ${member.apellidos ?? ""}`.trim() || "Sin nombre";
 };
 
+const fetchMemberOptions = async (): Promise<MemberOption[]> => {
+  const miembros = await getAllCollection<Member>("miembros", {
+    "pagination[pageSize]": 1000,
+  });
+
+  return miembros
+    .map((member) => ({
+      value: member.id,
+      label: getMemberFullName(member),
+    }))
+    .filter((member) => member.label.trim().length > 0)
+    .sort((a, b) => a.label.localeCompare(b.label, "es"));
+};
+
 function SelectMiembrosCongregacion({
   value,
   onChange,
@@ -32,41 +46,35 @@ function SelectMiembrosCongregacion({
 }: SelectMiembrosCongregacionProps) {
   const [options, setOptions] = useState<MemberOption[]>([]);
   const [loading, setLoading] = useState(false);
+  const [reloadTick, setReloadTick] = useState(0);
 
   useEffect(() => {
-    let mounted = true;
+    let active = true;
 
     const load = async () => {
       setLoading(true);
+
       try {
-        const miembros = await getCollection<Member>("miembros", {
-          "pagination[pageSize]": 1000,
-        });
+        const nextOptions = await fetchMemberOptions();
 
-        const nextOptions = miembros
-          .map((member) => ({
-            value: member.id,
-            label: getMemberFullName(member),
-          }))
-          .filter((member) => member.label.trim().length > 0)
-          .sort((a, b) => a.label.localeCompare(b.label, "es"));
-
-        if (mounted) {
+        if (active) {
           setOptions(nextOptions);
         }
+      } catch (error) {
+        console.error("No se pudieron cargar los miembros de la congregación.", error);
       } finally {
-        if (mounted) {
+        if (active) {
           setLoading(false);
         }
       }
     };
 
-    load();
+    void load();
 
     return () => {
-      mounted = false;
+      active = false;
     };
-  }, []);
+  }, [reloadTick]);
 
   return (
     <Select
@@ -83,6 +91,11 @@ function SelectMiembrosCongregacion({
           .toLowerCase()
           .includes(input.toLowerCase())
       }
+      onOpenChange={(open) => {
+        if (open) {
+          setReloadTick((current) => current + 1);
+        }
+      }}
       onChange={onChange}
     />
   );

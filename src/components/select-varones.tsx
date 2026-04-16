@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Select } from "antd";
-import { getCollection } from "../api/client";
+import { getAllCollection } from "../api/client";
 
 interface SelectVaronesProps {
   value?: number;
@@ -54,6 +54,53 @@ const getBucket = (member: Member) => {
   return "publicador";
 };
 
+const fetchGroupedOptions = async (): Promise<GroupedOptions> => {
+  const miembros = await getAllCollection<Member>("miembros", {
+    populate: ["usuario"],
+    "pagination[pageSize]": 1000,
+  });
+
+  const groups: Record<"anciano" | "siervo_ministerial" | "publicador", MemberOption[]> =
+    {
+      anciano: [],
+      siervo_ministerial: [],
+      publicador: [],
+    };
+
+  miembros
+    .filter((member) => {
+      if (member.genero) {
+        return member.genero === "hombre";
+      }
+
+      return (member.roles ?? []).includes("varon");
+    })
+    .forEach((member) => {
+      const name = member.nombre?.trim();
+      if (!name) return;
+      const linkedUser = getLinkedUserLabel(member);
+      const label = linkedUser ? `${name} · ${linkedUser}` : name;
+
+      groups[getBucket(member)].push({
+        value: member.id,
+        label,
+      });
+    });
+
+  return [
+    { label: "Ancianos", options: groups.anciano },
+    { label: "Siervo Ministerial", options: groups.siervo_ministerial },
+    { label: "Publicadores", options: groups.publicador },
+  ]
+    .map((group) => ({
+      ...group,
+      options: [...group.options].sort((a, b) =>
+        a.label.localeCompare(b.label, "es")
+      ),
+    }))
+    .filter((group) => group.options.length > 0);
+};
+
 function SelectVarones({
   value,
   onChange,
@@ -61,74 +108,35 @@ function SelectVarones({
 }: SelectVaronesProps) {
   const [options, setOptions] = useState<GroupedOptions>([]);
   const [loading, setLoading] = useState(false);
+  const [reloadTick, setReloadTick] = useState(0);
 
   useEffect(() => {
-    let mounted = true;
+    let active = true;
+
     const load = async () => {
       setLoading(true);
 
       try {
-        const miembros = await getCollection<Member>(
-          "miembros",
-          { populate: ["usuario"], "pagination[pageSize]": 1000 }
-        );
+        const groupedOptions = await fetchGroupedOptions();
 
-        const groups: Record<"anciano" | "siervo_ministerial" | "publicador", MemberOption[]> =
-          {
-            anciano: [],
-            siervo_ministerial: [],
-            publicador: [],
-          };
-
-        miembros
-          .filter((member) => {
-            if (member.genero) {
-              return member.genero === "hombre";
-            }
-
-            return (member.roles ?? []).includes("varon");
-          })
-          .forEach((member) => {
-            const name = member.nombre?.trim();
-            if (!name) return;
-            const linkedUser = getLinkedUserLabel(member);
-            const label = linkedUser ? `${name} · ${linkedUser}` : name;
-
-            groups[getBucket(member)].push({
-              value: member.id,
-              label,
-            });
-          });
-
-        const groupedOptions: GroupedOptions = [
-          { label: "Ancianos", options: groups.anciano },
-          { label: "Siervo Ministerial", options: groups.siervo_ministerial },
-          { label: "Publicadores", options: groups.publicador },
-        ]
-          .map((group) => ({
-            ...group,
-            options: [...group.options].sort((a, b) =>
-              a.label.localeCompare(b.label, "es")
-            ),
-          }))
-          .filter((group) => group.options.length > 0);
-
-        if (mounted) {
+        if (active) {
           setOptions(groupedOptions);
         }
+      } catch (error) {
+        console.error("No se pudieron cargar los hermanos disponibles.", error);
       } finally {
-        if (mounted) {
+        if (active) {
           setLoading(false);
         }
       }
     };
 
-    load();
+    void load();
 
     return () => {
-      mounted = false;
+      active = false;
     };
-  }, []);
+  }, [reloadTick]);
 
   const handleSelectChange = (nextValue?: number) => {
     onChange?.(nextValue);
@@ -150,6 +158,11 @@ function SelectVarones({
           .toLowerCase()
           .includes(input.toLowerCase())
       }
+      onOpenChange={(open) => {
+        if (open) {
+          setReloadTick((current) => current + 1);
+        }
+      }}
       onChange={handleSelectChange}
     />
   );
