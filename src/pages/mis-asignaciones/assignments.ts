@@ -9,6 +9,7 @@ import type {
   ProfileMember,
   RelationSummary,
   ReunionRow,
+  VmAssignmentRow,
   VisitaRow,
 } from "./types";
 import {
@@ -24,6 +25,7 @@ export const buildAssignmentItems = ({
   conferencias,
   mecanicas,
   escuela,
+  vmAssignments,
   visitas,
   presidencia,
 }: {
@@ -32,12 +34,14 @@ export const buildAssignmentItems = ({
   conferencias: ConferenciaRow[];
   mecanicas: MecanicaRow[];
   escuela: EscuelaRow[];
+  vmAssignments: VmAssignmentRow[];
   visitas: VisitaRow[];
   presidencia: PresidenciaSingle | null;
 }) => {
   const nextItems: AssignmentItem[] = [];
   const memberName = member.nombre;
   const memberId = member.id;
+  const memberNameKey = normalizeNameKey(memberName);
 
   const matchesMember = (relation?: RelationSummary) =>
     Boolean(
@@ -56,6 +60,41 @@ export const buildAssignmentItems = ({
             getRelationName(relation as EscuelaRelation | RelationSummary, "")
           ) === normalizeNameKey(memberName))
     );
+
+  const resolveVmSchoolRoleLabel = (row: VmAssignmentRow) => {
+    switch (row.role) {
+      case "president":
+        return "Presidente";
+      case "counselor":
+        return "Consejero";
+      case "prayer_open":
+        return "Oración de apertura";
+      case "prayer_close":
+        return "Oración de cierre";
+      case "cbs_conductor":
+        return "Conductor CBS";
+      case "cbs_reader":
+        return "Lector CBS";
+      case "student":
+        if (row.partOrder === 1) return "Tesoros (Discurso)";
+        if (row.partOrder === 2) return "Tesoros (Perlas escondidas)";
+        return "";
+      default:
+        return "";
+    }
+  };
+
+  const resolveVmRoomLabel = (room?: VmAssignmentRow["room"]) => {
+    if (room === "MAIN") return "Sala principal";
+    if (room === "AUX") return "Sala auxiliar";
+    return "";
+  };
+
+  const resolveSchoolPresentationLocationLabel = (location?: string) => {
+    if (location === "main_hall") return "Sala principal";
+    if (location === "auxiliary_hall") return "Sala auxiliar";
+    return "";
+  };
 
   reuniones.forEach((row) => {
     if (matchesMember(row.presidente)) {
@@ -165,7 +204,7 @@ export const buildAssignmentItems = ({
         details: [
           "Rol: Encargado",
           `Intervención: ${row.interventionNumber}`,
-          `Lugar: ${row.presentationLocation}`,
+          `Lugar: ${resolveSchoolPresentationLocationLabel(row.presentationLocation) || row.presentationLocation}`,
           `Ayudante: ${getRelationName(row.ayudante, "Sin ayudante") || "Sin ayudante"}`,
         ],
         status: "programada",
@@ -182,12 +221,54 @@ export const buildAssignmentItems = ({
         details: [
           "Rol: Ayudante",
           `Intervención: ${row.interventionNumber}`,
-          `Lugar: ${row.presentationLocation}`,
+          `Lugar: ${resolveSchoolPresentationLocationLabel(row.presentationLocation) || row.presentationLocation}`,
           `Encargado: ${getRelationName(row.encargado, "Sin encargado") || "Sin encargado"}`,
         ],
         status: "programada",
       });
     }
+  });
+
+  vmAssignments.forEach((row) => {
+    const roleLabel = resolveVmSchoolRoleLabel(row);
+    if (!roleLabel || !row.weekStart) {
+      return;
+    }
+
+    const isAssigned = row.assignees.some(
+      (assignee) => normalizeNameKey(assignee.fullName) === memberNameKey
+    );
+
+    if (!isAssigned) {
+      return;
+    }
+
+    const details = [`Rol: ${roleLabel}`];
+    const roomLabel = resolveVmRoomLabel(row.room);
+
+    if (row.role === "student" && row.partOrder > 0) {
+      details.push(`Parte: ${row.partOrder}`);
+    }
+
+    if (roomLabel) {
+      details.push(`Lugar: ${roomLabel}`);
+    }
+
+    details.push(
+      row.weekEnd && row.weekEnd !== row.weekStart
+        ? `Semana: ${row.weekStart} - ${row.weekEnd}`
+        : `Semana: ${row.weekStart}`
+    );
+
+    nextItems.push({
+      id: `esc-vm-${row.id}-${row.role}-${row.partOrder}`,
+      date: row.meetingDate || row.weekStart,
+      title: "Asignación en escuela",
+      category: "escuela",
+      label: "Escuela",
+      details,
+      status: "programada",
+    });
   });
 
   if (presidencia?.fecha) {

@@ -119,6 +119,47 @@ export type EscuelaRow = {
   ayudante?: EscuelaRelation;
 };
 
+export type VmAssignmentRole =
+  | "president"
+  | "counselor"
+  | "prayer_open"
+  | "prayer_close"
+  | "student"
+  | "assistant"
+  | "cbs_conductor"
+  | "cbs_reader"
+  | "speaker";
+
+export type VmAssignmentAssignee = {
+  id: number;
+  fullName: string;
+};
+
+export type VmAssignmentRow = {
+  id: number;
+  partOrder: number;
+  role: VmAssignmentRole;
+  room?: "MAIN" | "AUX";
+  meetingDate?: string;
+  weekStart?: string;
+  weekEnd?: string;
+  assignees: VmAssignmentAssignee[];
+};
+
+export type VmSettings = {
+  id: number;
+  congregationName?: string;
+  meetingDay?:
+    | "monday"
+    | "tuesday"
+    | "wednesday"
+    | "thursday"
+    | "friday"
+    | "saturday"
+    | "sunday";
+  defaultRooms?: string[];
+};
+
 export type VisitaRow = {
   id: number;
   fecha: string;

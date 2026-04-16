@@ -23,6 +23,8 @@ import type {
   ProfileMember,
   ProfileResponse,
   ReunionRow,
+  VmAssignmentRow,
+  VmSettings,
   VisitaRow,
 } from "./types";
 import {
@@ -38,6 +40,105 @@ import {
 } from "./utils";
 
 dayjs.locale("es");
+
+const normalizeVmAssignees = (raw: unknown): VmAssignmentRow["assignees"] => {
+  const items =
+    raw && typeof raw === "object" && "data" in raw
+      ? (raw as { data?: unknown }).data
+      : raw;
+
+  if (!Array.isArray(items)) {
+    return [];
+  }
+
+  return items
+    .map((person) => {
+      if (!person || typeof person !== "object") {
+        return null;
+      }
+
+      const candidate = person as {
+        id?: number;
+        fullName?: string;
+        attributes?: { fullName?: string };
+      };
+
+      if (!candidate.id) {
+        return null;
+      }
+
+      return {
+        id: candidate.id,
+        fullName: candidate.attributes?.fullName ?? candidate.fullName ?? "",
+      };
+    })
+    .filter((person): person is VmAssignmentRow["assignees"][number] =>
+      Boolean(person?.id && person.fullName)
+    );
+};
+
+const normalizeVmWeekSummary = (raw: unknown) => {
+  const item =
+    raw && typeof raw === "object" && "data" in raw
+      ? (raw as { data?: unknown }).data
+      : raw;
+
+  if (!item || typeof item !== "object") {
+    return null;
+  }
+
+  const candidate = item as {
+    weekStart?: string;
+    weekEnd?: string;
+    attributes?: { weekStart?: string; weekEnd?: string };
+  };
+
+  return {
+    weekStart: candidate.attributes?.weekStart ?? candidate.weekStart,
+    weekEnd: candidate.attributes?.weekEnd ?? candidate.weekEnd,
+  };
+};
+
+const meetingDayToDayIndex: Record<NonNullable<VmSettings["meetingDay"]>, number> = {
+  sunday: 0,
+  monday: 1,
+  tuesday: 2,
+  wednesday: 3,
+  thursday: 4,
+  friday: 5,
+  saturday: 6,
+};
+
+const resolveMeetingDate = (
+  week: ReturnType<typeof normalizeVmWeekSummary>,
+  meetingDay?: VmSettings["meetingDay"]
+) => {
+  if (!week?.weekStart) {
+    return undefined;
+  }
+
+  if (!meetingDay) {
+    return week.weekStart;
+  }
+
+  const start = dayjs(week.weekStart);
+  const end = dayjs(week.weekEnd ?? week.weekStart);
+  const targetDay = meetingDayToDayIndex[meetingDay];
+
+  if (!start.isValid() || !end.isValid()) {
+    return week.weekStart;
+  }
+
+  let cursor = start.startOf("day");
+  while (cursor.isBefore(end, "day") || cursor.isSame(end, "day")) {
+    if (cursor.day() === targetDay) {
+      return cursor.format("YYYY-MM-DD");
+    }
+    cursor = cursor.add(1, "day");
+  }
+
+  return week.weekStart;
+};
 
 export const MisAsignacionesPage: React.FC = () => {
   const isSmallScreen = useMediaQuery("(max-width: 992px)");
@@ -138,6 +239,8 @@ export const MisAsignacionesPage: React.FC = () => {
           conferencias,
           mecanicas,
           escuela,
+          vmAssignments,
+          vmSettings,
           visitas,
           presidencia,
         ] = await Promise.all([
@@ -155,6 +258,11 @@ export const MisAsignacionesPage: React.FC = () => {
             populate: ["encargado", "ayudante"],
             "pagination[pageSize]": 1000,
           }),
+          getCollection<any>("vm-assignments", {
+            populate: ["assignees", "week"],
+            "pagination[pageSize]": 1000,
+          }),
+          getOptionalSingle<VmSettings>("vm-setting"),
           getCollection<VisitaRow>("visitas", {
             "pagination[pageSize]": 1000,
           }),
@@ -197,6 +305,20 @@ export const MisAsignacionesPage: React.FC = () => {
                 conferencias,
                 mecanicas,
                 escuela,
+                vmAssignments: vmAssignments.map((assignment) => {
+                  const week = normalizeVmWeekSummary(assignment.week);
+
+                  return {
+                    id: assignment.id,
+                    partOrder: assignment.partOrder ?? 0,
+                    role: assignment.role,
+                    room: assignment.room,
+                    meetingDate: resolveMeetingDate(week, vmSettings?.meetingDay),
+                    weekStart: week?.weekStart,
+                    weekEnd: week?.weekEnd,
+                    assignees: normalizeVmAssignees(assignment.assignees),
+                  } satisfies VmAssignmentRow;
+                }),
                 visitas,
                 presidencia,
               })
