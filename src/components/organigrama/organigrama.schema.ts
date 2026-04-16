@@ -48,7 +48,7 @@ export type OrganigramaBranchDefinition = {
   children: OrganigramaRoleDefinition[];
 };
 
-export const DEFAULT_CONGREGATION_NAME = "Congregación Central";
+export const DEFAULT_CONGREGATION_NAME = "Congregación Las Villas";
 
 const createEmptyAssignment = (): OrganigramaMemberAssignment => ({
   memberId: undefined,
@@ -87,14 +87,16 @@ export const normalizeAssignments = (
 export const normalizeOrganigramaRecord = (
   record?: OrganigramaRecord | null,
 ): OrganigramaFormValues => ({
-  congregationName: record?.congregationName?.trim() || DEFAULT_CONGREGATION_NAME,
+  congregationName:
+    record?.congregationName?.trim() || DEFAULT_CONGREGATION_NAME,
   assignments: normalizeAssignments(record?.assignments),
 });
 
 export const normalizeOrganigramaValues = (
   values: OrganigramaFormValues,
 ): OrganigramaFormValues => ({
-  congregationName: values.congregationName?.trim() || DEFAULT_CONGREGATION_NAME,
+  congregationName:
+    values.congregationName?.trim() || DEFAULT_CONGREGATION_NAME,
   assignments: normalizeAssignments(values.assignments),
 });
 

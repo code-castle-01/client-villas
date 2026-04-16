@@ -336,10 +336,12 @@ export const MeetingAssignmentUI: React.FC = () => {
   const [selectedWeekId, setSelectedWeekId] = useState<string | number | null>(
     null,
   );
+  const [sourceUrl, setSourceUrl] = useState("");
   const [sourceText, setSourceText] = useState("");
   const [weekModalOpen, setWeekModalOpen] = useState(false);
   const [uploadingTemplate, setUploadingTemplate] = useState(false);
   const [exportingDocx, setExportingDocx] = useState(false);
+  const [importingWeekFromUrl, setImportingWeekFromUrl] = useState(false);
   const [parsingWeek, setParsingWeek] = useState(false);
   const [weekForm] = Form.useForm();
   const [settingsForm] = Form.useForm();
@@ -622,6 +624,7 @@ export const MeetingAssignmentUI: React.FC = () => {
       (week) =>
         week.documentId === selectedWeekId || week.id === selectedWeekId,
     );
+    setSourceUrl(currentWeek?.sourceUrl ?? "");
     setSourceText(currentWeek?.sourceText ?? "");
     const weekRef =
       currentWeek?.documentId ?? currentWeek?.id ?? selectedWeekId;
@@ -939,6 +942,7 @@ export const MeetingAssignmentUI: React.FC = () => {
           week.congregationName ?? vmSettings?.congregationName ?? "",
         weekStart: week.weekStart ? dayjs(week.weekStart) : null,
         weekEnd: week.weekEnd ? dayjs(week.weekEnd) : null,
+        sourceUrl: week.sourceUrl ?? "",
         status: week.status ?? "draft",
         notes: week.notes ?? "",
       });
@@ -947,6 +951,7 @@ export const MeetingAssignmentUI: React.FC = () => {
       weekForm.resetFields();
       weekForm.setFieldsValue({
         congregationName: vmSettings?.congregationName ?? "",
+        sourceUrl: sourceUrl.trim(),
         status: "draft",
       });
     }
@@ -958,6 +963,7 @@ export const MeetingAssignmentUI: React.FC = () => {
       congregationName: values.congregationName,
       weekStart: values.weekStart.format("YYYY-MM-DD"),
       weekEnd: values.weekEnd.format("YYYY-MM-DD"),
+      sourceUrl: values.sourceUrl?.trim() ?? "",
       status: values.status,
       notes: values.notes ?? "",
     };
@@ -1073,6 +1079,7 @@ export const MeetingAssignmentUI: React.FC = () => {
       const weekRef =
         selectedWeek?.documentId ?? selectedWeek?.id ?? selectedWeekId;
       const { data } = await api.post(`/vm-weeks/${weekRef}/parse`, {
+        sourceUrl,
         sourceText,
       });
 
@@ -1082,6 +1089,7 @@ export const MeetingAssignmentUI: React.FC = () => {
             ? {
                 ...week,
                 parsed: data?.parsed ?? data?.data?.parsed,
+                sourceUrl: sourceUrl.trim() || week.sourceUrl,
                 sourceText,
                 status: "ready",
               }
@@ -1102,6 +1110,54 @@ export const MeetingAssignmentUI: React.FC = () => {
       }
     } finally {
       setParsingWeek(false);
+    }
+  };
+
+  const handleImportWeekFromUrl = async () => {
+    if (!selectedWeekId) return;
+    if (!sourceUrl.trim()) {
+      notifyError("Pega el enlace oficial de wol.jw.org para importar.");
+      return;
+    }
+
+    setImportingWeekFromUrl(true);
+    try {
+      const weekRef =
+        selectedWeek?.documentId ?? selectedWeek?.id ?? selectedWeekId;
+      const { data } = await api.post(`/vm-weeks/${weekRef}/import-from-url`, {
+        sourceUrl,
+      });
+
+      const importedSourceUrl = data?.sourceUrl ?? sourceUrl.trim();
+      const importedSourceText = data?.sourceText ?? "";
+      const importedParsed = data?.parsed ?? null;
+
+      setSourceUrl(importedSourceUrl);
+      setSourceText(importedSourceText);
+      setVmWeeks((prev) =>
+        prev.map((week) =>
+          week.id === selectedWeekId || week.documentId === selectedWeekId
+            ? {
+                ...week,
+                sourceUrl: importedSourceUrl,
+                sourceText: importedSourceText,
+                parsed: importedParsed,
+                status: "ready",
+              }
+            : week,
+        ),
+      );
+      notifySuccess("Contenido importado desde WOL");
+    } catch (error) {
+      const message =
+        (error as any)?.response?.data?.error?.message ??
+        (error as any)?.response?.data?.message;
+      notifyError(
+        "No se pudo importar desde la URL",
+        message || "Revisa que el enlace sea oficial y que la página exista.",
+      );
+    } finally {
+      setImportingWeekFromUrl(false);
     }
   };
 
@@ -2530,10 +2586,27 @@ export const MeetingAssignmentUI: React.FC = () => {
                   Entrada de contenido
                 </Typography.Title>
                 <Typography.Text type="secondary">
-                  Pega aquí el texto de la semana (desde wol/jw).
+                  Importa una semana específica desde wol.jw.org o pega el texto
+                  manualmente.
                 </Typography.Text>
 
-                <div className="escuela-textarea">
+                <Flex vertical gap={12} className="escuela-textarea">
+                  <Input
+                    value={sourceUrl}
+                    onChange={(event) => setSourceUrl(event.target.value)}
+                    placeholder="https://wol.jw.org/es/wol/d/r4/lp-s/202026087"
+                    disabled={isReadOnly}
+                  />
+                  <Flex justify="flex-end">
+                    <Button
+                      onClick={handleImportWeekFromUrl}
+                      loading={importingWeekFromUrl}
+                      disabled={isReadOnly}
+                    >
+                      Importar desde URL
+                    </Button>
+                  </Flex>
+
                   <Input.TextArea
                     rows={6}
                     value={sourceText}
@@ -2541,7 +2614,7 @@ export const MeetingAssignmentUI: React.FC = () => {
                     placeholder="Pega aquí el texto de la semana..."
                     disabled={isReadOnly}
                   />
-                </div>
+                </Flex>
 
                 <Flex justify="flex-end">
                   <Button
@@ -3058,6 +3131,12 @@ export const MeetingAssignmentUI: React.FC = () => {
             rules={[{ required: true, message: "Selecciona la fecha de fin." }]}
           >
             <DatePicker style={{ width: "100%" }} />
+          </Form.Item>
+          <Form.Item name="sourceUrl" label="URL oficial (WOL)">
+            <Input
+              placeholder="https://wol.jw.org/es/wol/d/r4/lp-s/202026087"
+              disabled={isReadOnly}
+            />
           </Form.Item>
           <Form.Item name="status" label="Estado">
             <Select

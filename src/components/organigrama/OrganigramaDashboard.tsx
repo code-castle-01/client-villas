@@ -14,7 +14,11 @@ import {
   Spin,
   Typography,
 } from "antd";
-import { DownloadOutlined, EditOutlined, SaveOutlined } from "@ant-design/icons";
+import {
+  DownloadOutlined,
+  EditOutlined,
+  SaveOutlined,
+} from "@ant-design/icons";
 import { pdf } from "@react-pdf/renderer";
 import { getOptionalSingle, updateSingle } from "../../api/client";
 import { useDirectory } from "../../contexts/directory";
@@ -334,12 +338,17 @@ export const OrganigramaDashboard: React.FC = () => {
 
           <Divider />
 
-          <Space direction="vertical" size={4} className="organigrama-groups-head">
+          <Space
+            direction="vertical"
+            size={4}
+            className="organigrama-groups-head"
+          >
             <Typography.Title level={4} className="organigrama-section-title">
               Grupos para el servicio del campo
             </Typography.Title>
             <Typography.Text type="secondary">
-              Estos datos salen directamente del directorio de grupos y miembros.
+              Estos datos salen directamente del directorio de grupos y
+              miembros.
             </Typography.Text>
           </Space>
 
@@ -375,7 +384,7 @@ export const OrganigramaDashboard: React.FC = () => {
               },
             ]}
           >
-            <Input placeholder="Congregación Central" />
+            <Input placeholder="Congregación Las Villas" />
           </Form.Item>
 
           {editableSections.map((section) => (
