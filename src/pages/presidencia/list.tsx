@@ -9,12 +9,13 @@ import {
   Typography,
 } from "antd";
 import dayjs from "dayjs";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import MeetingPDF from "../../components/MeetingPDF";
 import SelectSiervos from "../../components/select-siervos";
 import SelectVarones from "../../components/select-varones";
 import SelectTemas from "../../components/select-temas";
 import { getCollection, getSingle, updateSingle } from "../../api/client";
+import { useDirectory } from "../../contexts/directory";
 import { useIsAdminApp } from "../../hooks/useIsAdminApp";
 
 const { Title } = Typography;
@@ -49,16 +50,25 @@ export const MeetingInstructionsForm = () => {
   const [conferencias, setConferencias] = useState<any>({});
   const [conferenceRows, setConferenceRows] = useState<ConferenceSummary[]>([]);
   const [meetingRows, setMeetingRows] = useState<MeetingSummary[]>([]);
-  const [miembrosById, setMiembrosById] = useState<Record<number, string>>({});
   const [temasById, setTemasById] = useState<Record<number, string>>({});
+  const { miembros, loaded: directoryLoaded } = useDirectory();
+  const miembrosById = useMemo(
+    () =>
+      miembros.reduce<Record<number, string>>((accumulator, member) => {
+        accumulator[member.id] = member.nombre;
+        return accumulator;
+      }, {}),
+    [miembros],
+  );
 
   useEffect(() => {
+    if (!directoryLoaded) {
+      return;
+    }
+
     let mounted = true;
     const load = async () => {
-      const [miembros, temas, conferenceData, meetingData, data] = await Promise.all([
-        getCollection<{ nombre: string }>("miembros", {
-          "pagination[pageSize]": 1000,
-        }),
+      const [temas, conferenceData, meetingData, data] = await Promise.all([
         getCollection<{ titulo: string }>("temas", {
           "pagination[pageSize]": 1000,
         }),
@@ -104,17 +114,12 @@ export const MeetingInstructionsForm = () => {
           ],
         }),
       ]);
-      const miembrosMap: Record<number, string> = {};
-      miembros.forEach((m) => {
-        miembrosMap[m.id] = m.nombre;
-      });
       const temasMap: Record<number, string> = {};
       temas.forEach((t) => {
         temasMap[t.id] = t.titulo;
       });
 
       if (!mounted) return;
-      setMiembrosById(miembrosMap);
       setTemasById(temasMap);
       setConferenceRows(
         conferenceData
@@ -153,18 +158,16 @@ export const MeetingInstructionsForm = () => {
 
         form.setFieldsValue(formValues);
         setConferencias({
-          president:
-            miembrosMap[data.presidente?.data?.id ?? 0] ?? "Sin presidente",
+          president: miembrosById[data.presidente?.data?.id ?? 0] ?? "Sin presidente",
           date: data.fecha ?? "",
-          discourseTopic:
-            temasMap[data.discursoTema?.data?.id ?? 0] ?? "",
+          discourseTopic: temasMap[data.discursoTema?.data?.id ?? 0] ?? "",
           songNumber: data.numeroCancion ?? 0,
           optionalQuestions: data.preguntasOpcionales ?? "",
           speaker: data.orador ?? "",
           congregation: data.congregacion ?? "",
           nextWeekTitle: temasMap[data.proximoTema?.data?.id ?? 0] ?? "",
           watchtowerConductor:
-            miembrosMap[data.conductorAtalaya?.data?.id ?? 0] ?? "",
+            miembrosById[data.conductorAtalaya?.data?.id ?? 0] ?? "",
         });
       }
     };
@@ -172,7 +175,7 @@ export const MeetingInstructionsForm = () => {
     return () => {
       mounted = false;
     };
-  }, [form]);
+  }, [directoryLoaded, form, miembrosById]);
 
   const applyConferenceValuesForDate = (dateValue?: dayjs.Dayjs | null) => {
     if (!dateValue) {

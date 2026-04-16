@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { DeleteOutlined, EditOutlined, UserAddOutlined } from "@ant-design/icons";
 import {
   Button,
@@ -23,6 +23,7 @@ import SelectTemas from "../../components/select-temas";
 import WhatsAppShareButton from "../../components/whatsapp-share-button";
 import useMediaQuery from "../../hooks/useMediaQuery";
 import { createEntry, deleteEntry, getCollection, updateEntry } from "../../api/client";
+import { useDirectory } from "../../contexts/directory";
 import { useIsAdminApp } from "../../hooks/useIsAdminApp";
 
 const { Text, Paragraph } = Typography;
@@ -128,28 +129,26 @@ export const ConferenciasTable: React.FC = () => {
   const [editingConferencia, setEditingConferencia] = useState<Conferencia | null>(
     null
   );
-  const [leadershipMembers, setLeadershipMembers] = useState<LeadershipMember[]>([]);
   const [isLocalSpeaker, setIsLocalSpeaker] = useState(false);
   const [form] = Form.useForm();
+  const { miembros } = useDirectory();
+  const leadershipMembers = useMemo(
+    () =>
+      miembros
+        .filter(isLeadershipMember)
+        .sort((a, b) => a.nombre.localeCompare(b.nombre, "es")),
+    [miembros],
+  );
 
   useEffect(() => {
     let mounted = true;
     const load = async () => {
-      const [data, miembros] = await Promise.all([
-        getCollection<ConferenciaResponse>("conferencias", {
-          "pagination[pageSize]": 1000,
-        }),
-        getCollection<LeadershipMember>("miembros", {
-          "pagination[pageSize]": 1000,
-        }),
-      ]);
+      const data = await getCollection<ConferenciaResponse>("conferencias", {
+        "pagination[pageSize]": 1000,
+      });
       const mapped = data.map(mapConferencia);
-      const localSpeakers = miembros
-        .filter(isLeadershipMember)
-        .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
       if (mounted) {
         setConferencias(mapped);
-        setLeadershipMembers(localSpeakers);
       }
     };
     load();

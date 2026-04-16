@@ -39,7 +39,6 @@ import {
   api,
   createEntry,
   deleteEntry,
-  getAllCollection,
   getCollection,
   getSingle,
   updateEntry,
@@ -48,6 +47,7 @@ import {
 import { ColumnsType } from "antd/es/table";
 import useMediaQuery from "../../hooks/useMediaQuery";
 import { ColorModeContext } from "../../contexts/color-mode";
+import { useDirectory } from "../../contexts/directory";
 import { useIsAdminApp } from "../../hooks/useIsAdminApp";
 import s140TemplateUrl from "../../assets/img/S-140_S.docx";
 import SelectMiembrosCongregacion from "../../components/select-miembros-congregacion";
@@ -301,6 +301,10 @@ export const MeetingAssignmentUI: React.FC = () => {
   const isAdminApp = useIsAdminApp();
   const isReadOnly = !isAdminApp;
   const { notification } = AntdApp.useApp();
+  const {
+    miembros: directoryMembers,
+    loaded: directoryLoaded,
+  } = useDirectory();
 
   const [assignments, setAssignments] = useState<MeetingAssignment[]>([]);
   const [congregationMembers, setCongregationMembers] = useState<
@@ -353,31 +357,14 @@ export const MeetingAssignmentUI: React.FC = () => {
   useEffect(() => {
     let mounted = true;
     const load = async () => {
-      const [data, miembrosData] = await Promise.all([
-        getAllCollection<AssignmentResponse>("escuela-asignacions", {
-          "pagination[pageSize]": 1000,
-        }),
-        getAllCollection<any>("miembros", {
-          populate: ["grupos"],
-          "pagination[pageSize]": 1000,
-        }),
-      ]);
+      const data = await getCollection<AssignmentResponse>("escuela-asignacions", {
+        "pagination[pageSize]": 1000,
+      });
 
       const mapped = data.map(mapAssignment);
 
-      const members = miembrosData
-        .map((member) => ({
-          id: member.id,
-          fullName: getMemberFullName(member),
-          groupNames: (member.grupos?.data ?? member.grupos ?? [])
-            .map((group: any) => group.nombre ?? group.attributes?.nombre ?? "")
-            .filter(Boolean),
-        }))
-        .sort((a, b) => a.fullName.localeCompare(b.fullName));
-
       if (mounted) {
         setAssignments(mapped);
-        setCongregationMembers(members);
       }
     };
     load();
@@ -385,6 +372,27 @@ export const MeetingAssignmentUI: React.FC = () => {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    const members = directoryMembers
+      .map((member) => ({
+        id: member.id,
+        fullName: getMemberFullName(member),
+        groupNames: member.grupos.map((group) => group.nombre).filter(Boolean),
+      }))
+      .sort((a, b) => a.fullName.localeCompare(b.fullName, "es"));
+
+    setCongregationMembers(members);
+
+    const mappedMembers: VmMember[] = directoryMembers.map((member) => ({
+      id: member.id,
+      fullName: getMemberFullName(member),
+      genero: member.genero,
+      nombramientos: normalizeNombramientos(member.nombramientos),
+    }));
+
+    setVmMembers(mappedMembers.filter((member) => !isNoBautizado(member)));
+  }, [directoryMembers]);
 
   const notifySuccess = (message: string, description?: string) => {
     notification.success({
@@ -535,7 +543,7 @@ export const MeetingAssignmentUI: React.FC = () => {
   const loadVmBase = async () => {
     setVmLoading(true);
     try {
-      const [weeksData, peopleData, settingsData, miembrosData] =
+      const [weeksData, peopleData, settingsData] =
         await Promise.all([
           getCollection<VmWeek>("vm-weeks", {
             "pagination[pageSize]": 200,
@@ -547,9 +555,6 @@ export const MeetingAssignmentUI: React.FC = () => {
           }),
           getSingle<VmSettings>("vm-setting", {
             populate: ["docTemplate"],
-          }),
-          getAllCollection<any>("miembros", {
-            "pagination[pageSize]": 1000,
           }),
         ]);
 
@@ -572,47 +577,6 @@ export const MeetingAssignmentUI: React.FC = () => {
         });
       }
 
-      const mappedMembers: VmMember[] = miembrosData.map((member) => {
-        const nombramientosRaw =
-          Array.isArray(member.nombramientos) && member.nombramientos.length
-            ? member.nombramientos
-            : member.categoria
-            ? [member.categoria]
-            : [];
-        return {
-          id: member.id,
-          fullName: getMemberFullName(member),
-          genero: member.genero,
-          nombramientos: normalizeNombramientos(nombramientosRaw),
-        };
-      });
-
-      const eligibleMembers = mappedMembers.filter(
-        (member) => !isNoBautizado(member),
-      );
-      setVmMembers(eligibleMembers);
-
-      const personByMember: Record<number, number> = {};
-      const memberByPerson: Record<number, number> = {};
-
-      const peopleByName = new Map(
-        peopleData.map((person) => [
-          normalizeNameKey(person.fullName),
-          person.id,
-        ]),
-      );
-
-      eligibleMembers.forEach((member) => {
-        const personId = peopleByName.get(normalizeNameKey(member.fullName));
-        if (personId) {
-          personByMember[member.id] = personId;
-          memberByPerson[personId] = member.id;
-        }
-      });
-
-      setVmPersonIdByMemberId(personByMember);
-      setMemberIdByVmPersonId(memberByPerson);
-
       if (!selectedWeekId && weeksData.length) {
         setSelectedWeekId(weeksData[0].documentId ?? weeksData[0].id);
       }
@@ -626,8 +590,31 @@ export const MeetingAssignmentUI: React.FC = () => {
   };
 
   useEffect(() => {
-    loadVmBase();
-  }, []);
+    if (!directoryLoaded) return;
+    void loadVmBase();
+  }, [directoryLoaded]);
+
+  useEffect(() => {
+    if (!vmMembers.length || !vmPeople.length) return;
+
+    const personByMember: Record<number, number> = {};
+    const memberByPerson: Record<number, number> = {};
+
+    const peopleByName = new Map(
+      vmPeople.map((person) => [normalizeNameKey(person.fullName), person.id]),
+    );
+
+    vmMembers.forEach((member) => {
+      const personId = peopleByName.get(normalizeNameKey(member.fullName));
+      if (personId) {
+        personByMember[member.id] = personId;
+        memberByPerson[personId] = member.id;
+      }
+    });
+
+    setVmPersonIdByMemberId((prev) => ({ ...prev, ...personByMember }));
+    setMemberIdByVmPersonId((prev) => ({ ...prev, ...memberByPerson }));
+  }, [vmMembers, vmPeople]);
 
   useEffect(() => {
     if (!selectedWeekId) return;

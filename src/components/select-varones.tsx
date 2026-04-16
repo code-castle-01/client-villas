@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useMemo } from "react";
 import { Select } from "antd";
-import { getAllCollection } from "../api/client";
+import { useDirectory } from "../contexts/directory";
+import type { DirectoryMember } from "../api/groupDirectory";
 
 interface SelectVaronesProps {
   value?: number;
@@ -18,26 +19,11 @@ type GroupedOptions = Array<{
   options: MemberOption[];
 }>;
 
-type Member = {
-  id: number;
-  nombre: string;
-  genero?: string;
-  roles?: string[];
-  nombramientos?: string[];
-  usuario?:
-    | { id?: number; username?: string; email?: string }
-    | { data?: { id?: number; attributes?: { username?: string; email?: string } } };
+const getLinkedUserLabel = (member: DirectoryMember) => {
+  return member.usuarioUsername || member.usuarioEmail || "";
 };
 
-const getLinkedUserLabel = (member: Member) => {
-  const nestedUsername = (member.usuario as any)?.data?.attributes?.username;
-  const nestedEmail = (member.usuario as any)?.data?.attributes?.email;
-  const username = (member.usuario as any)?.username ?? nestedUsername;
-  const email = (member.usuario as any)?.email ?? nestedEmail;
-  return username || email || "";
-};
-
-const getBucket = (member: Member) => {
+const getBucket = (member: DirectoryMember) => {
   const nombramientos = member.nombramientos ?? [];
 
   if (nombramientos.includes("anciano")) {
@@ -54,12 +40,7 @@ const getBucket = (member: Member) => {
   return "publicador";
 };
 
-const fetchGroupedOptions = async (): Promise<GroupedOptions> => {
-  const miembros = await getAllCollection<Member>("miembros", {
-    populate: ["usuario"],
-    "pagination[pageSize]": 1000,
-  });
-
+const fetchGroupedOptions = (miembros: DirectoryMember[]): GroupedOptions => {
   const groups: Record<"anciano" | "siervo_ministerial" | "publicador", MemberOption[]> =
     {
       anciano: [],
@@ -106,37 +87,8 @@ function SelectVarones({
   onChange,
   placeholder = "Selecciona un hermano",
 }: SelectVaronesProps) {
-  const [options, setOptions] = useState<GroupedOptions>([]);
-  const [loading, setLoading] = useState(false);
-  const [reloadTick, setReloadTick] = useState(0);
-
-  useEffect(() => {
-    let active = true;
-
-    const load = async () => {
-      setLoading(true);
-
-      try {
-        const groupedOptions = await fetchGroupedOptions();
-
-        if (active) {
-          setOptions(groupedOptions);
-        }
-      } catch (error) {
-        console.error("No se pudieron cargar los hermanos disponibles.", error);
-      } finally {
-        if (active) {
-          setLoading(false);
-        }
-      }
-    };
-
-    void load();
-
-    return () => {
-      active = false;
-    };
-  }, [reloadTick]);
+  const { miembros, loading } = useDirectory();
+  const options = useMemo(() => fetchGroupedOptions(miembros), [miembros]);
 
   const handleSelectChange = (nextValue?: number) => {
     onChange?.(nextValue);
@@ -158,11 +110,6 @@ function SelectVarones({
           .toLowerCase()
           .includes(input.toLowerCase())
       }
-      onOpenChange={(open) => {
-        if (open) {
-          setReloadTick((current) => current + 1);
-        }
-      }}
       onChange={handleSelectChange}
     />
   );

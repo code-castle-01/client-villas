@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useMemo, useState } from "react";
+import React, { useContext, useMemo, useState } from "react";
 import {
   App as AntdApp,
   Button,
@@ -12,8 +12,8 @@ import {
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { ReloadOutlined } from "@ant-design/icons";
-import { fetchGroupDirectory } from "../../api/groupDirectory";
 import { ColorModeContext } from "../../contexts/color-mode";
+import { useDirectory } from "../../contexts/directory";
 import "../grupos/styles.css";
 import "./styles.css";
 
@@ -69,9 +69,12 @@ const nombramientoTagClass: Record<string, string> = {
 export const NombramientosPorGrupo: React.FC = () => {
   const { mode } = useContext(ColorModeContext);
   const { notification } = AntdApp.useApp();
-  const [loading, setLoading] = useState(false);
-  const [grupos, setGrupos] = useState<Grupo[]>([]);
-  const [miembros, setMiembros] = useState<Miembro[]>([]);
+  const {
+    grupos: directoryGroups,
+    miembros: directoryMembers,
+    loading,
+    refreshDirectory,
+  } = useDirectory();
 
   const [grupoFilter, setGrupoFilter] = useState<number | undefined>();
   const [nombramientoFilter, setNombramientoFilter] = useState<string | undefined>();
@@ -86,44 +89,38 @@ export const NombramientosPorGrupo: React.FC = () => {
     });
   };
 
-  const fetchData = async () => {
-    setLoading(true);
+  const grupos = useMemo<Grupo[]>(
+    () =>
+      directoryGroups.map((group) => ({
+        id: group.id,
+        nombre: group.nombre,
+      })),
+    [directoryGroups]
+  );
+
+  const miembros = useMemo<Miembro[]>(
+    () =>
+      directoryMembers.map((member) => ({
+        id: member.id,
+        nombre: member.nombre,
+        nombres: member.nombres,
+        apellidos: member.apellidos,
+        genero: member.genero,
+        nombramientos: member.nombramientos ?? [],
+        usuarioEmail: member.usuarioEmail,
+        celular: member.celular,
+        grupos: member.grupos,
+      })),
+    [directoryMembers]
+  );
+
+  const handleRefresh = async () => {
     try {
-      const { grupos: gruposData, miembros: miembrosData } =
-        await fetchGroupDirectory();
-
-      setGrupos(
-        gruposData.map((g) => ({
-          id: g.id,
-          nombre: g.nombre,
-        }))
-      );
-
-      setMiembros(
-        miembrosData.map((m) => {
-          return {
-            id: m.id,
-            nombre: m.nombre,
-            nombres: m.nombres,
-            apellidos: m.apellidos,
-            genero: m.genero,
-            nombramientos: m.nombramientos ?? [],
-            usuarioEmail: m.usuarioEmail,
-            celular: m.celular,
-            grupos: m.grupos,
-          };
-        })
-      );
+      await refreshDirectory();
     } catch (error) {
       notifyError("No se pudieron cargar los datos", "Revisa el servidor o permisos.");
-    } finally {
-      setLoading(false);
     }
   };
-
-  useEffect(() => {
-    fetchData();
-  }, []);
 
   const rows = useMemo<Row[]>(() => {
     const allRows: Row[] = [];
@@ -270,7 +267,7 @@ export const NombramientosPorGrupo: React.FC = () => {
         <Button
           className="grupos-btn grupos-btn--ghost"
           icon={<ReloadOutlined />}
-          onClick={fetchData}
+          onClick={handleRefresh}
           loading={loading}
         >
           Recargar

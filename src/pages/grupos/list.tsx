@@ -48,6 +48,7 @@ import "dayjs/locale/es";
 import PDFGrupos from "../../components/PDFGrupos";
 import { MiembroProfileFields } from "../../components/member/MiembroProfileFields";
 import { ColorModeContext } from "../../contexts/color-mode";
+import { useDirectory } from "../../contexts/directory";
 import "./styles.css";
 
 type Grupo = {
@@ -232,6 +233,7 @@ export const GruposAdminPage: React.FC = () => {
   const isAdminApp = useIsAdminApp();
   const { mode } = useContext(ColorModeContext);
   const { notification } = AntdApp.useApp();
+  const { refreshDirectory } = useDirectory();
   const [loading, setLoading] = useState(false);
   const [grupos, setGrupos] = useState<Grupo[]>([]);
   const [miembros, setMiembros] = useState<Miembro[]>([]);
@@ -425,6 +427,7 @@ export const GruposAdminPage: React.FC = () => {
           fetchMiembros(),
           fetchGrupos(),
         ]);
+      await refreshDirectory();
       setRoles(rolesData);
       setUsuarios(usuariosData);
       setMiembros(miembrosData);

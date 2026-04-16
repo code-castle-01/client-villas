@@ -28,7 +28,7 @@ import {
 } from "antd";
 import { toPng } from "html-to-image";
 import moment from "moment";
-import React, { useContext, useEffect, useState } from "react";
+import React, { useContext, useEffect, useMemo, useState } from "react";
 import {
   createEntry,
   deleteEntry,
@@ -37,9 +37,9 @@ import {
   updateEntry,
   updateSingle,
 } from "../../api/client";
-import { fetchGroupDirectory } from "../../api/groupDirectory";
 import PDFDocument from "../../components/PDFDocument";
 import { ColorModeContext } from "../../contexts/color-mode";
+import { useDirectory } from "../../contexts/directory";
 import { useIsAdminApp } from "../../hooks/useIsAdminApp";
 import useMediaQuery from "../../hooks/useMediaQuery";
 import "../grupos/styles.css";
@@ -87,7 +87,7 @@ const parsePago = (p: any): Pago => {
 
 export const GruposMiembrosList: React.FC = () => {
   const { mode } = useContext(ColorModeContext);
-  const [grupos, setGrupos] = useState<Grupo[]>([]);
+  const { grupos: directoryGroups, refreshDirectory } = useDirectory();
   const [loading, setLoading] = useState(false);
   const [visibleRegistrarPago, setVisibleRegistrarPago] = useState(false);
   const [visibleVerDetalles, setVisibleVerDetalles] = useState(false);
@@ -114,6 +114,18 @@ export const GruposMiembrosList: React.FC = () => {
   const isSmallScreen = useMediaQuery("(max-width: 768px)");
   const isAdminApp = useIsAdminApp();
   const isReadOnly = !isAdminApp;
+  const grupos = useMemo<Grupo[]>(
+    () =>
+      directoryGroups.map((group) => ({
+        id: group.id,
+        nombre: group.nombre,
+        miembros: group.miembros.map((member) => ({
+          id: member.id,
+          nombre: member.nombre,
+        })),
+      })),
+    [directoryGroups],
+  );
 
   const fetchPagos = async () => {
     const pagosData = await getCollection<{
@@ -128,34 +140,15 @@ export const GruposMiembrosList: React.FC = () => {
     return pagosData.map(parsePago);
   };
 
-  const loadDirectoryGroups = async (): Promise<Grupo[]> => {
-    const { grupos: directoryGroups } = await fetchGroupDirectory();
-
-    return directoryGroups.map((group) => ({
-      id: group.id,
-      nombre: group.nombre,
-      miembros: group.miembros.map((member) => ({
-        id: member.id,
-        nombre: member.nombre,
-      })),
-    }));
-  };
-
-  const refreshGroups = async () => {
-    const nextGroups = await loadDirectoryGroups();
-    setGrupos(nextGroups);
-  };
-
   const refreshPageData = async () => {
     setLoading(true);
     try {
-      const [nextGroups, pagosMapped, config] = await Promise.all([
-        loadDirectoryGroups(),
+      const [, pagosMapped, config] = await Promise.all([
+        refreshDirectory(),
         fetchPagos(),
         getSingle<{ totalAPagar: number }>("transporte-config"),
       ]);
 
-      setGrupos(nextGroups);
       setPagos(pagosMapped);
       if (config?.totalAPagar) {
         setTotalAPagar(config.totalAPagar);

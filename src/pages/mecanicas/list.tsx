@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Table,
   Button,
@@ -23,6 +23,7 @@ import PDFMecanicas from "../../components/PDFMecanicas";
 import SelectVarones from "../../components/select-varones";
 import WhatsAppShareButton from "../../components/whatsapp-share-button";
 import { createEntry, deleteEntry, getCollection, updateEntry } from "../../api/client";
+import { useDirectory } from "../../contexts/directory";
 import { useIsAdminApp } from "../../hooks/useIsAdminApp";
 
 const MECANICAS_RESOURCE = "mecanica-asignacions";
@@ -119,9 +120,17 @@ export const ScheduleTable: React.FC = () => {
   const isSmallScreen = useMediaQuery("(max-width: 768px)");
   const [form] = Form.useForm();
   const [data, setData] = useState<ScheduleData[]>([]);
-  const [memberNamesById, setMemberNamesById] = useState<Record<number, string>>({});
   const isAdminApp = useIsAdminApp();
   const isReadOnly = !isAdminApp;
+  const { miembros } = useDirectory();
+  const memberNamesById = useMemo(
+    () =>
+      miembros.reduce<Record<number, string>>((accumulator, member) => {
+        accumulator[member.id] = member.nombre;
+        return accumulator;
+      }, {}),
+    [miembros],
+  );
 
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
@@ -130,33 +139,23 @@ export const ScheduleTable: React.FC = () => {
   useEffect(() => {
     let mounted = true;
     const load = async () => {
-      const [asignaciones, miembros] = await Promise.all([
-        getCollection<MecanicaResponse>(MECANICAS_RESOURCE, {
-          populate: [
-            "acomodadorDentro",
-            "acomodadorLobby",
-            "acomodadorReja",
-            "micro1",
-            "micro2",
-            "plataforma",
-            "audioVideo",
-          ],
-          "pagination[pageSize]": 1000,
-        }),
-        getCollection<{ nombre: string }>("miembros", {
-          "pagination[pageSize]": 1000,
-        }),
-      ]);
+      const asignaciones = await getCollection<MecanicaResponse>(MECANICAS_RESOURCE, {
+        populate: [
+          "acomodadorDentro",
+          "acomodadorLobby",
+          "acomodadorReja",
+          "micro1",
+          "micro2",
+          "plataforma",
+          "audioVideo",
+        ],
+        "pagination[pageSize]": 1000,
+      });
 
       const mapped = asignaciones.map(mapAssignment);
-      const namesMap: Record<number, string> = {};
-      miembros.forEach((member) => {
-        namesMap[member.id] = member.nombre;
-      });
 
       if (!mounted) return;
       setData(mapped);
-      setMemberNamesById(namesMap);
     };
     load();
     return () => {

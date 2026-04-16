@@ -3,6 +3,7 @@ import { Form, Skeleton, message } from "antd";
 import dayjs from "dayjs";
 import "dayjs/locale/es";
 import { api, getCollection, getOptionalSingle } from "../../api/client";
+import { useDirectory } from "../../contexts/directory";
 import useMediaQuery from "../../hooks/useMediaQuery";
 import { buildAssignmentItems, groupAssignmentItemsByDate } from "./assignments";
 import { AUTH_STORAGE_EVENT } from "./constants";
@@ -26,7 +27,6 @@ import type {
 } from "./types";
 import {
   createFallbackProfile,
-  fetchAllCollection,
   getDateKey,
   getIsoWeekInfo,
   getProfileErrorMessage,
@@ -41,6 +41,11 @@ dayjs.locale("es");
 
 export const MisAsignacionesPage: React.FC = () => {
   const isSmallScreen = useMediaQuery("(max-width: 992px)");
+  const {
+    grupos: directoryGroups,
+    miembros: directoryMembers,
+    loaded: directoryLoaded,
+  } = useDirectory();
   const currentWeekLink = useMemo(() => {
     const { year, week } = getIsoWeekInfo(dayjs());
     return `https://wol.jw.org/es/wol/meetings/r4/lp-s/${year}/${week}`;
@@ -59,6 +64,31 @@ export const MisAsignacionesPage: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState(() => getDateKey(dayjs()));
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
+
+  const miembros = useMemo<MiembroRow[]>(
+    () =>
+      directoryMembers.map((member) => ({
+        id: member.id,
+        documentId: member.documentId,
+        nombre: member.nombre,
+        nombres: member.nombres,
+        apellidos: member.apellidos,
+        telefono: member.telefono,
+        celular: member.celular,
+        direccion: member.direccion,
+        fechaNacimiento: member.fechaNacimiento,
+        fechaInmersion: member.fechaInmersion,
+        genero: member.genero ?? "",
+        nombramientos: member.nombramientos,
+        grupos: member.grupos,
+        usuario: {
+          id: member.usuarioId,
+          email: member.usuarioEmail,
+          username: member.usuarioUsername,
+        },
+      })),
+    [directoryMembers]
+  );
 
   useEffect(() => {
     const syncCurrentUser = () => {
@@ -92,6 +122,10 @@ export const MisAsignacionesPage: React.FC = () => {
           return;
         }
 
+        if (!directoryLoaded) {
+          return;
+        }
+
         const fallbackProfile = createFallbackProfile(currentUser);
 
         if (mounted) {
@@ -100,8 +134,6 @@ export const MisAsignacionesPage: React.FC = () => {
 
         const [
           profileResult,
-          grupos,
-          miembros,
           reuniones,
           conferencias,
           mecanicas,
@@ -110,12 +142,6 @@ export const MisAsignacionesPage: React.FC = () => {
           presidencia,
         ] = await Promise.all([
           api.get<{ data: ProfileResponse }>("/profile/me"),
-          getCollection<GroupSummary>("grupos", {
-            "pagination[pageSize]": 1000,
-          }),
-          fetchAllCollection<MiembroRow>("miembros", {
-            populate: ["usuario", "grupos"],
-          }),
           getCollection<ReunionRow>("reunions", {
             "pagination[pageSize]": 1000,
           }),
@@ -155,7 +181,14 @@ export const MisAsignacionesPage: React.FC = () => {
 
         setProfile(resolvedProfile);
         setCurrentMember(resolvedMember);
-        setGroups(grupos.sort((a, b) => a.nombre.localeCompare(b.nombre)));
+        setGroups(
+          directoryGroups
+            .map((group) => ({
+              id: group.id,
+              nombre: group.nombre,
+            }))
+            .sort((a, b) => a.nombre.localeCompare(b.nombre))
+        );
         setItems(
           resolvedMember
             ? buildAssignmentItems({
@@ -185,7 +218,7 @@ export const MisAsignacionesPage: React.FC = () => {
     return () => {
       mounted = false;
     };
-  }, [currentUser]);
+  }, [currentUser, directoryGroups, directoryLoaded, miembros]);
 
   const monthItems = useMemo(
     () =>

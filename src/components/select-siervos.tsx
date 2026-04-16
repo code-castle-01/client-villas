@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useMemo } from "react";
 import { Select } from "antd";
-import { getCollection } from "../api/client";
+import { useDirectory } from "../contexts/directory";
+import type { DirectoryMember } from "../api/groupDirectory";
 
 interface SelectSiervosProps {
   value?: number;
@@ -18,26 +19,11 @@ type GroupedOptions = Array<{
   options: MemberOption[];
 }>;
 
-type Member = {
-  id: number;
-  nombre: string;
-  genero?: string;
-  roles?: string[];
-  nombramientos?: string[];
-  usuario?:
-    | { id?: number; username?: string; email?: string }
-    | { data?: { id?: number; attributes?: { username?: string; email?: string } } };
+const getLinkedUserLabel = (member: DirectoryMember) => {
+  return member.usuarioUsername || member.usuarioEmail || "";
 };
 
-const getLinkedUserLabel = (member: Member) => {
-  const nestedUsername = (member.usuario as any)?.data?.attributes?.username;
-  const nestedEmail = (member.usuario as any)?.data?.attributes?.email;
-  const username = (member.usuario as any)?.username ?? nestedUsername;
-  const email = (member.usuario as any)?.email ?? nestedEmail;
-  return username || email || "";
-};
-
-const isLeadershipMember = (member: Member) => {
+const isLeadershipMember = (member: DirectoryMember) => {
   const nombramientos = member.nombramientos ?? [];
 
   if (member.genero && member.genero !== "hombre") {
@@ -58,7 +44,7 @@ const isLeadershipMember = (member: Member) => {
   return (member.roles ?? []).includes("siervo");
 };
 
-const getBucket = (member: Member) => {
+const getBucket = (member: DirectoryMember) => {
   const nombramientos = member.nombramientos ?? [];
 
   if (nombramientos.includes("anciano")) {
@@ -68,72 +54,46 @@ const getBucket = (member: Member) => {
   return "siervo_ministerial";
 };
 
+const buildGroupedOptions = (miembros: DirectoryMember[]): GroupedOptions => {
+  const groups: Record<"anciano" | "siervo_ministerial", MemberOption[]> = {
+    anciano: [],
+    siervo_ministerial: [],
+  };
+
+  miembros
+    .filter(isLeadershipMember)
+    .forEach((member) => {
+      const name = member.nombre?.trim();
+      if (!name) return;
+      const linkedUser = getLinkedUserLabel(member);
+      const label = linkedUser ? `${name} · ${linkedUser}` : name;
+
+      groups[getBucket(member)].push({
+        value: member.id,
+        label,
+      });
+    });
+
+  return [
+    { label: "Ancianos", options: groups.anciano },
+    { label: "Siervo Ministerial", options: groups.siervo_ministerial },
+  ]
+    .map((group) => ({
+      ...group,
+      options: [...group.options].sort((a, b) =>
+        a.label.localeCompare(b.label, "es")
+      ),
+    }))
+    .filter((group) => group.options.length > 0);
+};
+
 function SelectSiervos({
   value,
   onChange,
   placeholder = "Selecciona un hermano",
 }: SelectSiervosProps) {
-  const [options, setOptions] = useState<GroupedOptions>([]);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    let mounted = true;
-    const load = async () => {
-      setLoading(true);
-
-      try {
-        const miembros = await getCollection<Member>("miembros", {
-          populate: ["usuario"],
-          "pagination[pageSize]": 1000,
-        });
-
-        const groups: Record<"anciano" | "siervo_ministerial", MemberOption[]> = {
-          anciano: [],
-          siervo_ministerial: [],
-        };
-
-        miembros
-          .filter(isLeadershipMember)
-          .forEach((member) => {
-            const name = member.nombre?.trim();
-            if (!name) return;
-            const linkedUser = getLinkedUserLabel(member);
-            const label = linkedUser ? `${name} · ${linkedUser}` : name;
-
-            groups[getBucket(member)].push({
-              value: member.id,
-              label,
-            });
-          });
-
-        const groupedOptions: GroupedOptions = [
-          { label: "Ancianos", options: groups.anciano },
-          { label: "Siervo Ministerial", options: groups.siervo_ministerial },
-        ]
-          .map((group) => ({
-            ...group,
-            options: [...group.options].sort((a, b) =>
-              a.label.localeCompare(b.label, "es")
-            ),
-          }))
-          .filter((group) => group.options.length > 0);
-
-        if (mounted) {
-          setOptions(groupedOptions);
-        }
-      } finally {
-        if (mounted) {
-          setLoading(false);
-        }
-      }
-    };
-
-    load();
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
+  const { miembros, loading } = useDirectory();
+  const options = useMemo(() => buildGroupedOptions(miembros), [miembros]);
 
   const handleSelectChange = (nextValue?: number) => {
     onChange?.(nextValue);

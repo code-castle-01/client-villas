@@ -46,6 +46,7 @@ type RawMember = {
   genero?: "hombre" | "mujer";
   nombramientos?: unknown;
   categoria?: string;
+  roles?: unknown;
   usuario?: RawUserRelation;
   grupos?: RawGroupRelation;
 };
@@ -68,6 +69,7 @@ export type DirectoryMember = {
   fechaInmersion?: string;
   genero?: "hombre" | "mujer";
   nombramientos: string[];
+  roles: string[];
   usuarioId?: number;
   usuarioEmail?: string;
   usuarioUsername?: string;
@@ -136,6 +138,11 @@ const normalizeNombramientos = (value: unknown, categoria?: string): string[] =>
   return categoria ? [categoria] : [];
 };
 
+const normalizeRoles = (value: unknown): string[] =>
+  Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
+
 const normalizeUser = (user?: RawUserRelation) => ({
   usuarioId:
     (user as { data?: { id?: number } })?.data?.id ??
@@ -161,6 +168,7 @@ const normalizeMember = (member: RawMember): DirectoryMember => ({
   fechaInmersion: member.fechaInmersion,
   genero: member.genero,
   nombramientos: normalizeNombramientos(member.nombramientos, member.categoria),
+  roles: normalizeRoles(member.roles),
   grupos: normalizeLinkedGroups(member.grupos),
   ...normalizeUser(member.usuario),
 });

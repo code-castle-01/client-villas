@@ -40,8 +40,9 @@ import {
   S4PdfDownloadButton,
 } from "../../components/PastoreoPublisherFormsPDF";
 import { api, createEntry, getCollection, updateEntry } from "../../api/client";
-import { fetchGroupDirectory } from "../../api/groupDirectory";
+import type { DirectoryGroup, DirectoryMember } from "../../api/groupDirectory";
 import { ColorModeContext } from "../../contexts/color-mode";
+import { useDirectory } from "../../contexts/directory";
 import useMediaQuery from "../../hooks/useMediaQuery";
 import { useIsAdminApp } from "../../hooks/useIsAdminApp";
 import "./styles.css";
@@ -321,10 +322,11 @@ const getMemberAppointments = (member?: MemberDetail | null) =>
 
 export const MiembrosList: React.FC = () => {
   const { mode } = useContext(ColorModeContext);
-  const [grupos, setGrupos] = useState<Grupo[]>([]);
-  const [miembroDetalles, setMiembroDetalles] = useState<
-    Record<number, MemberDetail>
-  >({});
+  const {
+    grupos: directoryGroups,
+    miembros: directoryMembers,
+    refreshDirectory,
+  } = useDirectory();
   const [loading, setLoading] = useState(false);
   const [busquedaNombre, setBusquedaNombre] = useState<string>("");
   const [grupoSeleccionado, setGrupoSeleccionado] = useState<number | null>(
@@ -358,42 +360,39 @@ export const MiembrosList: React.FC = () => {
   const isSmallScreen = useMediaQuery("(max-width: 768px)");
   const isAdminApp = useIsAdminApp();
   const isReadOnly = !isAdminApp;
-
-  const loadDirectoryData = async () => {
-    const { grupos: directoryGroups, miembros: directoryMembers } =
-      await fetchGroupDirectory();
-
-    const nextGrupos: Grupo[] = directoryGroups.map((group) => ({
-      id: group.id,
-      nombre: group.nombre,
-      superintendenteNombre: group.superintendenteNombre ?? "N/A",
-      auxiliarNombre: group.auxiliarNombre ?? "N/A",
-      miembros: group.miembros.map((member) => ({
-        id: member.id,
-        nombre: member.nombre,
+  const grupos = useMemo<Grupo[]>(
+    () =>
+      directoryGroups.map((group: DirectoryGroup) => ({
+        id: group.id,
+        nombre: group.nombre,
+        superintendenteNombre: group.superintendenteNombre ?? "N/A",
+        auxiliarNombre: group.auxiliarNombre ?? "N/A",
+        miembros: group.miembros.map((member) => ({
+          id: member.id,
+          nombre: member.nombre,
+        })),
       })),
-    }));
-
-    const nextMiembroDetalles = directoryMembers.reduce<
-      Record<number, MemberDetail>
-    >((accumulator, member) => {
-      accumulator[member.id] = {
-        id: member.id,
-        nombre: member.nombre,
-        fechaNacimiento: member.fechaNacimiento,
-        fechaInmersion: member.fechaInmersion,
-        genero: member.genero,
-        nombramientos: member.nombramientos,
-        grupos: member.grupos,
-      };
-      return accumulator;
-    }, {});
-
-    return {
-      grupos: nextGrupos,
-      miembroDetalles: nextMiembroDetalles,
-    };
-  };
+    [directoryGroups],
+  );
+  const miembroDetalles = useMemo<Record<number, MemberDetail>>(
+    () =>
+      directoryMembers.reduce<Record<number, MemberDetail>>(
+        (accumulator, member: DirectoryMember) => {
+          accumulator[member.id] = {
+            id: member.id,
+            nombre: member.nombre,
+            fechaNacimiento: member.fechaNacimiento,
+            fechaInmersion: member.fechaInmersion,
+            genero: member.genero,
+            nombramientos: member.nombramientos,
+            grupos: member.grupos,
+          };
+          return accumulator;
+        },
+        {},
+      ),
+    [directoryMembers],
+  );
 
   const loadVisitRecords = async () => {
     const data = await getCollection<RawVisita>("visitas", {
@@ -417,13 +416,10 @@ export const MiembrosList: React.FC = () => {
   const refreshPageData = async () => {
     setLoading(true);
     try {
-      const [directoryData, visitData] = await Promise.all([
-        loadDirectoryData(),
+      const [, visitData] = await Promise.all([
+        refreshDirectory(),
         loadVisitRecords(),
       ]);
-
-      setGrupos(directoryData.grupos);
-      setMiembroDetalles(directoryData.miembroDetalles);
       setVisitas(visitData.visitas);
       setReportesS4(visitData.reportesS4);
     } catch (error: any) {
@@ -528,13 +524,6 @@ export const MiembrosList: React.FC = () => {
       const fetchedReports = (data?.data?.s4Records ?? [])
         .map((record) => mapS21SummaryRecord(record, member))
         .filter(isS4Record);
-
-      if (fetchedMember) {
-        setMiembroDetalles((current) => ({
-          ...current,
-          [member.id]: fetchedMember,
-        }));
-      }
 
       setS21MemberDetails(fetchedMember);
       setS21Reports(fetchedReports);
