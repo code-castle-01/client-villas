@@ -2293,12 +2293,6 @@ export const MeetingAssignmentUI: React.FC = () => {
               <Form.Item
                 name="assistant"
                 label="Ayudante"
-                rules={[
-                  {
-                    required: interventionNumber !== 3,
-                    message: "Por favor, ingrese el ayudante",
-                  },
-                ]}
               >
                 <SelectMiembrosCongregacion />
               </Form.Item>
