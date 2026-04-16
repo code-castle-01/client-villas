@@ -2586,15 +2586,15 @@ export const MeetingAssignmentUI: React.FC = () => {
                   Entrada de contenido
                 </Typography.Title>
                 <Typography.Text type="secondary">
-                  Importa una semana específica desde wol.jw.org o pega el texto
-                  manualmente.
+                  Pega el enlace directo de la semana o el índice mensual de
+                  wol.jw.org. También puedes pegar el texto manualmente.
                 </Typography.Text>
 
                 <Flex vertical gap={12} className="escuela-textarea">
                   <Input
                     value={sourceUrl}
                     onChange={(event) => setSourceUrl(event.target.value)}
-                    placeholder="https://wol.jw.org/es/wol/d/r4/lp-s/202026087"
+                    placeholder="https://wol.jw.org/es/wol/d/... o https://wol.jw.org/es/wol/library/..."
                     disabled={isReadOnly}
                   />
                   <Flex justify="flex-end">
