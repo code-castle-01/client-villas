@@ -39,12 +39,7 @@ import {
   S4PdfData,
   S4PdfDownloadButton,
 } from "../../components/PastoreoPublisherFormsPDF";
-import {
-  api,
-  createEntry,
-  getCollection,
-  updateEntry,
-} from "../../api/client";
+import { api, createEntry, getCollection, updateEntry } from "../../api/client";
 import { fetchGroupDirectory } from "../../api/groupDirectory";
 import { ColorModeContext } from "../../contexts/color-mode";
 import useMediaQuery from "../../hooks/useMediaQuery";
@@ -176,7 +171,7 @@ const serviceMonthOrder = [
 ] as const;
 
 const hasNestedRelation = (
-  relation?: RawRelation
+  relation?: RawRelation,
 ): relation is { data?: { id?: number; attributes?: { nombre?: string } } } =>
   Boolean(relation && typeof relation === "object" && "data" in relation);
 
@@ -185,7 +180,9 @@ const getRelationId = (relation?: RawRelation) => {
     return relation;
   }
 
-  return hasNestedRelation(relation) ? (relation.data?.id ?? 0) : (relation?.id ?? 0);
+  return hasNestedRelation(relation)
+    ? relation.data?.id ?? 0
+    : relation?.id ?? 0;
 };
 
 const getRelationName = (relation: RawRelation, fallback: string) => {
@@ -203,7 +200,7 @@ const getRelationName = (relation: RawRelation, fallback: string) => {
 const getRelationArrayName = (
   relation:
     | { id: number; attributes?: { nombre?: string } }
-    | { id: number; nombre?: string }
+    | { id: number; nombre?: string },
 ) =>
   "attributes" in relation
     ? relation.attributes?.nombre ?? ""
@@ -234,7 +231,7 @@ const mapVisita = (visita: RawVisita): VisitRecord => ({
 
 const mapS21SummaryRecord = (
   record: S21SummaryRecord,
-  member: MemberSummary
+  member: MemberSummary,
 ): VisitRecord => ({
   id: record.id,
   miembroId: member.id,
@@ -260,10 +257,16 @@ const mapMemberDetail = (member: RawMember): MemberDetail => ({
   fechaInmersion: member.fechaInmersion,
   genero: member.genero,
   nombramientos: Array.isArray(member.nombramientos)
-    ? member.nombramientos.filter((value): value is string => typeof value === "string")
+    ? member.nombramientos.filter(
+        (value): value is string => typeof value === "string",
+      )
     : [],
-  grupos: ((member.grupos as { data?: Array<{ id: number; attributes?: { nombre?: string } }> })
-    ?.data ??
+  grupos: (
+    (
+      member.grupos as {
+        data?: Array<{ id: number; attributes?: { nombre?: string } }>;
+      }
+    )?.data ??
     (member.grupos as Array<{ id: number; nombre?: string }>) ??
     []
   ).map((grupo) => ({
@@ -319,10 +322,14 @@ const getMemberAppointments = (member?: MemberDetail | null) =>
 export const MiembrosList: React.FC = () => {
   const { mode } = useContext(ColorModeContext);
   const [grupos, setGrupos] = useState<Grupo[]>([]);
-  const [miembroDetalles, setMiembroDetalles] = useState<Record<number, MemberDetail>>({});
+  const [miembroDetalles, setMiembroDetalles] = useState<
+    Record<number, MemberDetail>
+  >({});
   const [loading, setLoading] = useState(false);
   const [busquedaNombre, setBusquedaNombre] = useState<string>("");
-  const [grupoSeleccionado, setGrupoSeleccionado] = useState<number | null>(null);
+  const [grupoSeleccionado, setGrupoSeleccionado] = useState<number | null>(
+    null,
+  );
   const [visibleVisitaModal, setVisibleVisitaModal] = useState(false);
   const [visitas, setVisitas] = useState<VisitRecord[]>([]);
   const [reportesS4, setReportesS4] = useState<VisitRecord[]>([]);
@@ -331,17 +338,18 @@ export const MiembrosList: React.FC = () => {
   const [filtroVisita, setFiltroVisita] = useState<
     "todas" | "pendientes" | "realizadas"
   >("todas");
-  const [miembroSeleccionado, setMiembroSeleccionado] = useState<MemberSummary | null>(
-    null
-  );
+  const [miembroSeleccionado, setMiembroSeleccionado] =
+    useState<MemberSummary | null>(null);
   const [visibleS4Modal, setVisibleS4Modal] = useState(false);
   const [visibleS21Modal, setVisibleS21Modal] = useState(false);
   const [s21Loading, setS21Loading] = useState(false);
-  const [s21MemberDetails, setS21MemberDetails] = useState<MemberDetail | null>(null);
+  const [s21MemberDetails, setS21MemberDetails] = useState<MemberDetail | null>(
+    null,
+  );
   const [s21Reports, setS21Reports] = useState<VisitRecord[]>([]);
   const [s4Month, setS4Month] = useState(dayjs().startOf("month"));
   const [serviceYearSelected, setServiceYearSelected] = useState(
-    getCurrentServiceYear()
+    getCurrentServiceYear(),
   );
 
   const [visitaForm] = Form.useForm();
@@ -449,8 +457,8 @@ export const MiembrosList: React.FC = () => {
   const selectedMemberDetails = visibleS21Modal
     ? s21MemberDetails
     : miembroSeleccionado
-      ? miembroDetalles[miembroSeleccionado.id] ?? null
-      : null;
+    ? miembroDetalles[miembroSeleccionado.id] ?? null
+    : null;
 
   const serviceYearOptions = useMemo(() => {
     const values = new Set<number>([getCurrentServiceYear()]);
@@ -479,7 +487,7 @@ export const MiembrosList: React.FC = () => {
         (reporte) =>
           reporte.miembroId === memberId &&
           dayjs(reporte.mesServicio ?? reporte.fecha).format("YYYY-MM") ===
-            targetMonth
+            targetMonth,
       )
       .sort((a, b) => b.id - a.id)[0];
 
@@ -511,7 +519,7 @@ export const MiembrosList: React.FC = () => {
       setS21Loading(true);
 
       const { data } = await api.get<{ data: S21SummaryResponse }>(
-        `/visitas/s21-summary/${member.id}`
+        `/visitas/s21-summary/${member.id}`,
       );
 
       const fetchedMember = data?.data?.member
@@ -581,7 +589,7 @@ export const MiembrosList: React.FC = () => {
         (reporte) =>
           reporte.miembroId === miembroSeleccionado.id &&
           dayjs(reporte.mesServicio ?? reporte.fecha).format("YYYY-MM") ===
-            reportMonth.format("YYYY-MM")
+            reportMonth.format("YYYY-MM"),
       )
       .sort((a, b) => b.id - a.id)[0];
 
@@ -646,7 +654,8 @@ export const MiembrosList: React.FC = () => {
         .filter(
           (item) =>
             item.miembroId === memberId &&
-            dayjs(item.mesServicio ?? item.fecha).format("YYYY-MM") === monthKey
+            dayjs(item.mesServicio ?? item.fecha).format("YYYY-MM") ===
+              monthKey,
         )
         .sort((a, b) => b.id - a.id)[0];
 
@@ -666,34 +675,42 @@ export const MiembrosList: React.FC = () => {
       miembroSeleccionado
         ? buildS21Rows(miembroSeleccionado.id, serviceYearSelected)
         : [],
-    [miembroSeleccionado, reportesS4, s21Reports, serviceYearSelected, visibleS21Modal]
+    [
+      miembroSeleccionado,
+      reportesS4,
+      s21Reports,
+      serviceYearSelected,
+      visibleS21Modal,
+    ],
   );
 
   const s21TotalHours = useMemo(() => {
     const total = s21Rows.reduce(
       (sum, row) => sum + parseHoursToNumber(row.hours),
-      0
+      0,
     );
 
     return total > 0 ? String(total) : "";
   }, [s21Rows]);
 
-  const watchedParticipoMinisterio = Form.useWatch("participoMinisterio", s4Form);
+  const watchedParticipoMinisterio = Form.useWatch(
+    "participoMinisterio",
+    s4Form,
+  );
   const watchedCursosBiblicos = Form.useWatch("cursosBiblicos", s4Form);
   const watchedHoras = Form.useWatch("horas", s4Form);
   const watchedComentarios = Form.useWatch("comentarios", s4Form);
 
-  const s4PdfData: S4PdfData | null =
-    miembroSeleccionado
-      ? {
-          memberName: miembroSeleccionado.nombre,
-          monthLabel: formatMonthLabel(s4Month.format("YYYY-MM-DD")),
-          participated: Boolean(watchedParticipoMinisterio),
-          bibleStudies: watchedCursosBiblicos ?? 0,
-          hours: watchedHoras ?? "",
-          comments: watchedComentarios ?? "",
-        }
-      : null;
+  const s4PdfData: S4PdfData | null = miembroSeleccionado
+    ? {
+        memberName: miembroSeleccionado.nombre,
+        monthLabel: formatMonthLabel(s4Month.format("YYYY-MM-DD")),
+        participated: Boolean(watchedParticipoMinisterio),
+        bibleStudies: watchedCursosBiblicos ?? 0,
+        hours: watchedHoras ?? "",
+        comments: watchedComentarios ?? "",
+      }
+    : null;
 
   const s21PdfData: S21PdfData | null =
     miembroSeleccionado && selectedMemberDetails
@@ -715,7 +732,7 @@ export const MiembrosList: React.FC = () => {
 
   const expandedRowRender = (record: Grupo) => {
     const filteredMiembros = record.miembros.filter((miembro) =>
-      miembro.nombre.toLowerCase().includes(busquedaNombre.toLowerCase())
+      miembro.nombre.toLowerCase().includes(busquedaNombre.toLowerCase()),
     );
 
     const filteredMiembrosPorVisita =
@@ -756,7 +773,9 @@ export const MiembrosList: React.FC = () => {
               <div>
                 <Typography.Text type="secondary">
                   {latestVisitByMember.get(miembro.id)
-                    ? `Última visita: ${latestVisitByMember.get(miembro.id)?.fecha}`
+                    ? `Última visita: ${
+                        latestVisitByMember.get(miembro.id)?.fecha
+                      }`
                     : "Aún no se ha visitado"}
                 </Typography.Text>
               </div>
@@ -836,15 +855,15 @@ export const MiembrosList: React.FC = () => {
 
   const currentS4FileName =
     s4PdfData && miembroSeleccionado
-      ? `s4-${normalizeFileSegment(miembroSeleccionado.nombre)}-${s4Month.format(
-          "YYYY-MM"
-        )}.pdf`
+      ? `s4-${normalizeFileSegment(
+          miembroSeleccionado.nombre,
+        )}-${s4Month.format("YYYY-MM")}.pdf`
       : "s4.pdf";
 
   const currentS21FileName =
     s21PdfData && miembroSeleccionado
       ? `s21-${normalizeFileSegment(
-          miembroSeleccionado.nombre
+          miembroSeleccionado.nombre,
         )}-${formatServiceYearLabel(serviceYearSelected)}.pdf`
       : "s21.pdf";
 
@@ -860,7 +879,7 @@ export const MiembrosList: React.FC = () => {
             Pastoreo
           </Typography.Title>
           <Typography.Text className="grupos-page__subtitle">
-            Gestiona visitas e informes usando la misma fuente de grupos y miembros.
+            Gestiona visitas e informes
           </Typography.Text>
         </div>
         <Button
@@ -966,7 +985,11 @@ export const MiembrosList: React.FC = () => {
         onOk={() => visitaForm.submit()}
         width={isSmallScreen ? "100%" : 520}
       >
-        <Form form={visitaForm} onFinish={handleAgregarVisita} layout="vertical">
+        <Form
+          form={visitaForm}
+          onFinish={handleAgregarVisita}
+          layout="vertical"
+        >
           <Flex gap={12} justify="space-between">
             <Form.Item name="fecha" label="Fecha" rules={[{ required: true }]}>
               <DatePicker />
@@ -1081,7 +1104,9 @@ export const MiembrosList: React.FC = () => {
           }}
         >
           <div className="pastoreo-form-sheet pastoreo-form-sheet--s4">
-            <h2 className="pastoreo-form-sheet__title">Informe de predicación</h2>
+            <h2 className="pastoreo-form-sheet__title">
+              Informe de predicación
+            </h2>
 
             <div className="pastoreo-s4-row">
               <span className="pastoreo-s4-row__label">Nombre:</span>
@@ -1100,8 +1125,8 @@ export const MiembrosList: React.FC = () => {
             <div className="pastoreo-s4-block">
               <div className="pastoreo-s4-block__row">
                 <div className="pastoreo-s4-block__label">
-                  Marque la casilla si participó en alguna faceta de la predicación
-                  durante el mes
+                  Marque la casilla si participó en alguna faceta de la
+                  predicación durante el mes
                 </div>
                 <div className="pastoreo-s4-block__value">
                   <Form.Item
@@ -1120,7 +1145,11 @@ export const MiembrosList: React.FC = () => {
                 </div>
                 <div className="pastoreo-s4-block__value">
                   <Form.Item name="cursosBiblicos" style={{ margin: 0 }}>
-                    <InputNumber min={0} controls={false} style={{ width: "100%" }} />
+                    <InputNumber
+                      min={0}
+                      controls={false}
+                      style={{ width: "100%" }}
+                    />
                   </Form.Item>
                 </div>
               </div>
@@ -1220,149 +1249,164 @@ export const MiembrosList: React.FC = () => {
 
         <Spin spinning={s21Loading}>
           <div className="pastoreo-form-sheet pastoreo-form-sheet--s21">
-          <h2 className="pastoreo-form-sheet__title">
-            Registro de publicador de la congregación
-          </h2>
+            <h2 className="pastoreo-form-sheet__title">
+              Registro de publicador de la congregación
+            </h2>
 
-          <div className="pastoreo-s21-top">
-            <div>
-              <div className="pastoreo-s21-field">
-                <span className="pastoreo-s21-field__label">Nombre:</span>
-                <div className="pastoreo-s21-field__value">
-                  {miembroSeleccionado?.nombre ?? ""}
-                </div>
-              </div>
-              <div className="pastoreo-s21-field">
-                <span className="pastoreo-s21-field__label">
-                  Fecha de nacimiento:
-                </span>
-                <div className="pastoreo-s21-field__value">
-                  {selectedMemberDetails?.fechaNacimiento
-                    ? formatDisplayDate(selectedMemberDetails.fechaNacimiento)
-                    : ""}
-                </div>
-              </div>
-              <div className="pastoreo-s21-field">
-                <span className="pastoreo-s21-field__label">
-                  Fecha de bautismo:
-                </span>
-                <div className="pastoreo-s21-field__value">
-                  {selectedMemberDetails?.fechaInmersion
-                    ? formatDisplayDate(selectedMemberDetails.fechaInmersion)
-                    : ""}
-                </div>
-              </div>
-            </div>
-
-            <div className="pastoreo-s21-options">
-              <div className="pastoreo-s21-option">
-                <span className="pastoreo-checkbox">
-                  {selectedMemberDetails?.genero === "hombre" ? "X" : ""}
-                </span>
-                <span>Hombre</span>
-              </div>
-              <div className="pastoreo-s21-option">
-                <span className="pastoreo-checkbox">
-                  {selectedMemberDetails?.genero === "mujer" ? "X" : ""}
-                </span>
-                <span>Mujer</span>
-              </div>
-              <div className="pastoreo-s21-option">
-                <span className="pastoreo-checkbox" />
-                <span>Otras ovejas</span>
-              </div>
-              <div className="pastoreo-s21-option">
-                <span className="pastoreo-checkbox" />
-                <span>Ungido</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="pastoreo-s21-appointments">
-            {[
-              [
-                "Anciano",
-                getMemberAppointments(selectedMemberDetails).includes("anciano"),
-              ],
-              [
-                "Siervo ministerial",
-                getMemberAppointments(selectedMemberDetails).includes(
-                  "siervo_ministerial"
-                ) ||
-                  getMemberAppointments(selectedMemberDetails).includes("siervo"),
-              ],
-              [
-                "Precursor regular",
-                getMemberAppointments(selectedMemberDetails).includes(
-                  "precursor_regular"
-                ),
-              ],
-              [
-                "Precursor especial",
-                getMemberAppointments(selectedMemberDetails).includes(
-                  "precursor_especial"
-                ),
-              ],
-              [
-                "Misionero que sirve en el campo",
-                getMemberAppointments(selectedMemberDetails).includes("misionero") ||
-                  getMemberAppointments(selectedMemberDetails).includes(
-                    "misionero_campo"
-                  ),
-              ],
-            ].map(([label, checked]) => (
-              <div key={String(label)} className="pastoreo-s21-appointment">
-                <span className="pastoreo-checkbox">{checked ? "X" : ""}</span>
-                <span>{label}</span>
-              </div>
-            ))}
-          </div>
-
-          <Typography.Text type="secondary" style={{ display: "block", marginBottom: 8 }}>
-            Año de servicio: {formatServiceYearLabel(serviceYearSelected)}
-          </Typography.Text>
-
-          <div className="pastoreo-s21-table">
-            <div className="pastoreo-s21-table__head">
-              <div>Año de servicio</div>
-              <div>Participación en el ministerio</div>
-              <div>Cursos bíblicos</div>
-              <div>Precursor auxiliar</div>
+            <div className="pastoreo-s21-top">
               <div>
-                Horas
-                <br />
-                <span style={{ fontWeight: 400 }}>
-                  (Si es precursor o misionero que sirve en el campo)
-                </span>
+                <div className="pastoreo-s21-field">
+                  <span className="pastoreo-s21-field__label">Nombre:</span>
+                  <div className="pastoreo-s21-field__value">
+                    {miembroSeleccionado?.nombre ?? ""}
+                  </div>
+                </div>
+                <div className="pastoreo-s21-field">
+                  <span className="pastoreo-s21-field__label">
+                    Fecha de nacimiento:
+                  </span>
+                  <div className="pastoreo-s21-field__value">
+                    {selectedMemberDetails?.fechaNacimiento
+                      ? formatDisplayDate(selectedMemberDetails.fechaNacimiento)
+                      : ""}
+                  </div>
+                </div>
+                <div className="pastoreo-s21-field">
+                  <span className="pastoreo-s21-field__label">
+                    Fecha de bautismo:
+                  </span>
+                  <div className="pastoreo-s21-field__value">
+                    {selectedMemberDetails?.fechaInmersion
+                      ? formatDisplayDate(selectedMemberDetails.fechaInmersion)
+                      : ""}
+                  </div>
+                </div>
               </div>
-              <div>Notas</div>
+
+              <div className="pastoreo-s21-options">
+                <div className="pastoreo-s21-option">
+                  <span className="pastoreo-checkbox">
+                    {selectedMemberDetails?.genero === "hombre" ? "X" : ""}
+                  </span>
+                  <span>Hombre</span>
+                </div>
+                <div className="pastoreo-s21-option">
+                  <span className="pastoreo-checkbox">
+                    {selectedMemberDetails?.genero === "mujer" ? "X" : ""}
+                  </span>
+                  <span>Mujer</span>
+                </div>
+                <div className="pastoreo-s21-option">
+                  <span className="pastoreo-checkbox" />
+                  <span>Otras ovejas</span>
+                </div>
+                <div className="pastoreo-s21-option">
+                  <span className="pastoreo-checkbox" />
+                  <span>Ungido</span>
+                </div>
+              </div>
             </div>
 
-            {s21Rows.map((row) => (
-              <div key={row.key} className="pastoreo-s21-table__row">
-                <div style={{ justifyContent: "flex-start" }}>{row.label}</div>
-                <div>
+            <div className="pastoreo-s21-appointments">
+              {[
+                [
+                  "Anciano",
+                  getMemberAppointments(selectedMemberDetails).includes(
+                    "anciano",
+                  ),
+                ],
+                [
+                  "Siervo ministerial",
+                  getMemberAppointments(selectedMemberDetails).includes(
+                    "siervo_ministerial",
+                  ) ||
+                    getMemberAppointments(selectedMemberDetails).includes(
+                      "siervo",
+                    ),
+                ],
+                [
+                  "Precursor regular",
+                  getMemberAppointments(selectedMemberDetails).includes(
+                    "precursor_regular",
+                  ),
+                ],
+                [
+                  "Precursor especial",
+                  getMemberAppointments(selectedMemberDetails).includes(
+                    "precursor_especial",
+                  ),
+                ],
+                [
+                  "Misionero que sirve en el campo",
+                  getMemberAppointments(selectedMemberDetails).includes(
+                    "misionero",
+                  ) ||
+                    getMemberAppointments(selectedMemberDetails).includes(
+                      "misionero_campo",
+                    ),
+                ],
+              ].map(([label, checked]) => (
+                <div key={String(label)} className="pastoreo-s21-appointment">
                   <span className="pastoreo-checkbox">
-                    {row.participated ? "X" : ""}
+                    {checked ? "X" : ""}
                   </span>
+                  <span>{label}</span>
                 </div>
-                <div>{row.bibleStudies || ""}</div>
-                <div>
-                  <span className="pastoreo-checkbox">
-                    {row.auxiliaryPioneer ? "X" : ""}
-                  </span>
-                </div>
-                <div>{row.hours}</div>
-                <div style={{ justifyContent: "flex-start" }}>{row.notes}</div>
-              </div>
-            ))}
-
-            <div className="pastoreo-s21-table__total">
-              <div className="pastoreo-s21-table__total-label">Total</div>
-              <div>{s21TotalHours}</div>
-              <div />
+              ))}
             </div>
-          </div>
+
+            <Typography.Text
+              type="secondary"
+              style={{ display: "block", marginBottom: 8 }}
+            >
+              Año de servicio: {formatServiceYearLabel(serviceYearSelected)}
+            </Typography.Text>
+
+            <div className="pastoreo-s21-table">
+              <div className="pastoreo-s21-table__head">
+                <div>Año de servicio</div>
+                <div>Participación en el ministerio</div>
+                <div>Cursos bíblicos</div>
+                <div>Precursor auxiliar</div>
+                <div>
+                  Horas
+                  <br />
+                  <span style={{ fontWeight: 400 }}>
+                    (Si es precursor o misionero que sirve en el campo)
+                  </span>
+                </div>
+                <div>Notas</div>
+              </div>
+
+              {s21Rows.map((row) => (
+                <div key={row.key} className="pastoreo-s21-table__row">
+                  <div style={{ justifyContent: "flex-start" }}>
+                    {row.label}
+                  </div>
+                  <div>
+                    <span className="pastoreo-checkbox">
+                      {row.participated ? "X" : ""}
+                    </span>
+                  </div>
+                  <div>{row.bibleStudies || ""}</div>
+                  <div>
+                    <span className="pastoreo-checkbox">
+                      {row.auxiliaryPioneer ? "X" : ""}
+                    </span>
+                  </div>
+                  <div>{row.hours}</div>
+                  <div style={{ justifyContent: "flex-start" }}>
+                    {row.notes}
+                  </div>
+                </div>
+              ))}
+
+              <div className="pastoreo-s21-table__total">
+                <div className="pastoreo-s21-table__total-label">Total</div>
+                <div>{s21TotalHours}</div>
+                <div />
+              </div>
+            </div>
           </div>
         </Spin>
       </Modal>

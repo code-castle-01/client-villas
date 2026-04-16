@@ -459,7 +459,7 @@ export const GruposMiembrosList: React.FC = () => {
             Arreglo de transporte
           </Typography.Title>
           <Typography.Text className="grupos-page__subtitle">
-            Centraliza pagos por grupo usando el mismo directorio completo de miembros.
+            Centraliza pagos por grupo.
           </Typography.Text>
         </div>
         <Button

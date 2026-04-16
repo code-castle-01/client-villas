@@ -39,6 +39,7 @@ import {
   api,
   createEntry,
   deleteEntry,
+  getAllCollection,
   getCollection,
   getSingle,
   updateEntry,
@@ -353,10 +354,10 @@ export const MeetingAssignmentUI: React.FC = () => {
     let mounted = true;
     const load = async () => {
       const [data, miembrosData] = await Promise.all([
-        getCollection<AssignmentResponse>("escuela-asignacions", {
+        getAllCollection<AssignmentResponse>("escuela-asignacions", {
           "pagination[pageSize]": 1000,
         }),
-        getCollection<any>("miembros", {
+        getAllCollection<any>("miembros", {
           populate: ["grupos"],
           "pagination[pageSize]": 1000,
         }),
@@ -547,7 +548,7 @@ export const MeetingAssignmentUI: React.FC = () => {
           getSingle<VmSettings>("vm-setting", {
             populate: ["docTemplate"],
           }),
-          getCollection<any>("miembros", {
+          getAllCollection<any>("miembros", {
             "pagination[pageSize]": 1000,
           }),
         ]);
