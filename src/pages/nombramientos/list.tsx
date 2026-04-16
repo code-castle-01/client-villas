@@ -12,8 +12,9 @@ import {
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { ReloadOutlined } from "@ant-design/icons";
-import { getCollection } from "../../api/client";
+import { fetchGroupDirectory } from "../../api/groupDirectory";
 import { ColorModeContext } from "../../contexts/color-mode";
+import "../grupos/styles.css";
 import "./styles.css";
 
 type Grupo = {
@@ -88,20 +89,8 @@ export const NombramientosPorGrupo: React.FC = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [gruposData, miembrosData] = await Promise.all([
-        getCollection<{ nombre: string }>("grupos", { "pagination[pageSize]": 1000 }),
-        getCollection<{
-          nombre: string;
-          nombres?: string;
-          apellidos?: string;
-          genero?: "hombre" | "mujer";
-          nombramientos?: string[];
-          categoria?: string;
-          celular?: string;
-          usuario?: { data?: { attributes?: { email?: string } }; email?: string };
-          grupos?: { data?: Array<{ id: number; attributes?: { nombre?: string } }> } | Array<{ id: number; nombre?: string }>;
-        }>("miembros", { populate: ["grupos", "usuario"], "pagination[pageSize]": 1000 }),
-      ]);
+      const { grupos: gruposData, miembros: miembrosData } =
+        await fetchGroupDirectory();
 
       setGrupos(
         gruposData.map((g) => ({
@@ -112,31 +101,16 @@ export const NombramientosPorGrupo: React.FC = () => {
 
       setMiembros(
         miembrosData.map((m) => {
-          const gruposRaw: Array<{ id: number; nombre: string }> =
-            (m.grupos as any)?.data?.map((g: any) => ({
-              id: g.id,
-              nombre: g.attributes?.nombre ?? g.nombre ?? "",
-            })) ??
-            (m.grupos as any)?.map((g: any) => ({
-              id: g.id,
-              nombre: g.nombre ?? "",
-            })) ??
-            [];
-
           return {
             id: m.id,
             nombre: m.nombre,
             nombres: m.nombres,
             apellidos: m.apellidos,
             genero: m.genero,
-            nombramientos: Array.isArray(m.nombramientos)
-              ? m.nombramientos
-              : m.categoria
-                ? [m.categoria]
-                : [],
-            usuarioEmail: (m.usuario as any)?.data?.attributes?.email ?? (m.usuario as any)?.email,
+            nombramientos: m.nombramientos ?? [],
+            usuarioEmail: m.usuarioEmail,
             celular: m.celular,
-            grupos: gruposRaw,
+            grupos: m.grupos,
           };
         })
       );
@@ -216,12 +190,14 @@ export const NombramientosPorGrupo: React.FC = () => {
       dataIndex: "grupoNombre",
       key: "grupoNombre",
       sorter: (a, b) => a.grupoNombre.localeCompare(b.grupoNombre),
+      render: (value) => <span className="grupos-table__name">{value}</span>,
     },
     {
       title: "Miembro",
       dataIndex: "miembroNombre",
       key: "miembroNombre",
       sorter: (a, b) => a.miembroNombre.localeCompare(b.miembroNombre),
+      render: (value) => <span className="grupos-table__name">{value}</span>,
     },
     {
       title: "Género",
@@ -276,21 +252,23 @@ export const NombramientosPorGrupo: React.FC = () => {
 
   return (
     <section
-      className={`nombramientos-page ${
-        mode === "dark" ? "nombramientos-page--dark" : "nombramientos-page--light"
+      className={`grupos-page nombramientos-page ${
+        mode === "dark"
+          ? "grupos-page--dark nombramientos-page--dark"
+          : "grupos-page--light nombramientos-page--light"
       }`}
     >
-      <div className="nombramientos-page__header">
+      <div className="grupos-page__header">
         <div>
-          <Typography.Title level={3} className="nombramientos-page__title">
+          <Typography.Title level={3} className="grupos-page__title">
             Nombramientos por Grupo
           </Typography.Title>
-          <Typography.Text className="nombramientos-page__subtitle">
-            Filtra y analiza miembros según nombramientos y género.
+          <Typography.Text className="grupos-page__subtitle">
+            Filtra y analiza miembros con el mismo directorio centralizado de grupos.
           </Typography.Text>
         </div>
         <Button
-          className="nombramientos-btn nombramientos-btn--ghost"
+          className="grupos-btn grupos-btn--ghost"
           icon={<ReloadOutlined />}
           onClick={fetchData}
           loading={loading}
@@ -299,7 +277,7 @@ export const NombramientosPorGrupo: React.FC = () => {
         </Button>
       </div>
 
-      <Card className="nombramientos-card" style={{ marginBottom: 16 }}>
+      <Card className="grupos-card nombramientos-card" style={{ marginBottom: 16 }}>
         <div className="nombramientos-filters">
           <Select
             allowClear
@@ -337,9 +315,9 @@ export const NombramientosPorGrupo: React.FC = () => {
         </div>
       </Card>
 
-      <Card className="nombramientos-card" bordered={false}>
+      <Card className="grupos-card nombramientos-card" bordered={false}>
         <Table<Row>
-          className="nombramientos-table"
+          className="grupos-table nombramientos-table"
           rowKey="key"
           columns={columns}
           dataSource={filteredRows}

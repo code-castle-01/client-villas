@@ -4,10 +4,10 @@ import {
   EditOutlined,
   EyeFilled,
   FilePdfTwoTone,
+  ReloadOutlined,
   SearchOutlined,
 } from "@ant-design/icons";
 import { PDFDownloadLink } from "@react-pdf/renderer";
-import { List } from "@refinedev/antd";
 import {
   Button,
   Card,
@@ -24,10 +24,11 @@ import {
   Tag,
   Timeline,
   Typography,
+  message,
 } from "antd";
 import { toPng } from "html-to-image";
 import moment from "moment";
-import React, { useEffect, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import {
   createEntry,
   deleteEntry,
@@ -36,9 +37,12 @@ import {
   updateEntry,
   updateSingle,
 } from "../../api/client";
+import { fetchGroupDirectory } from "../../api/groupDirectory";
 import PDFDocument from "../../components/PDFDocument";
+import { ColorModeContext } from "../../contexts/color-mode";
 import { useIsAdminApp } from "../../hooks/useIsAdminApp";
 import useMediaQuery from "../../hooks/useMediaQuery";
+import "../grupos/styles.css";
 
 interface Grupo {
   id: number;
@@ -82,7 +86,9 @@ const parsePago = (p: any): Pago => {
 };
 
 export const GruposMiembrosList: React.FC = () => {
+  const { mode } = useContext(ColorModeContext);
   const [grupos, setGrupos] = useState<Grupo[]>([]);
+  const [loading, setLoading] = useState(false);
   const [visibleRegistrarPago, setVisibleRegistrarPago] = useState(false);
   const [visibleVerDetalles, setVisibleVerDetalles] = useState(false);
   /* Gestión de miembros movida fuera de Transporte; esta escena solo maneja pagos */
@@ -109,90 +115,65 @@ export const GruposMiembrosList: React.FC = () => {
   const isAdminApp = useIsAdminApp();
   const isReadOnly = !isAdminApp;
 
-  useEffect(() => {
-    let mounted = true;
+  const fetchPagos = async () => {
+    const pagosData = await getCollection<{
+      miembro?: { data: { id: number; attributes: { nombre: string } } };
+      grupo?: { data: { id: number } };
+      monto: number;
+      fecha: string;
+    }>("pagos", {
+      populate: ["miembro", "grupo"],
+      "pagination[pageSize]": 1000,
+    });
+    return pagosData.map(parsePago);
+  };
 
-    const fetchPagos = async () => {
-      const pagosData = await getCollection<{
-        miembro?: { data: { id: number; attributes: { nombre: string } } };
-        grupo?: { data: { id: number } };
-        monto: number;
-        fecha: string;
-      }>("pagos", {
-        populate: ["miembro", "grupo"],
-        "pagination[pageSize]": 1000,
-      });
-      return pagosData.map(parsePago);
-    };
+  const loadDirectoryGroups = async (): Promise<Grupo[]> => {
+    const { grupos: directoryGroups } = await fetchGroupDirectory();
 
-    const buildGruposFromMiembros = (
-      gruposData: Array<{ id: number; nombre: string }>,
-      miembrosData: any[],
-    ) => {
-      return gruposData.map((grupo) => ({
-        id: grupo.id,
-        nombre: grupo.nombre,
-        miembros:
-          miembrosData
-            .filter((m) => {
-              const gruposRaw = (m.grupos as any)?.data ?? m.grupos ?? [];
-              const grupoIds = gruposRaw.map((g: any) => g.id ?? g);
-              return grupoIds.includes(grupo.id);
-            })
-            .map((m) => ({ id: m.id, nombre: m.nombre })) ?? [],
-      }));
-    };
-
-    const load = async () => {
-      const [gruposData, miembrosData, pagosMapped, config] = await Promise.all(
-        [
-          getCollection<{ nombre: string }>("grupos", {
-            "pagination[pageSize]": 1000,
-          }),
-          getCollection<any>("miembros", {
-            populate: ["grupos"],
-            "pagination[pageSize]": 1000,
-          }),
-          fetchPagos(),
-          getSingle<{ totalAPagar: number }>("transporte-config"),
-        ],
-      );
-
-      if (!mounted) return;
-      const mappedGrupos = buildGruposFromMiembros(gruposData, miembrosData);
-      setGrupos(mappedGrupos);
-      setPagos(pagosMapped);
-      if (config?.totalAPagar) setTotalAPagar(config.totalAPagar);
-    };
-
-    load();
-    return () => {
-      mounted = false;
-    };
-  }, []);
+    return directoryGroups.map((group) => ({
+      id: group.id,
+      nombre: group.nombre,
+      miembros: group.miembros.map((member) => ({
+        id: member.id,
+        nombre: member.nombre,
+      })),
+    }));
+  };
 
   const refreshGroups = async () => {
-    const gruposData = await getCollection<{ nombre: string }>("grupos", {
-      "pagination[pageSize]": 1000,
-    });
-    const miembrosData = await getCollection<any>("miembros", {
-      populate: ["grupos"],
-      "pagination[pageSize]": 1000,
-    });
-    const mappedGrupos = gruposData.map((grupo) => ({
-      id: grupo.id,
-      nombre: grupo.nombre,
-      miembros:
-        miembrosData
-          .filter((m) => {
-            const gruposRaw = (m.grupos as any)?.data ?? m.grupos ?? [];
-            const grupoIds = gruposRaw.map((g: any) => g.id ?? g);
-            return grupoIds.includes(grupo.id);
-          })
-          .map((m) => ({ id: m.id, nombre: m.nombre })) ?? [],
-    }));
-    setGrupos(mappedGrupos);
+    const nextGroups = await loadDirectoryGroups();
+    setGrupos(nextGroups);
   };
+
+  const refreshPageData = async () => {
+    setLoading(true);
+    try {
+      const [nextGroups, pagosMapped, config] = await Promise.all([
+        loadDirectoryGroups(),
+        fetchPagos(),
+        getSingle<{ totalAPagar: number }>("transporte-config"),
+      ]);
+
+      setGrupos(nextGroups);
+      setPagos(pagosMapped);
+      if (config?.totalAPagar) {
+        setTotalAPagar(config.totalAPagar);
+      }
+    } catch (error: any) {
+      const detail =
+        error?.response?.data?.error?.message ||
+        error?.message ||
+        "No se pudo cargar la información de transporte.";
+      message.error(detail);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    refreshPageData();
+  }, []);
 
   const handleTotalChange = async (value: number | null) => {
     if (isReadOnly) {
@@ -467,110 +448,123 @@ export const GruposMiembrosList: React.FC = () => {
     : grupos;
 
   return (
-    <List
-      title={
-        <Typography.Title
-          level={4}
-          style={{
-            width: "100%",
-            textAlign: "center",
-            marginTop: 24,
-            wordBreak: "break-word",
-          }}
-        >
-          Arreglo de transporte
-        </Typography.Title>
-      }
+    <section
+      className={`grupos-page ${
+        mode === "dark" ? "grupos-page--dark" : "grupos-page--light"
+      }`}
     >
-      <Table<Grupo>
-        title={() => (
-          <Flex
-            justify="space-between"
-            align="baseline"
-            style={{ marginBottom: 16 }}
-            wrap={isSmallScreen ? "wrap" : "nowrap"}
-          >
-            <Typography.Title
-              level={5}
-              style={{
-                width: isSmallScreen ? "100%" : "auto",
-                marginBottom: isSmallScreen ? 8 : 0,
-              }}
-            >
-              Filtrar por Grupo
-            </Typography.Title>
-            <Select
-              style={{ width: isSmallScreen ? "100%" : 200 }}
-              placeholder="Seleccionar Grupo"
-              onChange={setGrupoSeleccionado}
-              allowClear
-            >
-              {grupos.map((grupo) => (
-                <Select.Option key={grupo.id} value={grupo.id}>
-                  {grupo.nombre}
-                </Select.Option>
-              ))}
-            </Select>
+      <div className="grupos-page__header">
+        <div>
+          <Typography.Title level={3} className="grupos-page__title">
+            Arreglo de transporte
+          </Typography.Title>
+          <Typography.Text className="grupos-page__subtitle">
+            Centraliza pagos por grupo usando el mismo directorio completo de miembros.
+          </Typography.Text>
+        </div>
+        <Button
+          className="grupos-btn grupos-btn--ghost"
+          icon={<ReloadOutlined />}
+          onClick={refreshPageData}
+          loading={loading}
+        >
+          Recargar
+        </Button>
+      </div>
+
+      <Card className="grupos-card" bordered={false}>
+        <Table<Grupo>
+          className="grupos-table"
+          title={() => (
             <Flex
               justify="space-between"
-              align="center"
-              style={{ marginBottom: 16 }}
-              wrap={isSmallScreen ? "wrap" : "nowrap"}
+              align="baseline"
+              style={{ padding: "20px 24px 0", gap: 16 }}
+              wrap="wrap"
             >
-              <Typography.Title
-                level={4}
-                style={{
-                  width: isSmallScreen ? "100%" : "auto",
-                  marginBottom: isSmallScreen ? 8 : 0,
-                }}
-              >
-                Precio del pasaje
-              </Typography.Title>
-              {editingTotal ? (
-                <InputNumber
-                  defaultValue={totalAPagar}
-                  onPressEnter={(e) =>
-                    handleTotalChange(
-                      Number((e.target as HTMLInputElement).value),
-                    )
-                  }
-                  onBlur={(e) => handleTotalChange(Number(e.target.value))}
-                  style={{ width: isSmallScreen ? "100%" : "auto" }}
-                />
-              ) : (
-                <Tag
-                  color="green"
-                  style={{
-                    fontSize: 24,
-                    width: isSmallScreen ? "100%" : "auto",
-                    textAlign: isSmallScreen ? "center" : "left",
-                    marginLeft: 12,
-                  }}
+              <Flex gap={12} wrap="wrap" align="center">
+                <Typography.Title level={5} style={{ margin: 0 }}>
+                  Filtrar por Grupo
+                </Typography.Title>
+                <Select
+                  style={{ width: isSmallScreen ? "100%" : 220 }}
+                  placeholder="Seleccionar Grupo"
+                  onChange={setGrupoSeleccionado}
+                  allowClear
                 >
-                  ${totalAPagar}{" "}
-                  {isAdminApp && (
-                    <EditOutlined
-                      onClick={() => setEditingTotal(true)}
-                      style={{ cursor: "pointer" }}
-                    />
-                  )}
-                </Tag>
-              )}
+                  {grupos.map((grupo) => (
+                    <Select.Option key={grupo.id} value={grupo.id}>
+                      {grupo.nombre}
+                    </Select.Option>
+                  ))}
+                </Select>
+              </Flex>
+              <Flex gap={12} wrap="wrap" align="center">
+                <Typography.Title level={5} style={{ margin: 0 }}>
+                  Precio del pasaje
+                </Typography.Title>
+                {editingTotal ? (
+                  <InputNumber
+                    defaultValue={totalAPagar}
+                    onPressEnter={(e) =>
+                      handleTotalChange(
+                        Number((e.target as HTMLInputElement).value),
+                      )
+                    }
+                    onBlur={(e) => handleTotalChange(Number(e.target.value))}
+                    style={{ width: isSmallScreen ? "100%" : 160 }}
+                  />
+                ) : (
+                  <Tag
+                    color="green"
+                    style={{
+                      fontSize: 20,
+                      textAlign: "center",
+                      marginInlineStart: 0,
+                      paddingInline: 14,
+                    }}
+                  >
+                    ${totalAPagar}{" "}
+                    {isAdminApp ? (
+                      <EditOutlined
+                        onClick={() => setEditingTotal(true)}
+                        style={{ cursor: "pointer" }}
+                      />
+                    ) : null}
+                  </Tag>
+                )}
+              </Flex>
             </Flex>
-            {/* El manejo de miembros no debe realizarse desde Transporte; solo pagos */}
-          </Flex>
-        )}
-        dataSource={filteredGrupos}
-        rowKey="nombre"
-        expandable={{
-          expandedRowRender,
-          rowExpandable: (record) => record.miembros.length > 0,
-        }}
-        pagination={false}
-        scroll={{ x: true }}
-      >
-        <Table.Column<Grupo> dataIndex="nombre" title="GRUPOS" width={100} />
-      </Table>
+          )}
+          dataSource={filteredGrupos}
+          rowKey="id"
+          loading={loading}
+          expandable={{
+            expandedRowRender,
+            rowExpandable: (record) => record.miembros.length > 0,
+          }}
+          pagination={false}
+          scroll={{ x: true }}
+        >
+          <Table.Column<Grupo>
+            dataIndex="nombre"
+            title="Nombre"
+            render={(value: string) => (
+              <span className="grupos-table__name">{value}</span>
+            )}
+          />
+          <Table.Column<Grupo>
+            title="Miembros"
+            key="miembros"
+            render={(_, record) => (
+              <span className="grupos-table__count">
+                {record.miembros.length} miembro
+                {record.miembros.length !== 1 ? "s" : ""}
+              </span>
+            )}
+          />
+        </Table>
+      </Card>
 
       <Modal
         title={`Registrar Pago para ${miembroSeleccionado?.nombre ?? ""}`}
@@ -710,6 +704,6 @@ export const GruposMiembrosList: React.FC = () => {
       </Modal>
 
       {/* Modales de gestión de miembros removidos en Transporte */}
-    </List>
+    </section>
   );
 };

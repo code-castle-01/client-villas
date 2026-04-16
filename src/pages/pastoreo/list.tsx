@@ -4,11 +4,12 @@ import {
   EyeOutlined,
   FileTextOutlined,
   IdcardOutlined,
+  ReloadOutlined,
   SearchOutlined,
 } from "@ant-design/icons";
-import { List } from "@refinedev/antd";
 import {
   Button,
+  Card,
   Checkbox,
   DatePicker,
   Flex,
@@ -29,7 +30,7 @@ import {
 } from "antd";
 import dayjs, { Dayjs } from "dayjs";
 import "dayjs/locale/es";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useContext, useEffect, useMemo, useState } from "react";
 import SelectSiervos from "../../components/select-siervos";
 import {
   S21MonthRow,
@@ -44,9 +45,12 @@ import {
   getCollection,
   updateEntry,
 } from "../../api/client";
+import { fetchGroupDirectory } from "../../api/groupDirectory";
+import { ColorModeContext } from "../../contexts/color-mode";
 import useMediaQuery from "../../hooks/useMediaQuery";
 import { useIsAdminApp } from "../../hooks/useIsAdminApp";
 import "./styles.css";
+import "../grupos/styles.css";
 
 dayjs.locale("es");
 
@@ -81,8 +85,6 @@ interface Grupo {
   superintendenteNombre?: string;
   auxiliarNombre?: string;
 }
-
-type GrupoBase = Omit<Grupo, "miembros">;
 
 type RawRelation =
   | number
@@ -315,8 +317,10 @@ const getMemberAppointments = (member?: MemberDetail | null) =>
   member?.nombramientos ?? [];
 
 export const MiembrosList: React.FC = () => {
+  const { mode } = useContext(ColorModeContext);
   const [grupos, setGrupos] = useState<Grupo[]>([]);
   const [miembroDetalles, setMiembroDetalles] = useState<Record<number, MemberDetail>>({});
+  const [loading, setLoading] = useState(false);
   const [busquedaNombre, setBusquedaNombre] = useState<string>("");
   const [grupoSeleccionado, setGrupoSeleccionado] = useState<number | null>(null);
   const [visibleVisitaModal, setVisibleVisitaModal] = useState(false);
@@ -347,101 +351,86 @@ export const MiembrosList: React.FC = () => {
   const isAdminApp = useIsAdminApp();
   const isReadOnly = !isAdminApp;
 
-  const loadGrupos = async () => {
-    const data = await getCollection<{
-      nombre: string;
-      superintendente?: RawRelation;
-      auxiliar?: RawRelation;
-    }>("grupos", {
-      populate: ["superintendente", "auxiliar"],
-      "pagination[pageSize]": 1000,
-    });
+  const loadDirectoryData = async () => {
+    const { grupos: directoryGroups, miembros: directoryMembers } =
+      await fetchGroupDirectory();
 
-    return data.map((grupo) => ({
-      id: grupo.id,
-      nombre: grupo.nombre,
-      superintendenteNombre: getRelationName(grupo.superintendente, "N/A"),
-      auxiliarNombre: getRelationName(grupo.auxiliar, "N/A"),
+    const nextGrupos: Grupo[] = directoryGroups.map((group) => ({
+      id: group.id,
+      nombre: group.nombre,
+      superintendenteNombre: group.superintendenteNombre ?? "N/A",
+      auxiliarNombre: group.auxiliarNombre ?? "N/A",
+      miembros: group.miembros.map((member) => ({
+        id: member.id,
+        nombre: member.nombre,
+      })),
     }));
+
+    const nextMiembroDetalles = directoryMembers.reduce<
+      Record<number, MemberDetail>
+    >((accumulator, member) => {
+      accumulator[member.id] = {
+        id: member.id,
+        nombre: member.nombre,
+        fechaNacimiento: member.fechaNacimiento,
+        fechaInmersion: member.fechaInmersion,
+        genero: member.genero,
+        nombramientos: member.nombramientos,
+        grupos: member.grupos,
+      };
+      return accumulator;
+    }, {});
+
+    return {
+      grupos: nextGrupos,
+      miembroDetalles: nextMiembroDetalles,
+    };
   };
 
-  const buildGroupsFromMembers = (
-    baseGroups: GrupoBase[],
-    memberMap: Record<number, MemberDetail>,
-  ): Grupo[] => {
-    const members = Object.values(memberMap);
-
-    return baseGroups.map((group) => ({
-      ...group,
-      miembros: members
-        .filter((member) => member.grupos.some((linkedGroup) => linkedGroup.id === group.id))
-        .map((member) => ({
-          id: member.id,
-          nombre: member.nombre,
-        })),
-    }));
-  };
-
-  const loadMiembroDetalles = async () => {
-    const data = await getCollection<RawMember>("miembros", {
-      populate: "grupos",
-      "pagination[pageSize]": 1000,
-    });
-
-    const nextMap: Record<number, MemberDetail> = {};
-    data.forEach((member) => {
-      nextMap[member.id] = mapMemberDetail(member);
-    });
-    return nextMap;
-  };
-
-  const refreshRegistros = async () => {
+  const loadVisitRecords = async () => {
     const data = await getCollection<RawVisita>("visitas", {
       populate: ["miembro", "acompanante"],
       "pagination[pageSize]": 1000,
     });
     const mapped = data.map(mapVisita);
-    setVisitas(mapped.filter((item) => !isS4Record(item)));
-    setReportesS4(mapped.filter((item) => isS4Record(item)));
+
+    return {
+      visitas: mapped.filter((item) => !isS4Record(item)),
+      reportesS4: mapped.filter((item) => isS4Record(item)),
+    };
+  };
+
+  const refreshRegistros = async () => {
+    const data = await loadVisitRecords();
+    setVisitas(data.visitas);
+    setReportesS4(data.reportesS4);
+  };
+
+  const refreshPageData = async () => {
+    setLoading(true);
+    try {
+      const [directoryData, visitData] = await Promise.all([
+        loadDirectoryData(),
+        loadVisitRecords(),
+      ]);
+
+      setGrupos(directoryData.grupos);
+      setMiembroDetalles(directoryData.miembroDetalles);
+      setVisitas(visitData.visitas);
+      setReportesS4(visitData.reportesS4);
+    } catch (error: any) {
+      const detail =
+        error?.response?.data?.error?.message ||
+        error?.message ||
+        "No se pudo cargar la información de pastoreo.";
+      message.error(detail);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
-    let mounted = true;
-    const load = async () => {
-      const [gruposData, miembroData] = await Promise.all([
-        loadGrupos(),
-        loadMiembroDetalles(),
-      ]);
-
-      if (!mounted) return;
-      setGrupos(buildGroupsFromMembers(gruposData, miembroData));
-      setMiembroDetalles(miembroData);
-    };
-
-    load();
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    let mounted = true;
-    const load = async () => {
-      const data = await getCollection<RawVisita>("visitas", {
-        populate: ["miembro", "acompanante"],
-        "pagination[pageSize]": 1000,
-      });
-
-      if (!mounted) return;
-      const mapped = data.map(mapVisita);
-      setVisitas(mapped.filter((item) => !isS4Record(item)));
-      setReportesS4(mapped.filter((item) => isS4Record(item)));
-    };
-
-    load();
-    return () => {
-      mounted = false;
-    };
+    refreshPageData();
   }, []);
 
   const latestVisitByMember = useMemo(() => {
@@ -860,31 +849,46 @@ export const MiembrosList: React.FC = () => {
       : "s21.pdf";
 
   return (
-    <section style={{ padding: "16px" }}>
-      <List
-        title={
-          <Typography.Title
-            level={4}
-            style={{ textAlign: "center", marginTop: 24 }}
-          >
+    <section
+      className={`grupos-page ${
+        mode === "dark" ? "grupos-page--dark" : "grupos-page--light"
+      }`}
+    >
+      <div className="grupos-page__header">
+        <div>
+          <Typography.Title level={3} className="grupos-page__title">
             Pastoreo
           </Typography.Title>
-        }
-      >
+          <Typography.Text className="grupos-page__subtitle">
+            Gestiona visitas e informes usando la misma fuente de grupos y miembros.
+          </Typography.Text>
+        </div>
+        <Button
+          className="grupos-btn grupos-btn--ghost"
+          icon={<ReloadOutlined />}
+          onClick={refreshPageData}
+          loading={loading}
+        >
+          Recargar
+        </Button>
+      </div>
+
+      <Card className="grupos-card" bordered={false}>
         <Table<Grupo>
+          className="grupos-table"
           title={() => (
             <Flex
               wrap="wrap"
               justify="space-between"
               align="center"
-              style={{ marginBottom: 16, gap: 8 }}
+              style={{ padding: "20px 24px 0", gap: 8 }}
             >
               <Typography.Title level={5} style={{ margin: 0 }}>
                 Filtrar por Grupo
               </Typography.Title>
               <Select
                 style={{
-                  width: isSmallScreen ? "100%" : 200,
+                  width: isSmallScreen ? "100%" : 220,
                   marginBottom: isSmallScreen ? 8 : 0,
                 }}
                 placeholder="Seleccionar Grupo"
@@ -901,6 +905,7 @@ export const MiembrosList: React.FC = () => {
           )}
           dataSource={filteredGrupos}
           rowKey="id"
+          loading={loading}
           expandable={{
             expandedRowRender,
             rowExpandable: (record) => record.miembros.length > 0,
@@ -912,17 +917,17 @@ export const MiembrosList: React.FC = () => {
             title="Nombre"
             dataIndex="nombre"
             render={(value: string) => (
-              <Typography.Text strong>{value}</Typography.Text>
+              <span className="grupos-table__name">{value}</span>
             )}
           />
           <Table.Column<Grupo>
             title="Miembros"
             key="miembros"
             render={(_, record) => (
-              <Typography.Text type="secondary">
+              <span className="grupos-table__count">
                 {record.miembros.length} miembro
                 {record.miembros.length !== 1 ? "s" : ""}
-              </Typography.Text>
+              </span>
             )}
           />
           <Table.Column<Grupo>
@@ -948,7 +953,7 @@ export const MiembrosList: React.FC = () => {
             }
           />
         </Table>
-      </List>
+      </Card>
 
       <Modal
         title={`Registrar Visita a ${miembroSeleccionado?.nombre ?? ""}`}

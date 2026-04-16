@@ -56,6 +56,35 @@ export const getCollection = async <T>(
   return data;
 };
 
+export const getAllCollection = async <T>(
+  path: string,
+  params?: Record<string, unknown>
+): Promise<Array<T & { id: number }>> => {
+  const allData: Array<T & { id: number }> = [];
+  let page = 1;
+  let pageCount = 1;
+
+  do {
+    const { data, pagination } = await getCollectionPage<T>(path, {
+      ...params,
+      "pagination[page]": page,
+      "pagination[pageSize]":
+        (params?.["pagination[pageSize]"] as number | undefined) ?? 100,
+    });
+
+    allData.push(...data);
+
+    if (!pagination) {
+      break;
+    }
+
+    pageCount = pagination.pageCount ?? page;
+    page += 1;
+  } while (page <= pageCount);
+
+  return allData;
+};
+
 export const getCollectionPage = async <T>(
   path: string,
   params?: Record<string, unknown>
