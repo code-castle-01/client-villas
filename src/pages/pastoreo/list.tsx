@@ -34,6 +34,7 @@ import React, { useContext, useEffect, useMemo, useState } from "react";
 import SelectSiervos from "../../components/select-siervos";
 import {
   S21MonthRow,
+  S21BatchDocument,
   S21PdfData,
   S21PdfDownloadButton,
   S4PdfData,
@@ -146,6 +147,15 @@ type S21SummaryRecord = {
 type S21SummaryResponse = {
   member: RawMember | null;
   s4Records: S21SummaryRecord[];
+};
+
+type S21GroupSummaryResponse = {
+  group: {
+    id: number;
+    documentId?: string;
+    nombre: string;
+  };
+  members: S21SummaryResponse[];
 };
 
 type S4FormValues = {
@@ -320,6 +330,18 @@ const normalizeFileSegment = (value: string) =>
 const getMemberAppointments = (member?: MemberDetail | null) =>
   member?.nombramientos ?? [];
 
+const capitalizeLabel = (value: string) =>
+  value ? value.charAt(0).toUpperCase() + value.slice(1) : value;
+
+const downloadBlob = (filename: string, blob: Blob) => {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
+};
+
 export const MiembrosList: React.FC = () => {
   const { mode } = useContext(ColorModeContext);
   const {
@@ -352,6 +374,12 @@ export const MiembrosList: React.FC = () => {
   const [s4Month, setS4Month] = useState(dayjs().startOf("month"));
   const [serviceYearSelected, setServiceYearSelected] = useState(
     getCurrentServiceYear(),
+  );
+  const [batchServiceYearSelected, setBatchServiceYearSelected] = useState(
+    getCurrentServiceYear(),
+  );
+  const [downloadingGroupId, setDownloadingGroupId] = useState<number | null>(
+    null,
   );
 
   const [visitaForm] = Form.useForm();
@@ -450,6 +478,31 @@ export const MiembrosList: React.FC = () => {
     return latestMap;
   }, [visitas]);
 
+  const currentMonthKey = dayjs().startOf("month").format("YYYY-MM");
+  const currentMonthLabel = capitalizeLabel(
+    dayjs().locale("es").format("MMMM"),
+  );
+
+  const currentMonthReportByMember = useMemo(() => {
+    const monthReportMap = new Map<number, VisitRecord>();
+
+    reportesS4.forEach((reporte) => {
+      const reportMonth = dayjs(reporte.mesServicio ?? reporte.fecha).format(
+        "YYYY-MM",
+      );
+      if (reportMonth !== currentMonthKey) {
+        return;
+      }
+
+      const current = monthReportMap.get(reporte.miembroId);
+      if (!current || reporte.id > current.id) {
+        monthReportMap.set(reporte.miembroId, reporte);
+      }
+    });
+
+    return monthReportMap;
+  }, [currentMonthKey, reportesS4]);
+
   const selectedMemberDetails = visibleS21Modal
     ? s21MemberDetails
     : miembroSeleccionado
@@ -475,6 +528,24 @@ export const MiembrosList: React.FC = () => {
         value,
       }));
   }, [reportesS4, s21Reports, visibleS21Modal]);
+
+  const batchServiceYearOptions = useMemo(() => {
+    const values = new Set<number>([getCurrentServiceYear()]);
+
+    reportesS4.forEach((reporte) => {
+      const monthRef = dayjs(reporte.mesServicio ?? reporte.fecha);
+      if (monthRef.isValid()) {
+        values.add(getCurrentServiceYear(monthRef));
+      }
+    });
+
+    return Array.from(values)
+      .sort((a, b) => b - a)
+      .map((value) => ({
+        label: formatServiceYearLabel(value),
+        value,
+      }));
+  }, [reportesS4]);
 
   const hydrateS4Form = (memberId: number, monthValue: Dayjs) => {
     const targetMonth = monthValue.startOf("month").format("YYYY-MM");
@@ -634,11 +705,14 @@ export const MiembrosList: React.FC = () => {
     setVisibleHistorialModal(true);
   };
 
-  const buildS21Rows = (memberId: number, serviceYear: number): S21MonthRow[] =>
+  const buildS21Rows = (
+    memberId: number,
+    serviceYear: number,
+    sourceReports: VisitRecord[],
+  ): S21MonthRow[] =>
     serviceMonthOrder.map((label, index) => {
       const monthDate = getServiceYearMonthDate(serviceYear, index);
       const monthKey = monthDate.format("YYYY-MM");
-      const sourceReports = visibleS21Modal ? s21Reports : reportesS4;
       const report = sourceReports
         .filter(
           (item) =>
@@ -662,7 +736,11 @@ export const MiembrosList: React.FC = () => {
   const s21Rows = useMemo(
     () =>
       miembroSeleccionado
-        ? buildS21Rows(miembroSeleccionado.id, serviceYearSelected)
+        ? buildS21Rows(
+            miembroSeleccionado.id,
+            serviceYearSelected,
+            visibleS21Modal ? s21Reports : reportesS4,
+          )
         : [],
     [
       miembroSeleccionado,
@@ -681,6 +759,34 @@ export const MiembrosList: React.FC = () => {
 
     return total > 0 ? String(total) : "";
   }, [s21Rows]);
+
+  const buildS21PdfDataForMember = (
+    member: MemberSummary,
+    details: MemberDetail,
+    serviceYear: number,
+    sourceReports: VisitRecord[],
+  ): S21PdfData => {
+    const rows = buildS21Rows(member.id, serviceYear, sourceReports);
+    const totalHours = rows.reduce(
+      (sum, row) => sum + parseHoursToNumber(row.hours),
+      0,
+    );
+
+    return {
+      memberName: member.nombre,
+      birthDate: details.fechaNacimiento
+        ? formatDisplayDate(details.fechaNacimiento)
+        : "",
+      baptismDate: details.fechaInmersion
+        ? formatDisplayDate(details.fechaInmersion)
+        : "",
+      gender: details.genero ?? "",
+      appointments: getMemberAppointments(details),
+      serviceYearLabel: formatServiceYearLabel(serviceYear),
+      rows,
+      totalHours: totalHours > 0 ? String(totalHours) : "",
+    };
+  };
 
   const watchedParticipoMinisterio = Form.useWatch(
     "participoMinisterio",
@@ -703,21 +809,73 @@ export const MiembrosList: React.FC = () => {
 
   const s21PdfData: S21PdfData | null =
     miembroSeleccionado && selectedMemberDetails
-      ? {
-          memberName: miembroSeleccionado.nombre,
-          birthDate: selectedMemberDetails.fechaNacimiento
-            ? formatDisplayDate(selectedMemberDetails.fechaNacimiento)
-            : "",
-          baptismDate: selectedMemberDetails.fechaInmersion
-            ? formatDisplayDate(selectedMemberDetails.fechaInmersion)
-            : "",
-          gender: selectedMemberDetails.genero ?? "",
-          appointments: getMemberAppointments(selectedMemberDetails),
-          serviceYearLabel: formatServiceYearLabel(serviceYearSelected),
-          rows: s21Rows,
-          totalHours: s21TotalHours,
-        }
+      ? buildS21PdfDataForMember(
+          miembroSeleccionado,
+          selectedMemberDetails,
+          serviceYearSelected,
+          visibleS21Modal ? s21Reports : reportesS4,
+        )
       : null;
+
+  const handleDownloadGroupS21 = async (group: Grupo) => {
+    setDownloadingGroupId(group.id);
+
+    try {
+      const [{ pdf }, response] = await Promise.all([
+        import("@react-pdf/renderer"),
+        api.get<{ data: S21GroupSummaryResponse }>(
+          `/visitas/s21-summary/group/${group.id}`,
+        ),
+      ]);
+
+      const batchItems = (response.data?.data?.members ?? [])
+        .map((entry) => {
+          if (!entry.member?.id) {
+            return null;
+          }
+
+          const memberSummary: MemberSummary = {
+            id: entry.member.id,
+            nombre: entry.member.nombre,
+          };
+          const details = mapMemberDetail(entry.member);
+          const reports = (entry.s4Records ?? [])
+            .map((record) => mapS21SummaryRecord(record, memberSummary))
+            .filter(isS4Record);
+
+          return buildS21PdfDataForMember(
+            memberSummary,
+            details,
+            batchServiceYearSelected,
+            reports,
+          );
+        })
+        .filter((item): item is S21PdfData => Boolean(item));
+
+      if (!batchItems.length) {
+        message.warning("Este grupo no tiene miembros para generar el lote S-21.");
+        return;
+      }
+
+      const batchFileName = `s21-${normalizeFileSegment(
+        group.nombre,
+      )}-${formatServiceYearLabel(batchServiceYearSelected)}.pdf`;
+
+      const blob = await pdf(
+        <S21BatchDocument items={batchItems} />,
+      ).toBlob();
+
+      downloadBlob(batchFileName, blob);
+    } catch (error: any) {
+      const detail =
+        error?.response?.data?.error?.message ||
+        error?.message ||
+        "No se pudo descargar el lote S-21.";
+      message.error(detail);
+    } finally {
+      setDownloadingGroupId(null);
+    }
+  };
 
   const expandedRowRender = (record: Grupo) => {
     const filteredMiembros = record.miembros.filter((miembro) =>
@@ -746,94 +904,108 @@ export const MiembrosList: React.FC = () => {
             <Radio.Button value="realizadas">Realizadas</Radio.Button>
           </Radio.Group>
         </Flex>
-        {filteredMiembrosPorVisita.map((miembro, index) => (
-          <Flex
-            key={miembro.id}
-            wrap="wrap"
-            justify="space-between"
-            align="center"
-            style={{ marginBottom: 16, gap: 12 }}
-          >
-            <div>
-              <Typography.Text style={{ fontSize: 16, marginBottom: 4 }}>
-                <Typography.Text code>{index + 1}</Typography.Text>{" "}
-                {miembro.nombre}
-              </Typography.Text>
+        {filteredMiembrosPorVisita.map((miembro, index) => {
+          const monthlyReport = currentMonthReportByMember.get(miembro.id);
+
+          return (
+            <Flex
+              key={miembro.id}
+              wrap="wrap"
+              justify="space-between"
+              align="center"
+              style={{ marginBottom: 16, gap: 12 }}
+            >
               <div>
-                <Typography.Text type="secondary">
-                  {latestVisitByMember.get(miembro.id)
-                    ? `Última visita: ${
-                        latestVisitByMember.get(miembro.id)?.fecha
-                      }`
-                    : "Aún no se ha visitado"}
+                <Typography.Text style={{ fontSize: 16, marginBottom: 4 }}>
+                  <Typography.Text code>{index + 1}</Typography.Text>{" "}
+                  {miembro.nombre}
                 </Typography.Text>
+                <div>
+                  <Typography.Text type="secondary">
+                    {latestVisitByMember.get(miembro.id)
+                      ? `Última visita: ${
+                          latestVisitByMember.get(miembro.id)?.fecha
+                        }`
+                      : "Aún no se ha visitado"}
+                  </Typography.Text>
+                </div>
               </div>
-            </div>
 
-            <Flex wrap="wrap" gap={8} className="pastoreo-actions">
-              {latestVisitByMember.has(miembro.id) ? (
-                <Tag color="green" style={{ marginBottom: 8 }}>
-                  Ya fue visitado
-                </Tag>
-              ) : (
-                <Tag color="volcano" style={{ marginBottom: 8 }}>
-                  Visita pendiente
-                </Tag>
-              )}
+              <Flex wrap="wrap" gap={8} className="pastoreo-actions">
+                {latestVisitByMember.has(miembro.id) ? (
+                  <Tag color="green" style={{ marginBottom: 8 }}>
+                    Ya fue visitado
+                  </Tag>
+                ) : (
+                  <Tag color="volcano" style={{ marginBottom: 8 }}>
+                    Visita pendiente
+                  </Tag>
+                )}
 
-              <Tooltip title="Formulario S-4">
-                <Button
-                  onClick={() => openS4Modal(miembro)}
-                  size="small"
-                  icon={<FileTextOutlined />}
-                  shape="circle"
-                />
-              </Tooltip>
+                {monthlyReport ? (
+                  <Tag color="lime" style={{ marginBottom: 8 }}>
+                    Informó {currentMonthLabel}
+                  </Tag>
+                ) : (
+                  <Tag color="gold" style={{ marginBottom: 8 }}>
+                    Sin informe {currentMonthLabel}
+                  </Tag>
+                )}
 
-              <Tooltip title="Registro S-21">
-                <Button
-                  onClick={() => openS21Modal(miembro)}
-                  size="small"
-                  icon={<IdcardOutlined />}
-                  shape="circle"
-                />
-              </Tooltip>
+                <Tooltip title="Formulario S-4">
+                  <Button
+                    onClick={() => openS4Modal(miembro)}
+                    size="small"
+                    icon={<FileTextOutlined />}
+                    shape="circle"
+                  />
+                </Tooltip>
 
-              <Tooltip title="Registrar visita">
-                <Button
-                  shape="circle"
-                  size="small"
-                  type="primary"
-                  icon={<CalendarOutlined />}
-                  onClick={() => {
-                    if (isReadOnly) return;
-                    setMiembroSeleccionado({
-                      id: miembro.id,
-                      nombre: miembro.nombre,
-                    });
-                    visitaForm.setFieldsValue({
-                      fecha: undefined,
-                      acompanante: undefined,
-                      tema: undefined,
-                      completada: false,
-                    });
-                    setVisibleVisitaModal(true);
-                  }}
-                  disabled={isReadOnly}
-                />
-              </Tooltip>
+                <Tooltip title="Registro S-21">
+                  <Button
+                    onClick={() => openS21Modal(miembro)}
+                    size="small"
+                    icon={<IdcardOutlined />}
+                    shape="circle"
+                  />
+                </Tooltip>
 
-              <Tooltip title="Historial de visitas">
-                <Button
-                  shape="circle"
-                  size="small"
-                  icon={<EyeOutlined />}
-                  onClick={() => handleVerHistorial(miembro.id)}
-                />
-              </Tooltip>
+                <Tooltip title="Registrar visita">
+                  <Button
+                    shape="circle"
+                    size="small"
+                    type="primary"
+                    icon={<CalendarOutlined />}
+                    onClick={() => {
+                      if (isReadOnly) return;
+                      setMiembroSeleccionado({
+                        id: miembro.id,
+                        nombre: miembro.nombre,
+                      });
+                      visitaForm.setFieldsValue({
+                        fecha: undefined,
+                        acompanante: undefined,
+                        tema: undefined,
+                        completada: false,
+                      });
+                      setVisibleVisitaModal(true);
+                    }}
+                    disabled={isReadOnly}
+                  />
+                </Tooltip>
+
+                <Tooltip title="Historial de visitas">
+                  <Button
+                    shape="circle"
+                    size="small"
+                    icon={<EyeOutlined />}
+                    onClick={() => handleVerHistorial(miembro.id)}
+                  />
+                </Tooltip>
+              </Flex>
             </Flex>
-          </Flex>
-        ))}
+          );
+        })}
       </Space>
     );
   };
@@ -894,21 +1066,33 @@ export const MiembrosList: React.FC = () => {
               <Typography.Title level={5} style={{ margin: 0 }}>
                 Filtrar por Grupo
               </Typography.Title>
-              <Select
-                style={{
-                  width: isSmallScreen ? "100%" : 220,
-                  marginBottom: isSmallScreen ? 8 : 0,
-                }}
-                placeholder="Seleccionar Grupo"
-                onChange={setGrupoSeleccionado}
-                allowClear
-              >
-                {grupos.map((grupo) => (
-                  <Select.Option key={grupo.id} value={grupo.id}>
-                    {grupo.nombre}
-                  </Select.Option>
-                ))}
-              </Select>
+              <Flex wrap="wrap" gap={8} justify="flex-end">
+                <Select
+                  style={{
+                    width: isSmallScreen ? "100%" : 190,
+                    marginBottom: isSmallScreen ? 8 : 0,
+                  }}
+                  value={batchServiceYearSelected}
+                  options={batchServiceYearOptions}
+                  onChange={setBatchServiceYearSelected}
+                  placeholder="Año S-21"
+                />
+                <Select
+                  style={{
+                    width: isSmallScreen ? "100%" : 220,
+                    marginBottom: isSmallScreen ? 8 : 0,
+                  }}
+                  placeholder="Seleccionar Grupo"
+                  onChange={setGrupoSeleccionado}
+                  allowClear
+                >
+                  {grupos.map((grupo) => (
+                    <Select.Option key={grupo.id} value={grupo.id}>
+                      {grupo.nombre}
+                    </Select.Option>
+                  ))}
+                </Select>
+              </Flex>
             </Flex>
           )}
           dataSource={filteredGrupos}
@@ -959,6 +1143,21 @@ export const MiembrosList: React.FC = () => {
                 <Typography.Text type="secondary">N/A</Typography.Text>
               )
             }
+          />
+          <Table.Column<Grupo>
+            title="S21 lote"
+            key="s21-lote"
+            render={(_, record) => (
+              <Button
+                icon={<DownloadOutlined />}
+                type="primary"
+                onClick={() => handleDownloadGroupS21(record)}
+                loading={downloadingGroupId === record.id}
+                disabled={!record.miembros.length}
+              >
+                Descargar lote S-21
+              </Button>
+            )}
           />
         </Table>
       </Card>

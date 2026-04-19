@@ -357,9 +357,8 @@ const S4Document: React.FC<{ data: S4PdfData }> = ({ data }) => (
 
 const monthColumnWidths = ["17%", "14%", "13%", "13%", "18%", "25%"] as const;
 
-const S21Document: React.FC<{ data: S21PdfData }> = ({ data }) => (
-  <Document>
-    <Page size="LETTER" style={styles.s21Page}>
+const S21Page: React.FC<{ data: S21PdfData }> = ({ data }) => (
+  <Page size="LETTER" style={styles.s21Page}>
       <Text style={styles.s21Title}>REGISTRO DE PUBLICADOR DE LA CONGREGACIÓN</Text>
 
       <View style={styles.s21TopGrid}>
@@ -566,7 +565,23 @@ const S21Document: React.FC<{ data: S21PdfData }> = ({ data }) => (
         <Text style={styles.s21FooterText}>S-21-S</Text>
         <Text style={styles.s21FooterText}>11/23</Text>
       </View>
-    </Page>
+  </Page>
+);
+
+const S21Document: React.FC<{ data: S21PdfData }> = ({ data }) => (
+  <Document>
+    <S21Page data={data} />
+  </Document>
+);
+
+export const S21BatchDocument: React.FC<{ items: S21PdfData[] }> = ({ items }) => (
+  <Document>
+    {items.map((item) => (
+      <S21Page
+        key={`${item.memberName}-${item.serviceYearLabel}`}
+        data={item}
+      />
+    ))}
   </Document>
 );
 
