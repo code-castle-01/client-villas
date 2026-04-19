@@ -2,12 +2,20 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Form, Skeleton, message } from "antd";
 import dayjs from "dayjs";
 import "dayjs/locale/es";
+import { useAdaptiveUI } from "../../adaptive/useAdaptiveUI";
 import { api, getCollection, getOptionalSingle } from "../../api/client";
 import { useDirectory } from "../../contexts/directory";
 import useMediaQuery from "../../hooks/useMediaQuery";
 import { buildAssignmentItems, groupAssignmentItemsByDate } from "./assignments";
 import { AUTH_STORAGE_EVENT } from "./constants";
 import { AssignmentsBoard } from "./components/AssignmentsBoard";
+import { PersonalAppointmentModal } from "./components/PersonalAppointmentModal";
+import {
+  MobileProfileEditor,
+  type MobileProfileFormValues,
+} from "./components/MobileProfileEditor";
+import { MobileAssignmentsBoard } from "./components/MobileAssignmentsBoard";
+import { MobileProfileSummary } from "./components/MobileProfileSummary";
 import { ProfileModal } from "./components/ProfileModal";
 import { ProfileSummaryCard } from "./components/ProfileSummaryCard";
 import type {
@@ -18,6 +26,8 @@ import type {
   GroupSummary,
   MecanicaRow,
   MiembroRow,
+  PersonalAppointment,
+  PersonalAppointmentFormValues,
   PresidenciaSingle,
   ProfileFormValues,
   ProfileMember,
@@ -29,12 +39,18 @@ import type {
 } from "./types";
 import {
   createFallbackProfile,
+  createPersonalAppointmentId,
   getDateKey,
   getIsoWeekInfo,
   getProfileErrorMessage,
+  getProfileFormValues,
+  groupPersonalAppointmentsByDate,
   parseCurrentUser,
+  persistPersonalAppointments,
   populateProfileForm,
+  readPersonalAppointments,
   resolveProfileState,
+  sortPersonalAppointments,
   syncStoredProfileUser,
   toProfileMember,
 } from "./utils";
@@ -142,6 +158,7 @@ const resolveMeetingDate = (
 
 export const MisAsignacionesPage: React.FC = () => {
   const isSmallScreen = useMediaQuery("(max-width: 992px)");
+  const { resolvedMode } = useAdaptiveUI();
   const {
     grupos: directoryGroups,
     miembros: directoryMembers,
@@ -153,6 +170,7 @@ export const MisAsignacionesPage: React.FC = () => {
   }, []);
 
   const [profileForm] = Form.useForm<ProfileFormValues>();
+  const [appointmentForm] = Form.useForm<PersonalAppointmentFormValues>();
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(() =>
     parseCurrentUser()
   );
@@ -161,9 +179,30 @@ export const MisAsignacionesPage: React.FC = () => {
   const [currentMember, setCurrentMember] = useState<ProfileMember>(null);
   const [groups, setGroups] = useState<GroupSummary[]>([]);
   const [items, setItems] = useState<AssignmentItem[]>([]);
+  const [personalAppointments, setPersonalAppointments] = useState<
+    PersonalAppointment[]
+  >([]);
   const [panelMonth, setPanelMonth] = useState(() => getDateKey(dayjs()));
   const [selectedDate, setSelectedDate] = useState(() => getDateKey(dayjs()));
   const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [appointmentModalOpen, setAppointmentModalOpen] = useState(false);
+  const [mobileProfileOpen, setMobileProfileOpen] = useState(false);
+  const [mobileProfileValues, setMobileProfileValues] = useState<MobileProfileFormValues>({
+    username: "",
+    email: "",
+    nombres: "",
+    apellidos: "",
+    telefono: "",
+    celular: "",
+    direccion: "",
+    genero: undefined,
+    grupo: undefined,
+    fechaNacimiento: "",
+    fechaInmersion: "",
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
   const [savingProfile, setSavingProfile] = useState(false);
 
   const miembros = useMemo<MiembroRow[]>(
@@ -204,6 +243,10 @@ export const MisAsignacionesPage: React.FC = () => {
       window.removeEventListener("storage", syncCurrentUser);
     };
   }, []);
+
+  useEffect(() => {
+    setPersonalAppointments(readPersonalAppointments(currentUser?.id));
+  }, [currentUser?.id]);
 
   useEffect(() => {
     let mounted = true;
@@ -348,19 +391,77 @@ export const MisAsignacionesPage: React.FC = () => {
     [items, panelMonth]
   );
 
+  const monthAppointments = useMemo(
+    () =>
+      personalAppointments.filter((appointment) =>
+        dayjs(appointment.date).isSame(dayjs(panelMonth), "month")
+      ),
+    [panelMonth, personalAppointments]
+  );
+
   const selectedDateItems = useMemo(() => {
     const dateKey = getDateKey(selectedDate);
     return monthItems.filter((item) => item.date === dateKey);
   }, [monthItems, selectedDate]);
+
+  const selectedDateAppointments = useMemo(() => {
+    const dateKey = getDateKey(selectedDate);
+    return monthAppointments.filter((appointment) => appointment.date === dateKey);
+  }, [monthAppointments, selectedDate]);
 
   const groupedMonthItems = useMemo(
     () => groupAssignmentItemsByDate(monthItems),
     [monthItems]
   );
 
+  const groupedMonthAppointments = useMemo(
+    () => groupPersonalAppointmentsByDate(monthAppointments),
+    [monthAppointments]
+  );
+
   const selectedDateValue = useMemo(() => dayjs(selectedDate), [selectedDate]);
 
+  const openAppointmentModal = () => {
+    appointmentForm.setFieldsValue({
+      date: dayjs(selectedDate),
+      title: "",
+      description: "",
+    });
+    setAppointmentModalOpen(true);
+  };
+
   const openProfileModal = () => {
+    if (resolvedMode === "mobile") {
+      const baseValues = getProfileFormValues({
+        profile,
+        currentUser,
+        currentMember,
+      });
+
+      if (!baseValues) {
+        return;
+      }
+
+      setMobileProfileValues({
+        username: baseValues.username,
+        email: baseValues.email,
+        nombres: baseValues.nombres,
+        apellidos: baseValues.apellidos,
+        telefono: baseValues.telefono || "",
+        celular: baseValues.celular || "",
+        direccion: baseValues.direccion || "",
+        genero: baseValues.genero,
+        grupo: baseValues.grupo,
+        fechaNacimiento: baseValues.fechaNacimiento?.format("YYYY-MM-DD") ?? "",
+        fechaInmersion: baseValues.fechaInmersion?.format("YYYY-MM-DD") ?? "",
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      });
+      setMobileProfileOpen(true);
+      return;
+    }
+
     const populated = populateProfileForm({
       form: profileForm,
       profile,
@@ -375,10 +476,38 @@ export const MisAsignacionesPage: React.FC = () => {
     setProfileModalOpen(true);
   };
 
-  const handleSaveProfile = async (values: ProfileFormValues) => {
+  const formatProfileDate = (value: unknown) => {
+    if (!value) {
+      return null;
+    }
+
+    if (typeof value === "string") {
+      return value.trim().length > 0 ? value : null;
+    }
+
+    return dayjs(value as any).isValid()
+      ? dayjs(value as any).format("YYYY-MM-DD")
+      : null;
+  };
+
+  const handleSaveProfile = async (
+    values: ProfileFormValues | MobileProfileFormValues,
+  ) => {
     setSavingProfile(true);
 
     try {
+      if (
+        values.newPassword &&
+        values.confirmPassword &&
+        values.newPassword !== values.confirmPassword
+      ) {
+        throw new Error("La confirmación no coincide con la nueva contraseña.");
+      }
+
+      if (values.newPassword && values.newPassword.length < 6) {
+        throw new Error("La nueva contraseña debe tener al menos 6 caracteres.");
+      }
+
       const payload: Record<string, unknown> = {
         username: values.username,
         nombres: values.nombres,
@@ -387,13 +516,10 @@ export const MisAsignacionesPage: React.FC = () => {
         celular: values.celular,
         direccion: values.direccion,
         genero: values.genero ?? null,
-        fechaNacimiento: values.fechaNacimiento?.format?.("YYYY-MM-DD") ?? null,
-        fechaInmersion: values.fechaInmersion?.format?.("YYYY-MM-DD") ?? null,
+        fechaNacimiento: formatProfileDate(values.fechaNacimiento),
+        fechaInmersion: formatProfileDate(values.fechaInmersion),
+        grupo: values.grupo ?? null,
       };
-
-      if (profileForm.isFieldTouched("grupo")) {
-        payload.grupo = values.grupo ?? null;
-      }
 
       const { data } = await api.put<{ data: ProfileResponse }>("/profile/me", payload);
 
@@ -414,6 +540,7 @@ export const MisAsignacionesPage: React.FC = () => {
       setCurrentMember(updatedProfile.member);
       syncStoredProfileUser(data.data.user);
       setProfileModalOpen(false);
+      setMobileProfileOpen(false);
       message.success("Perfil actualizado correctamente.");
     } catch (error) {
       message.error(getProfileErrorMessage(error));
@@ -422,33 +549,93 @@ export const MisAsignacionesPage: React.FC = () => {
     }
   };
 
+  const handleCreateAppointment = (values: PersonalAppointmentFormValues) => {
+    if (!currentUser?.id) {
+      message.error("No pudimos identificar el usuario para guardar la cita.");
+      return;
+    }
+
+    const nextAppointment: PersonalAppointment = {
+      id: createPersonalAppointmentId(),
+      date: getDateKey(values.date ?? dayjs()),
+      title: values.title.trim(),
+      description: values.description.trim(),
+      createdAt: new Date().toISOString(),
+    };
+
+    setPersonalAppointments((current) => {
+      const nextAppointments = sortPersonalAppointments([
+        ...current,
+        nextAppointment,
+      ]);
+
+      persistPersonalAppointments(currentUser.id, nextAppointments);
+      return nextAppointments;
+    });
+
+    setPanelMonth(nextAppointment.date);
+    setSelectedDate(nextAppointment.date);
+    setAppointmentModalOpen(false);
+    appointmentForm.resetFields();
+    message.success("Cita personal agendada correctamente.");
+  };
+
   if (loading) {
     return <Skeleton active paragraph={{ rows: 12 }} />;
   }
 
   return (
     <section>
-      <ProfileSummaryCard
-        profile={profile}
-        currentMember={currentMember}
-        assignmentCount={monthItems.length}
-        currentWeekLink={currentWeekLink}
-        isSmallScreen={isSmallScreen}
-        onEdit={openProfileModal}
-      />
+      {resolvedMode === "mobile" ? (
+        <MobileProfileSummary
+          profile={profile}
+          currentMember={currentMember}
+          assignmentCount={monthItems.length}
+          currentWeekLink={currentWeekLink}
+          onSchedule={openAppointmentModal}
+          onEdit={openProfileModal}
+        />
+      ) : (
+        <ProfileSummaryCard
+          profile={profile}
+          currentMember={currentMember}
+          assignmentCount={monthItems.length}
+          currentWeekLink={currentWeekLink}
+          isSmallScreen={isSmallScreen}
+          onSchedule={openAppointmentModal}
+          onEdit={openProfileModal}
+        />
+      )}
 
       <div style={{ marginTop: 16 }}>
-        <AssignmentsBoard
-          currentMember={currentMember}
-          isSmallScreen={isSmallScreen}
-          panelMonth={panelMonth}
-          monthItems={monthItems}
-          selectedDateItems={selectedDateItems}
-          groupedMonthItems={groupedMonthItems}
-          selectedDateValue={selectedDateValue}
-          onSelectDate={setSelectedDate}
-          onPanelChange={setPanelMonth}
-        />
+        {resolvedMode === "mobile" ? (
+          <MobileAssignmentsBoard
+            currentMember={currentMember}
+            panelMonth={panelMonth}
+            selectedDateItems={selectedDateItems}
+            selectedDateAppointments={selectedDateAppointments}
+            groupedMonthItems={groupedMonthItems}
+            groupedMonthAppointments={groupedMonthAppointments}
+            selectedDateValue={selectedDateValue}
+            onSelectDate={setSelectedDate}
+            onPanelChange={setPanelMonth}
+          />
+        ) : (
+          <AssignmentsBoard
+            currentMember={currentMember}
+            isSmallScreen={isSmallScreen}
+            panelMonth={panelMonth}
+            monthItems={monthItems}
+            monthAppointments={monthAppointments}
+            selectedDateItems={selectedDateItems}
+            selectedDateAppointments={selectedDateAppointments}
+            groupedMonthItems={groupedMonthItems}
+            groupedMonthAppointments={groupedMonthAppointments}
+            selectedDateValue={selectedDateValue}
+            onSelectDate={setSelectedDate}
+            onPanelChange={setPanelMonth}
+          />
+        )}
       </div>
 
       <ProfileModal
@@ -461,6 +648,26 @@ export const MisAsignacionesPage: React.FC = () => {
         currentMember={currentMember}
         onCancel={() => setProfileModalOpen(false)}
         onSubmit={handleSaveProfile}
+      />
+      <PersonalAppointmentModal
+        form={appointmentForm}
+        open={appointmentModalOpen}
+        isSmallScreen={isSmallScreen}
+        onCancel={() => {
+          setAppointmentModalOpen(false);
+          appointmentForm.resetFields();
+        }}
+        onSubmit={handleCreateAppointment}
+      />
+      <MobileProfileEditor
+        currentMember={currentMember}
+        groups={groups}
+        open={mobileProfileOpen}
+        saving={savingProfile}
+        values={mobileProfileValues}
+        onChange={setMobileProfileValues}
+        onClose={() => setMobileProfileOpen(false)}
+        onSubmit={() => handleSaveProfile(mobileProfileValues)}
       />
     </section>
   );

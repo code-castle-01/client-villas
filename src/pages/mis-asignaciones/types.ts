@@ -214,6 +214,31 @@ export type GroupedAssignmentItems = {
   items: AssignmentItem[];
 };
 
+export type PersonalAppointment = {
+  id: string;
+  documentId?: string;
+  date: string;
+  title: string;
+  description: string;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+};
+
+export type GroupedPersonalAppointments = {
+  date: string;
+  items: PersonalAppointment[];
+};
+
+export type PersonalAppointmentRow = {
+  id: number;
+  documentId?: string;
+  fecha: string;
+  titulo: string;
+  descripcion: string;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+};
+
 export type ProfileFormValues = {
   username: string;
   email: string;
@@ -229,4 +254,10 @@ export type ProfileFormValues = {
   currentPassword?: string;
   newPassword?: string;
   confirmPassword?: string;
+};
+
+export type PersonalAppointmentFormValues = {
+  date: Dayjs | null;
+  title: string;
+  description: string;
 };

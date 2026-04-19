@@ -1,5 +1,5 @@
 import React from "react";
-import { EditOutlined } from "@ant-design/icons";
+import { CalendarOutlined, EditOutlined } from "@ant-design/icons";
 import {
   Alert,
   Avatar,
@@ -21,6 +21,7 @@ type ProfileSummaryCardProps = {
   assignmentCount: number;
   currentWeekLink: string;
   isSmallScreen: boolean;
+  onSchedule: () => void;
   onEdit: () => void;
 };
 
@@ -30,6 +31,7 @@ export const ProfileSummaryCard: React.FC<ProfileSummaryCardProps> = ({
   assignmentCount,
   currentWeekLink,
   isSmallScreen,
+  onSchedule,
   onEdit,
 }) => {
   const member = profile?.member ?? currentMember;
@@ -94,6 +96,9 @@ export const ProfileSummaryCard: React.FC<ProfileSummaryCardProps> = ({
             rel="noreferrer"
           >
             Reunión de la semana
+          </Button>
+          <Button icon={<CalendarOutlined />} onClick={onSchedule}>
+            Agendar
           </Button>
           <Button icon={<EditOutlined />} type="primary" onClick={onEdit}>
             Editar perfil
