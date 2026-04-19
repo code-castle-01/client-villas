@@ -18,6 +18,9 @@ import type {
   UserRelation,
 } from "./types";
 
+const PERSONAL_APPOINTMENTS_STORAGE_PREFIX =
+  "mis-asignaciones-personal-appointments";
+
 export const parseCurrentUser = (): CurrentUser | null => {
   try {
     const raw = localStorage.getItem("user");
@@ -322,6 +325,76 @@ export const sortPersonalAppointments = (appointments: PersonalAppointment[]) =>
           a.title.localeCompare(b.title, "es")
         : a.date.localeCompare(b.date)
     );
+
+export const createPersonalAppointmentId = () => {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+
+  return `appointment-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+};
+
+const getPersonalAppointmentsStorageKey = (userId?: number | null) =>
+  userId ? `${PERSONAL_APPOINTMENTS_STORAGE_PREFIX}-${userId}` : null;
+
+export const readPersonalAppointments = (
+  userId?: number | null
+): PersonalAppointment[] => {
+  const storageKey = getPersonalAppointmentsStorageKey(userId);
+
+  if (!storageKey) {
+    return [];
+  }
+
+  try {
+    const raw = localStorage.getItem(storageKey);
+
+    if (!raw) {
+      return [];
+    }
+
+    const parsed = JSON.parse(raw) as PersonalAppointment[];
+
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return sortPersonalAppointments(
+      parsed
+        .filter(
+          (item): item is PersonalAppointment =>
+            Boolean(
+              item &&
+                typeof item === "object" &&
+                typeof item.id === "string" &&
+                typeof item.date === "string" &&
+                typeof item.title === "string" &&
+                typeof item.description === "string"
+            )
+        )
+        .map((item) => ({
+          ...item,
+          createdAt: item.createdAt ?? null,
+          updatedAt: item.updatedAt ?? null,
+        }))
+    );
+  } catch {
+    return [];
+  }
+};
+
+export const persistPersonalAppointments = (
+  userId: number,
+  appointments: PersonalAppointment[]
+) => {
+  const storageKey = getPersonalAppointmentsStorageKey(userId);
+
+  if (!storageKey) {
+    return;
+  }
+
+  localStorage.setItem(storageKey, JSON.stringify(appointments));
+};
 
 export const mapPersonalAppointment = (
   appointment: PersonalAppointmentRow
