@@ -265,9 +265,19 @@ function App() {
       }
     },
   };
-  const isAdminApp = authUser?.role?.type === "admin-app";
+  const roleType = authUser?.role?.type;
+  const isAdminApp = roleType === "admin-app";
+  const isViewer = roleType === "viewer";
+  const viewerVisibleResources = new Set([
+    "dashboard",
+    "mis-asignaciones",
+    "Conferencias",
+    "Reuniones",
+    "Mecánicas",
+    "Territorios",
+  ]);
 
-  const resources = [
+  const baseResources = [
     {
       name: "dashboard",
       list: "/",
@@ -343,6 +353,12 @@ function App() {
       list: "/nombramientos",
       meta: { canDelete: false, icon: <TeamOutlined /> },
     },
+  ];
+
+  const resources = [
+    ...baseResources.filter(
+      (resource) => !isViewer || viewerVisibleResources.has(resource.name),
+    ),
     ...(isAdminApp
       ? [
           {
