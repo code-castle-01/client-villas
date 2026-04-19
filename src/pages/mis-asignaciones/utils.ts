@@ -5,7 +5,10 @@ import { AUTH_STORAGE_EVENT } from "./constants";
 import type {
   CurrentUser,
   EscuelaRelation,
+  GroupedPersonalAppointments,
   MiembroRow,
+  PersonalAppointment,
+  PersonalAppointmentRow,
   PresidenciaSingle,
   ProfileFormValues,
   ProfileMember,
@@ -14,6 +17,9 @@ import type {
   RelationSummary,
   UserRelation,
 } from "./types";
+
+const PERSONAL_APPOINTMENTS_STORAGE_PREFIX =
+  "mis-asignaciones-personal-appointments";
 
 export const parseCurrentUser = (): CurrentUser | null => {
   try {
@@ -308,4 +314,115 @@ export const getProfileErrorMessage = (error: unknown) => {
     (error instanceof Error ? error.message : null) ||
     "No se pudo actualizar el perfil."
   );
+};
+
+export const sortPersonalAppointments = (appointments: PersonalAppointment[]) =>
+  appointments
+    .slice()
+    .sort((a, b) =>
+      a.date === b.date
+        ? (a.createdAt ?? "").localeCompare(b.createdAt ?? "") ||
+          a.title.localeCompare(b.title, "es")
+        : a.date.localeCompare(b.date)
+    );
+
+export const createPersonalAppointmentId = () => {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+
+  return `appointment-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+};
+
+const getPersonalAppointmentsStorageKey = (userId?: number | null) =>
+  userId ? `${PERSONAL_APPOINTMENTS_STORAGE_PREFIX}-${userId}` : null;
+
+export const readPersonalAppointments = (
+  userId?: number | null
+): PersonalAppointment[] => {
+  const storageKey = getPersonalAppointmentsStorageKey(userId);
+
+  if (!storageKey) {
+    return [];
+  }
+
+  try {
+    const raw = localStorage.getItem(storageKey);
+
+    if (!raw) {
+      return [];
+    }
+
+    const parsed = JSON.parse(raw) as PersonalAppointment[];
+
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return sortPersonalAppointments(
+      parsed
+        .filter(
+          (item): item is PersonalAppointment =>
+            Boolean(
+              item &&
+                typeof item === "object" &&
+                typeof item.id === "string" &&
+                typeof item.date === "string" &&
+                typeof item.title === "string" &&
+                typeof item.description === "string"
+            )
+        )
+        .map((item) => ({
+          ...item,
+          createdAt: item.createdAt ?? null,
+          updatedAt: item.updatedAt ?? null,
+        }))
+    );
+  } catch {
+    return [];
+  }
+};
+
+export const persistPersonalAppointments = (
+  userId: number,
+  appointments: PersonalAppointment[]
+) => {
+  const storageKey = getPersonalAppointmentsStorageKey(userId);
+
+  if (!storageKey) {
+    return;
+  }
+
+  localStorage.setItem(storageKey, JSON.stringify(appointments));
+};
+
+export const mapPersonalAppointment = (
+  appointment: PersonalAppointmentRow
+): PersonalAppointment => ({
+  id: String(appointment.id),
+  documentId: appointment.documentId,
+  date: appointment.fecha,
+  title: appointment.titulo,
+  description: appointment.descripcion,
+  createdAt: appointment.createdAt ?? null,
+  updatedAt: appointment.updatedAt ?? null,
+});
+
+export const groupPersonalAppointmentsByDate = (
+  appointments: PersonalAppointment[]
+): GroupedPersonalAppointments[] => {
+  const groups = new Map<string, PersonalAppointment[]>();
+
+  appointments.forEach((appointment) => {
+    const current = groups.get(appointment.date) ?? [];
+    current.push(appointment);
+    groups.set(appointment.date, current);
+  });
+
+  return Array.from(groups.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, items]) => ({
+      date,
+      items: sortPersonalAppointments(items),
+    }));
 };

@@ -1,15 +1,8 @@
 import { Authenticated, Refine, type AuthProvider } from "@refinedev/core";
 import { DevtoolsPanel, DevtoolsProvider } from "@refinedev/devtools";
 import { RefineKbar, RefineKbarProvider } from "@refinedev/kbar";
-
-import {
-  ErrorComponent,
-  ThemedLayout,
-  ThemedSider,
-  useNotificationProvider,
-} from "@refinedev/antd";
+import { ErrorComponent, useNotificationProvider } from "@refinedev/antd";
 import "@refinedev/antd/dist/reset.css";
-
 import nestjsxCrudDataProvider from "@refinedev/nestjsx-crud";
 import routerBindings, {
   CatchAllNavigate,
@@ -17,41 +10,21 @@ import routerBindings, {
   NavigateToResource,
   UnsavedChangesNotifier,
 } from "@refinedev/react-router";
-import { App as AntdApp, Typography } from "antd";
-import { useEffect, useState } from "react";
-import { BrowserRouter, Outlet, Route, Routes } from "react-router";
+import { App as AntdApp, Spin } from "antd";
 import { isAxiosError } from "axios";
-import { Header } from "./components/header";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { BrowserRouter, Outlet, Route, Routes } from "react-router";
+import { AdaptiveUIProvider } from "./adaptive/context";
+import { useAdaptiveUI } from "./adaptive/useAdaptiveUI";
+import { lazyNamed } from "./app/lazyNamed";
+import { buildResources, type AppResource } from "./app/resources";
+import { api } from "./api/client";
 import { ColorModeContextProvider } from "./contexts/color-mode";
 import { DirectoryContextProvider } from "./contexts/directory";
-import { api } from "./api/client";
 import { appName } from "./config/env";
-
-import { GruposMiembrosList } from "./pages/transporte";
-import { Login } from "./pages/login";
-import { MiembrosList } from "./pages/pastoreo";
-import { ConferenciasTable } from "./pages/conferencias";
-import { TerritoriosTable } from "./pages/territorio";
-import { MeetingInstructionsForm } from "./pages/presidencia";
-
+import { DesktopAppShell } from "./shells/DesktopAppShell";
+import { MobileAppShell } from "./shells/MobileAppShell";
 import "./index.css";
-import {
-  BookOutlined,
-  CalendarOutlined,
-  DashboardOutlined,
-  TeamOutlined,
-  UserOutlined,
-} from "@ant-design/icons";
-import { DashboardPage } from "./pages/dashboard";
-import { ReunionesTable } from "./pages/reuniones";
-import { MeetingAssignmentUI } from "./pages/escuela";
-import { ScheduleTable } from "./pages/mecanicas";
-import { MigracionPage } from "./pages/migracion";
-import { UsuariosList } from "./pages/usuarios";
-import { GruposAdminPage } from "./pages/grupos";
-import { NombramientosPorGrupo } from "./pages/nombramientos";
-import { MisAsignacionesPage } from "./pages/mis-asignaciones";
-import { RevisitasPage } from "./pages/revisitas";
 
 type AuthIdentity = {
   id: number | string;
@@ -61,7 +34,58 @@ type AuthIdentity = {
   [key: string]: unknown;
 };
 
+const DashboardPage = lazyNamed(() => import("./pages/dashboard"), "DashboardPage");
+const MisAsignacionesPage = lazyNamed(
+  () => import("./pages/mis-asignaciones"),
+  "MisAsignacionesPage",
+);
+const RevisitasPage = lazyNamed(() => import("./pages/revisitas"), "RevisitasPage");
+const MiembrosList = lazyNamed(() => import("./pages/pastoreo"), "MiembrosList");
+const ConferenciasTable = lazyNamed(
+  () => import("./pages/conferencias"),
+  "ConferenciasTable",
+);
+const ReunionesTable = lazyNamed(() => import("./pages/reuniones"), "ReunionesTable");
+const MeetingAssignmentUI = lazyNamed(
+  () => import("./pages/escuela"),
+  "MeetingAssignmentUI",
+);
+const ScheduleTable = lazyNamed(() => import("./pages/mecanicas"), "ScheduleTable");
+const TerritoriosTable = lazyNamed(
+  () => import("./pages/territorio"),
+  "TerritoriosTable",
+);
+const MeetingInstructionsForm = lazyNamed(
+  () => import("./pages/presidencia"),
+  "MeetingInstructionsForm",
+);
+const GruposMiembrosList = lazyNamed(
+  () => import("./pages/transporte"),
+  "GruposMiembrosList",
+);
+const GruposAdminPage = lazyNamed(() => import("./pages/grupos"), "GruposAdminPage");
+const UsuariosList = lazyNamed(() => import("./pages/usuarios"), "UsuariosList");
+const NombramientosPorGrupo = lazyNamed(
+  () => import("./pages/nombramientos"),
+  "NombramientosPorGrupo",
+);
+const Login = lazyNamed(() => import("./pages/login"), "Login");
+const MigracionPage = lazyNamed(() => import("./pages/migracion"), "MigracionPage");
+
 const AUTH_STORAGE_EVENT = "auth-storage-changed";
+
+const RouteLoader = () => (
+  <div
+    style={{
+      minHeight: "40vh",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+    }}
+  >
+    <Spin size="large" />
+  </div>
+);
 
 const emitAuthStorageChanged = () => {
   window.dispatchEvent(new Event(AUTH_STORAGE_EVENT));
@@ -121,6 +145,22 @@ const getAuthError = (error: unknown) => {
 };
 
 const documentTitleBase = appName || "Las Villas";
+
+const AdaptiveAuthenticatedShell: React.FC<{
+  resources: AppResource[];
+}> = ({ resources }) => {
+  const { resolvedMode } = useAdaptiveUI();
+
+  if (resolvedMode === "mobile") {
+    return (
+      <MobileAppShell resources={resources}>
+        <Outlet />
+      </MobileAppShell>
+    );
+  }
+
+  return <DesktopAppShell />;
+};
 
 function App() {
   const API_URL = "https://api.nestjsx-crud.refine.dev";
@@ -265,242 +305,100 @@ function App() {
       }
     },
   };
+
   const roleType = authUser?.role?.type;
   const isAdminApp = roleType === "admin-app";
   const isViewer = roleType === "viewer";
-  const viewerVisibleResources = new Set([
-    "dashboard",
-    "mis-asignaciones",
-    "Conferencias",
-    "Reuniones",
-    "Mecánicas",
-    "Territorios",
-  ]);
-
-  const baseResources = [
-    {
-      name: "dashboard",
-      list: "/",
-      meta: {
-        label: "Dashboard",
-        icon: <DashboardOutlined />,
-      },
-    },
-    {
-      name: "mis-asignaciones",
-      list: "/mis-asignaciones",
-      meta: {
-        canDelete: false,
-        icon: <CalendarOutlined />,
-        label: "Mis Asignaciones",
-      },
-    },
-    {
-      name: "Revisitas",
-      list: "/revisitas",
-      meta: {
-        canDelete: false,
-        icon: <BookOutlined />,
-        label: "Revisitas",
-      },
-    },
-    {
-      name: "Pastoreo",
-      list: "/pastoreo",
-      meta: {
-        canDelete: false,
-        icon: <span>🐑</span>,
-        label: "Pastoreo",
-      },
-    },
-    {
-      name: "Conferencias",
-      list: "/conferencias",
-      meta: { canDelete: false, icon: <span>👔</span> },
-    },
-    {
-      name: "Reuniones",
-      list: "/reuniones",
-      meta: { canDelete: false, icon: <span>🏠</span> },
-    },
-    {
-      name: "Escuela",
-      list: "/escuela",
-      meta: { canDelete: false, icon: <span>📑</span> },
-    },
-    {
-      name: "Mecánicas",
-      list: "/mecanicas",
-      meta: { canDelete: false, icon: <span>🧰</span> },
-    },
-    {
-      name: "Territorios",
-      list: "/territorio",
-      meta: { canDelete: false, icon: <span>🗺️</span> },
-    },
-    {
-      name: "Presidencia",
-      list: "/presidencia",
-      meta: { canDelete: false, icon: <span>📄</span> },
-    },
-    {
-      name: "Transporte",
-      list: "/transporte",
-      meta: { canDelete: false, icon: <span>🚙</span> },
-    },
-    {
-      name: "Nombramientos",
-      list: "/nombramientos",
-      meta: { canDelete: false, icon: <TeamOutlined /> },
-    },
-  ];
-
-  const resources = [
-    ...baseResources.filter(
-      (resource) => !isViewer || viewerVisibleResources.has(resource.name),
-    ),
-    ...(isAdminApp
-      ? [
-          {
-            name: "Grupos",
-            list: "/grupos",
-            meta: { canDelete: false, icon: <span>🧩</span> },
-          },
-          {
-            name: "Usuarios",
-            list: "/usuarios",
-            meta: { canDelete: false, icon: <UserOutlined /> },
-          },
-        ]
-      : []),
-  ];
+  const resources = useMemo(
+    () =>
+      buildResources({
+        isAdminApp,
+        isViewer,
+      }),
+    [isAdminApp, isViewer],
+  );
 
   return (
     <BrowserRouter>
       <RefineKbarProvider>
         <ColorModeContextProvider>
-          <DirectoryContextProvider enabled={Boolean(authUser)}>
-            <AntdApp>
-              <DevtoolsProvider>
-                <Refine
-                  dataProvider={dataProvider}
-                  notificationProvider={useNotificationProvider}
-                  routerProvider={routerBindings}
-                  authProvider={authProvider}
-                  resources={resources}
-                  options={{
-                    syncWithLocation: true,
-                    warnWhenUnsavedChanges: true,
-                    projectId: "zTrlv4-BzCRqD-cdj2mG",
-                  }}
-                >
-                  <Routes>
-                    <Route
-                      element={
-                        <Authenticated
-                          key="authenticated-inner"
-                          fallback={<CatchAllNavigate to="/login" />}
-                        >
-                          <ThemedLayout
-                            Header={Header}
-                            Sider={(props) => (
-                              <ThemedSider
-                                {...props}
-                                fixed
-                                Title={() => (
-                                  <Typography.Title type="success" level={4}>
-                                    CONGREGACIÓN
-                                  </Typography.Title>
-                                )}
-                              />
-                            )}
-                          >
-                            <Outlet />
-                          </ThemedLayout>
-                        </Authenticated>
-                      }
-                    >
-                      <Route index element={<DashboardPage />} />
-                      <Route
-                        index
-                        element={<NavigateToResource resource="transporte" />}
-                      />
-                      <Route path="/mis-asignaciones">
-                        <Route index element={<MisAsignacionesPage />} />
-                      </Route>
-
-                      <Route path="/pastoreo">
-                        <Route index element={<MiembrosList />} />
-                      </Route>
-                      <Route path="/revisitas">
-                        <Route index element={<RevisitasPage />} />
-                      </Route>
-                      <Route path="/conferencias">
-                        <Route index element={<ConferenciasTable />} />
-                      </Route>
-                      <Route path="/reuniones">
-                        <Route index element={<ReunionesTable />} />
-                      </Route>
-                      <Route path="/escuela">
-                        <Route index element={<MeetingAssignmentUI />} />
-                      </Route>
-                      <Route path="/mecanicas">
-                        <Route index element={<ScheduleTable />} />
-                      </Route>
-                      <Route path="/territorio">
-                        <Route index element={<TerritoriosTable />} />
-                      </Route>
-                      <Route path="/presidencia">
-                        <Route index element={<MeetingInstructionsForm />} />
-                      </Route>
-                      <Route path="/transporte">
-                        <Route index element={<GruposMiembrosList />} />
-                      </Route>
-                      <Route path="/grupos">
-                        <Route index element={<GruposAdminPage />} />
-                      </Route>
-                      <Route path="/usuarios">
-                        <Route index element={<UsuariosList />} />
-                      </Route>
-                      <Route path="/nombramientos">
-                        <Route index element={<NombramientosPorGrupo />} />
-                      </Route>
-                      <Route path="*" element={<ErrorComponent />} />
-                    </Route>
-                    <Route
-                      element={
-                        <Authenticated key="authenticated-outer" fallback={<Outlet />}>
-                          <NavigateToResource />
-                        </Authenticated>
-                      }
-                    >
-                      <Route path="/login" element={<Login />} />
-                    </Route>
-                    <Route path="/migracion" element={<MigracionPage />} />
-                  </Routes>
-
-                  <RefineKbar />
-                  <UnsavedChangesNotifier />
-                  <DocumentTitleHandler
-                    handler={({ autoGeneratedTitle }) => {
-                      if (
-                        !autoGeneratedTitle ||
-                        autoGeneratedTitle === "Refine"
-                      ) {
-                        return documentTitleBase;
-                      }
-
-                      return autoGeneratedTitle.replace(
-                        /\s\|\sRefine$/,
-                        ` | ${documentTitleBase}`,
-                      );
+          <AdaptiveUIProvider roleType={roleType}>
+            <DirectoryContextProvider enabled={Boolean(authUser)}>
+              <AntdApp>
+                <DevtoolsProvider>
+                  <Refine
+                    dataProvider={dataProvider}
+                    notificationProvider={useNotificationProvider}
+                    routerProvider={routerBindings}
+                    authProvider={authProvider}
+                    resources={resources}
+                    options={{
+                      syncWithLocation: true,
+                      warnWhenUnsavedChanges: true,
+                      projectId: "zTrlv4-BzCRqD-cdj2mG",
                     }}
-                  />
-                </Refine>
-                <DevtoolsPanel />
-              </DevtoolsProvider>
-            </AntdApp>
-          </DirectoryContextProvider>
+                  >
+                    <Suspense fallback={<RouteLoader />}>
+                      <Routes>
+                        <Route
+                          element={
+                            <Authenticated
+                              key="authenticated-inner"
+                              fallback={<CatchAllNavigate to="/login" />}
+                            >
+                              <AdaptiveAuthenticatedShell resources={resources} />
+                            </Authenticated>
+                          }
+                        >
+                          <Route index element={<DashboardPage />} />
+                          <Route path="/mis-asignaciones" element={<MisAsignacionesPage />} />
+                          <Route path="/pastoreo" element={<MiembrosList />} />
+                          <Route path="/revisitas" element={<RevisitasPage />} />
+                          <Route path="/conferencias" element={<ConferenciasTable />} />
+                          <Route path="/reuniones" element={<ReunionesTable />} />
+                          <Route path="/escuela" element={<MeetingAssignmentUI />} />
+                          <Route path="/mecanicas" element={<ScheduleTable />} />
+                          <Route path="/territorio" element={<TerritoriosTable />} />
+                          <Route path="/presidencia" element={<MeetingInstructionsForm />} />
+                          <Route path="/transporte" element={<GruposMiembrosList />} />
+                          <Route path="/grupos" element={<GruposAdminPage />} />
+                          <Route path="/usuarios" element={<UsuariosList />} />
+                          <Route path="/nombramientos" element={<NombramientosPorGrupo />} />
+                          <Route path="*" element={<ErrorComponent />} />
+                        </Route>
+                        <Route
+                          element={
+                            <Authenticated key="authenticated-outer" fallback={<Outlet />}>
+                              <NavigateToResource />
+                            </Authenticated>
+                          }
+                        >
+                          <Route path="/login" element={<Login />} />
+                        </Route>
+                        <Route path="/migracion" element={<MigracionPage />} />
+                      </Routes>
+                    </Suspense>
+
+                    <RefineKbar />
+                    <UnsavedChangesNotifier />
+                    <DocumentTitleHandler
+                      handler={({ autoGeneratedTitle }) => {
+                        if (!autoGeneratedTitle || autoGeneratedTitle === "Refine") {
+                          return documentTitleBase;
+                        }
+
+                        return autoGeneratedTitle.replace(
+                          /\s\|\sRefine$/,
+                          ` | ${documentTitleBase}`,
+                        );
+                      }}
+                    />
+                  </Refine>
+                  <DevtoolsPanel />
+                </DevtoolsProvider>
+              </AntdApp>
+            </DirectoryContextProvider>
+          </AdaptiveUIProvider>
         </ColorModeContextProvider>
       </RefineKbarProvider>
     </BrowserRouter>

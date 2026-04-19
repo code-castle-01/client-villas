@@ -10,6 +10,7 @@ import "dayjs/locale/es";
 
 import App from "./App";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { initPwaRegistration } from "./pwa/register";
 
 dayjs.extend(weekday);
 dayjs.extend(localeData);
@@ -28,3 +29,5 @@ root.render(
     </ErrorBoundary>
   </React.StrictMode>
 );
+
+initPwaRegistration();

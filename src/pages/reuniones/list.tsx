@@ -1,4 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { DeleteOutlined, EditOutlined } from "@ant-design/icons";
+import {
+  Button as MobileButton,
+  Card as MobileCard,
+  NoticeBar,
+  Space as MobileSpace,
+  Tag as MobileTag,
+} from "antd-mobile";
 import {
   Button,
   DatePicker,
@@ -9,22 +17,19 @@ import {
   Popconfirm,
   Space,
   Table,
-  Card,
   Tabs,
-  Typography,
-  Divider,
 } from "antd";
-import { EditOutlined, DeleteOutlined } from "@ant-design/icons";
+import type { ColumnsType } from "antd/es/table";
 import dayjs from "dayjs";
+import { useAdaptiveUI } from "../../adaptive/useAdaptiveUI";
+import { createEntry, deleteEntry, getCollection, updateEntry } from "../../api/client";
 import PDFReuniones from "../../components/PDFReuniones";
 import SelectVarones from "../../components/select-varones";
 import WhatsAppShareButton from "../../components/whatsapp-share-button";
 import useMediaQuery from "../../hooks/useMediaQuery";
-import { ColumnsType } from "antd/es/table";
-import { createEntry, deleteEntry, getCollection, updateEntry } from "../../api/client";
 import { useIsAdminApp } from "../../hooks/useIsAdminApp";
 import {
-  getMonthKeyFromDisplayDate,
+  getMonthKeyFromIsoDate,
   getMonthLabel,
   MONTH_TAB_ITEMS,
   resolveDefaultMonthKey,
@@ -33,6 +38,7 @@ import {
 export interface Reunion {
   id: number;
   documentId?: string;
+  dateValue: string;
   fecha: string;
   presidenteId: number;
   presidente: string;
@@ -60,6 +66,7 @@ type ReunionResponse = {
 const mapReunion = (reunion: ReunionResponse & { id: number }): Reunion => ({
   id: reunion.id,
   documentId: reunion.documentId,
+  dateValue: reunion.fecha,
   fecha: dayjs(reunion.fecha).format("DD-MM-YYYY"),
   presidenteId: reunion.presidente?.id ?? 0,
   presidente: reunion.presidente?.nombre ?? "",
@@ -86,11 +93,14 @@ export const ReunionesTable: React.FC = () => {
   const [editingReunion, setEditingReunion] = useState<Reunion | null>(null);
   const [selectedMonthKey, setSelectedMonthKey] = useState<string | null>(null);
   const isSmallScreen = useMediaQuery("(max-width: 768px)");
+  const { resolvedMode, setOverrideMode } = useAdaptiveUI();
   const isAdminApp = useIsAdminApp();
-  const isReadOnly = !isAdminApp;
+  const isNativeMobile = resolvedMode === "mobile";
+  const canEditInCurrentView = isAdminApp && !isNativeMobile;
 
   useEffect(() => {
     let mounted = true;
+
     const load = async () => {
       const data = await getCollection<ReunionResponse>(REUNIONES_RESOURCE, {
         "pagination[pageSize]": 1000,
@@ -98,7 +108,9 @@ export const ReunionesTable: React.FC = () => {
       const mapped = data.map(mapReunion);
       if (mounted) setReuniones(mapped);
     };
+
     load();
+
     return () => {
       mounted = false;
     };
@@ -108,7 +120,7 @@ export const ReunionesTable: React.FC = () => {
     () =>
       resolveDefaultMonthKey(
         reuniones,
-        (reunion) => getMonthKeyFromDisplayDate(reunion.fecha),
+        (reunion) => getMonthKeyFromIsoDate(reunion.dateValue),
       ),
     [reuniones],
   );
@@ -118,8 +130,7 @@ export const ReunionesTable: React.FC = () => {
   const filteredReuniones = useMemo(
     () =>
       reuniones.filter(
-        (reunion) =>
-          getMonthKeyFromDisplayDate(reunion.fecha) === activeMonthKey,
+        (reunion) => getMonthKeyFromIsoDate(reunion.dateValue) === activeMonthKey,
       ),
     [activeMonthKey, reuniones],
   );
@@ -127,12 +138,13 @@ export const ReunionesTable: React.FC = () => {
   const activeMonthLabel = getMonthLabel(activeMonthKey);
 
   const openModal = (reunion: Reunion | null = null) => {
-    if (isReadOnly) return;
+    if (!canEditInCurrentView) return;
+
     setEditingReunion(reunion);
     setIsModalOpen(true);
     if (reunion) {
       form.setFieldsValue({
-        fecha: dayjs(reunion.fecha, "DD-MM-YYYY"),
+        fecha: dayjs(reunion.dateValue),
         presidente: reunion.presidenteId,
         lector: reunion.lectorId,
         oracion: reunion.oracionId,
@@ -143,7 +155,8 @@ export const ReunionesTable: React.FC = () => {
   };
 
   const handleSave = async (values: any) => {
-    if (isReadOnly) return;
+    if (!canEditInCurrentView) return;
+
     const payload = {
       fecha: values.fecha.format("YYYY-MM-DD"),
       presidente: values.presidente,
@@ -161,18 +174,18 @@ export const ReunionesTable: React.FC = () => {
     const data = await getCollection<ReunionResponse>(REUNIONES_RESOURCE, {
       "pagination[pageSize]": 1000,
     });
-    setReuniones(data.map(mapReunion));
 
+    setReuniones(data.map(mapReunion));
     setIsModalOpen(false);
     setEditingReunion(null);
   };
 
   const handleDelete = async (id: number) => {
-    if (isReadOnly) return;
-    const targetId =
-      reuniones.find((reunion) => reunion.id === id)?.documentId ?? id;
+    if (!canEditInCurrentView) return;
+
+    const targetId = reuniones.find((item) => item.id === id)?.documentId ?? id;
     await deleteEntry(REUNIONES_RESOURCE, targetId as string);
-    setReuniones(reuniones.filter((reunion) => reunion.id !== id));
+    setReuniones((current) => current.filter((item) => item.id !== id));
   };
 
   const columns: ColumnsType<Reunion> = [
@@ -209,33 +222,28 @@ export const ReunionesTable: React.FC = () => {
       width: "20%",
       title: "Menu",
       key: "menu",
-      render: (_: any, record: Reunion) => (
+      render: (_value: unknown, record: Reunion) => (
         <Space size="middle">
           <WhatsAppShareButton message={buildReunionWhatsAppMessage(record)} />
-          {isAdminApp && (
+          {canEditInCurrentView && (
             <>
-                <Button
-                  size="small"
-                  shape="circle"
-                  type="primary"
-                  ghost
-                  onClick={() => openModal(record)}
-                  icon={<EditOutlined />}
-                />
+              <Button
+                size="small"
+                shape="circle"
+                type="primary"
+                ghost
+                onClick={() => openModal(record)}
+                icon={<EditOutlined />}
+              />
 
-                <Popconfirm
-                  title="¿Estás seguro de eliminar esta reunión?"
-                  onConfirm={() => handleDelete(record.id)}
-                  okText="Sí"
-                  cancelText="No"
-                >
-                  <Button
-                    size="small"
-                    shape="circle"
-                    danger
-                    icon={<DeleteOutlined />}
-                  />
-                </Popconfirm>
+              <Popconfirm
+                title="¿Estás seguro de eliminar esta reunión?"
+                onConfirm={() => handleDelete(record.id)}
+                okText="Sí"
+                cancelText="No"
+              >
+                <Button size="small" shape="circle" danger icon={<DeleteOutlined />} />
+              </Popconfirm>
             </>
           )}
         </Space>
@@ -244,61 +252,52 @@ export const ReunionesTable: React.FC = () => {
   ];
 
   const renderMobileView = () => (
-    <>
+    <div style={{ display: "grid", gap: 12 }}>
+      {isAdminApp && (
+        <NoticeBar
+          content="La edición administrativa de reuniones sigue disponible en la vista desktop."
+          extra={
+            <MobileButton size="mini" onClick={() => setOverrideMode("desktop")}>
+              Ir a desktop
+            </MobileButton>
+          }
+        />
+      )}
+
       {filteredReuniones.length === 0 ? (
-        <Card style={{ marginBottom: 16 }}>
+        <MobileCard className="mobile-screen-card">
           <Empty description={`No hay reuniones para ${activeMonthLabel}`} />
-        </Card>
+        </MobileCard>
       ) : (
         filteredReuniones.map((item) => (
-          <Card
+          <MobileCard
             key={item.id}
-            style={{ marginBottom: 16 }}
-            actions={
-              [
-                    <WhatsAppShareButton
-                      key="share"
-                      message={buildReunionWhatsAppMessage(item)}
-                    />,
-                    ...(isAdminApp
-                      ? [
-                    <Button
-                      key="edit"
-                      icon={<EditOutlined />}
-                      onClick={() => openModal(item)}
-                      size="small"
-                    />,
-                    <Popconfirm
-                      key="delete"
-                      title="¿Estás seguro de eliminar esta reunión?"
-                      onConfirm={() => handleDelete(item.id)}
-                      okText="Sí"
-                      cancelText="No"
-                    >
-                      <Button danger icon={<DeleteOutlined />} size="small" />
-                    </Popconfirm>,
-                      ]
-                      : []),
-                  ]
-            }
+            className="mobile-screen-card"
+            title={item.presidente || "Reunión"}
+            extra={<MobileTag color="primary" fill="outline">{item.fecha}</MobileTag>}
           >
-            <Flex vertical gap={4}>
-              <Typography.Text strong>Fecha: {item.fecha}</Typography.Text>
-              <Divider />
-              <Typography.Text>
-                <strong>Presidente:</strong> {item.presidente}
-              </Typography.Text>
-              <Typography.Text>
-                <strong>Lector:</strong> {item.lector}
-              </Typography.Text>
-              <Typography.Text>
-                <strong>Oración:</strong> {item.oracion}
-              </Typography.Text>
-            </Flex>
-          </Card>
+            <MobileSpace direction="vertical" block style={{ width: "100%" }}>
+              <div>
+                <strong>Presidente:</strong> {item.presidente || "Pendiente"}
+              </div>
+              <div>
+                <strong>Lector:</strong> {item.lector || "Pendiente"}
+              </div>
+              <div>
+                <strong>Oración:</strong> {item.oracion || "Pendiente"}
+              </div>
+              <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                <WhatsAppShareButton
+                  message={buildReunionWhatsAppMessage(item)}
+                  shape="round"
+                  size="middle"
+                />
+              </div>
+            </MobileSpace>
+          </MobileCard>
         ))
       )}
-    </>
+    </div>
   );
 
   return (
@@ -329,7 +328,7 @@ export const ReunionesTable: React.FC = () => {
           </div>
 
           <Space wrap size={12}>
-            {isAdminApp && (
+            {canEditInCurrentView && (
               <Button type="primary" onClick={() => openModal()}>
                 Nueva Reunión
               </Button>
@@ -338,7 +337,7 @@ export const ReunionesTable: React.FC = () => {
           </Space>
         </Flex>
 
-        {isSmallScreen ? (
+        {isNativeMobile ? (
           renderMobileView()
         ) : (
           <Table
@@ -354,7 +353,7 @@ export const ReunionesTable: React.FC = () => {
         )}
       </Flex>
 
-      {isAdminApp && (
+      {canEditInCurrentView && (
         <Modal
           title={editingReunion ? "Editar Reunión" : "Agregar Reunión"}
           open={isModalOpen}
@@ -363,26 +362,19 @@ export const ReunionesTable: React.FC = () => {
             setEditingReunion(null);
           }}
           footer={null}
+          width={isSmallScreen ? "100%" : 520}
         >
           <Form form={form} layout="vertical" onFinish={handleSave}>
             <Form.Item name="fecha" label="Fecha" rules={[{ required: true }]}>
               <DatePicker format="DD-MM-YYYY" />
             </Form.Item>
-            <Form.Item
-              name="presidente"
-              label="Presidente"
-              rules={[{ required: true }]}
-            >
+            <Form.Item name="presidente" label="Presidente" rules={[{ required: true }]}>
               <SelectVarones />
             </Form.Item>
             <Form.Item name="lector" label="Lector" rules={[{ required: true }]}>
               <SelectVarones />
             </Form.Item>
-            <Form.Item
-              name="oracion"
-              label="Oración"
-              rules={[{ required: true }]}
-            >
+            <Form.Item name="oracion" label="Oración" rules={[{ required: true }]}>
               <SelectVarones />
             </Form.Item>
             <Form.Item>

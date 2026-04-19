@@ -19,12 +19,10 @@ import {
   EditOutlined,
   SaveOutlined,
 } from "@ant-design/icons";
-import { pdf } from "@react-pdf/renderer";
 import { getOptionalSingle, updateSingle } from "../../api/client";
 import { useDirectory } from "../../contexts/directory";
 import useMediaQuery from "../../hooks/useMediaQuery";
 import { useIsAdminApp } from "../../hooks/useIsAdminApp";
-import { OrganigramaPdfDocument } from "./OrganigramaPdfDocument";
 import {
   committeeBranches,
   editableSections,
@@ -188,6 +186,10 @@ export const OrganigramaDashboard: React.FC = () => {
     setDownloadingPdf(true);
 
     try {
+      const [{ pdf }, { OrganigramaPdfDocument }] = await Promise.all([
+        import("@react-pdf/renderer"),
+        import("./OrganigramaPdfDocument"),
+      ]);
       const blob = await pdf(
         <OrganigramaPdfDocument
           congregationName={organigrama.congregationName}

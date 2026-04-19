@@ -1,36 +1,45 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  Table,
-  Button,
-  Modal,
-  Form,
-  DatePicker,
-  Select,
-  Tag,
-  Popconfirm,
-  Space,
-  Divider,
-  Flex,
-  Card,
-  Typography,
+  Button as MobileButton,
+  Card as MobileCard,
+  NoticeBar,
+  Selector,
+  Space as MobileSpace,
+  Tag as MobileTag,
+} from "antd-mobile";
+import {
   Alert,
+  Button,
+  Card,
+  DatePicker,
+  Divider,
   Empty,
+  Flex,
+  Form,
+  Modal,
+  Popconfirm,
+  Select,
+  Space,
+  Table,
   Tabs,
+  Tag,
+  Typography,
 } from "antd";
-import { ColumnsType } from "antd/es/table";
 import { EditOutlined, DeleteOutlined } from "@ant-design/icons";
+import { ColumnsType } from "antd/es/table";
 import dayjs from "dayjs";
-import useMediaQuery from "../../hooks/useMediaQuery";
-import PDFMecanicas from "../../components/PDFMecanicas";
-import SelectVarones from "../../components/select-varones";
-import WhatsAppShareButton from "../../components/whatsapp-share-button";
+import { useAdaptiveUI } from "../../adaptive/useAdaptiveUI";
 import {
   createEntry,
   deleteEntry,
   getAllCollection,
   updateEntry,
 } from "../../api/client";
+import PDFMecanicas from "../../components/PDFMecanicas";
+import SelectVarones from "../../components/select-varones";
+import WhatsAppShareButton from "../../components/whatsapp-share-button";
 import { useDirectory } from "../../contexts/directory";
+import useMediaQuery from "../../hooks/useMediaQuery";
 import { useIsAdminApp } from "../../hooks/useIsAdminApp";
 
 const MECANICAS_RESOURCE = "mecanica-asignacions";
@@ -123,20 +132,23 @@ const mapAssignment = (item: MecanicaResponse & { id: number }) => ({
 });
 
 const fetchAssignments = async () => {
-  const asignaciones = await getAllCollection<MecanicaResponse>(MECANICAS_RESOURCE, {
-    populate: [
-      "acomodadorDentro",
-      "acomodadorLobby",
-      "acomodadorReja",
-      "micro1",
-      "micro2",
-      "plataforma",
-      "audioVideo",
-      "audioVideoAuxiliar",
-    ],
-    sort: "fecha:asc",
-    "pagination[pageSize]": 100,
-  });
+  const asignaciones = await getAllCollection<MecanicaResponse>(
+    MECANICAS_RESOURCE,
+    {
+      populate: [
+        "acomodadorDentro",
+        "acomodadorLobby",
+        "acomodadorReja",
+        "micro1",
+        "micro2",
+        "plataforma",
+        "audioVideo",
+        "audioVideoAuxiliar",
+      ],
+      sort: "fecha:asc",
+      "pagination[pageSize]": 100,
+    },
+  );
 
   return asignaciones.map(mapAssignment);
 };
@@ -182,12 +194,30 @@ const MONTH_LABELS = [
 const getMonthKeyFromAssignment = (assignment: ScheduleData) =>
   dayjs(assignment.dateValue).month().toString();
 
+const renderGroupTags = (values: string[]) => {
+  if (values.length === 0) {
+    return <MobileTag fill="outline">Pendiente</MobileTag>;
+  }
+
+  return (
+    <MobileSpace wrap>
+      {values.map((value) => (
+        <MobileTag key={value} color="primary" fill="outline">
+          Grupo {value}
+        </MobileTag>
+      ))}
+    </MobileSpace>
+  );
+};
+
 export const ScheduleTable: React.FC = () => {
   const isSmallScreen = useMediaQuery("(max-width: 768px)");
+  const { resolvedMode, setOverrideMode } = useAdaptiveUI();
+  const isNativeMobile = resolvedMode === "mobile";
   const [form] = Form.useForm();
   const [data, setData] = useState<ScheduleData[]>([]);
   const isAdminApp = useIsAdminApp();
-  const isReadOnly = !isAdminApp;
+  const canEditInCurrentView = isAdminApp && !isNativeMobile;
   const { grupos, miembros } = useDirectory();
   const memberNamesById = useMemo(
     () =>
@@ -199,7 +229,7 @@ export const ScheduleTable: React.FC = () => {
   );
   const assignmentGroupOptions = useMemo(() => {
     const totalActiveGroups = grupos.filter(
-      (group) => normalizeGroupName(group.nombre) !== INACTIVE_GROUP_NAME
+      (group) => normalizeGroupName(group.nombre) !== INACTIVE_GROUP_NAME,
     ).length;
 
     return Array.from({ length: totalActiveGroups }, (_, index) => ({
@@ -215,13 +245,16 @@ export const ScheduleTable: React.FC = () => {
 
   useEffect(() => {
     let mounted = true;
+
     const load = async () => {
       const mapped = await fetchAssignments();
 
       if (!mounted) return;
       setData(mapped);
     };
-    load();
+
+    void load();
+
     return () => {
       mounted = false;
     };
@@ -234,6 +267,15 @@ export const ScheduleTable: React.FC = () => {
         label,
       })),
     [],
+  );
+
+  const monthSelectorOptions = useMemo(
+    () =>
+      monthTabs.map((item) => ({
+        label: item.label,
+        value: item.key,
+      })),
+    [monthTabs],
   );
 
   const defaultMonthKey = useMemo(() => {
@@ -249,18 +291,15 @@ export const ScheduleTable: React.FC = () => {
   const activeMonthKey = selectedMonthKey ?? defaultMonthKey;
 
   const filteredData = useMemo(
-    () =>
-      data.filter(
-        (item) => getMonthKeyFromAssignment(item) === activeMonthKey,
-      ),
+    () => data.filter((item) => getMonthKeyFromAssignment(item) === activeMonthKey),
     [activeMonthKey, data],
   );
 
-  const activeMonthLabel =
-    MONTH_LABELS[Number(activeMonthKey)] ?? "este mes";
+  const activeMonthLabel = MONTH_LABELS[Number(activeMonthKey)] ?? "este mes";
 
   const handleAddOrUpdateAssignment = () => {
-    if (isReadOnly) return;
+    if (!canEditInCurrentView) return;
+
     form.validateFields().then(async (values) => {
       const allSelectedValues = [
         values.dentro,
@@ -275,18 +314,18 @@ export const ScheduleTable: React.FC = () => {
       const duplicates = Array.from(
         new Set(
           allSelectedValues.filter(
-            (item, index) => allSelectedValues.indexOf(item) !== index
-          )
-        )
+            (item, index) => allSelectedValues.indexOf(item) !== index,
+          ),
+        ),
       );
 
       if (duplicates.length > 0) {
         const duplicateNames = duplicates.map(
-          (id) => memberNamesById[id] ?? `ID ${id}`
+          (id) => memberNamesById[id] ?? `ID ${id}`,
         );
 
         setDuplicateError(
-          `Los siguientes valores están duplicados: ${duplicateNames.join(", ")}`
+          `Los siguientes valores están duplicados: ${duplicateNames.join(", ")}`,
         );
         return;
       }
@@ -309,11 +348,7 @@ export const ScheduleTable: React.FC = () => {
         data.find((item) => item.key === editingKey)?.documentId ?? editingKey;
 
       if (editingKey) {
-        await updateEntry(
-          MECANICAS_RESOURCE,
-          targetId as string,
-          payload
-        );
+        await updateEntry(MECANICAS_RESOURCE, targetId as string, payload);
       } else {
         await createEntry(MECANICAS_RESOURCE, payload);
       }
@@ -327,7 +362,8 @@ export const ScheduleTable: React.FC = () => {
   };
 
   const handleEdit = (record: ScheduleData) => {
-    if (isReadOnly) return;
+    if (!canEditInCurrentView) return;
+
     setDuplicateError(null);
     form.setFieldsValue({
       date: dayjs(record.dateValue),
@@ -347,11 +383,11 @@ export const ScheduleTable: React.FC = () => {
   };
 
   const handleDelete = async (key: string) => {
-    if (isReadOnly) return;
+    if (!canEditInCurrentView) return;
+
     const targetId = data.find((item) => item.key === key)?.documentId ?? key;
     await deleteEntry(MECANICAS_RESOURCE, targetId as string);
-    const updatedData = data.filter((item) => item.key !== key);
-    setData(updatedData);
+    setData((current) => current.filter((item) => item.key !== key));
   };
 
   const columns: ColumnsType<ScheduleData> = [
@@ -371,19 +407,19 @@ export const ScheduleTable: React.FC = () => {
             <Tag bordered={false} color="orange" style={{ width: 50 }}>
               Dentro
             </Tag>{" "}
-            <Typography.Text> {accommodators.dentro}</Typography.Text>
+            <Typography.Text>{accommodators.dentro || "Pendiente"}</Typography.Text>
           </div>
           <div>
             <Tag bordered={false} color="orange" style={{ width: 50 }}>
               Lobby
             </Tag>{" "}
-            <Typography.Text>{accommodators.lobby}</Typography.Text>
+            <Typography.Text>{accommodators.lobby || "Pendiente"}</Typography.Text>
           </div>
           <div>
             <Tag bordered={false} color="orange" style={{ width: 50 }}>
               Reja
             </Tag>{" "}
-            <Typography.Text>{accommodators.reja}</Typography.Text>
+            <Typography.Text>{accommodators.reja || "Pendiente"}</Typography.Text>
           </div>
         </Flex>
       ),
@@ -398,19 +434,19 @@ export const ScheduleTable: React.FC = () => {
             <Tag bordered={false} color="green" style={{ width: 70 }}>
               Micrófono
             </Tag>{" "}
-            <Typography.Text>{microphone.micro1}</Typography.Text>
+            <Typography.Text>{microphone.micro1 || "Pendiente"}</Typography.Text>
           </div>
           <div>
             <Tag bordered={false} color="green" style={{ width: 70 }}>
               Micrófono
             </Tag>{" "}
-            <Typography.Text>{microphone.micro2}</Typography.Text>
+            <Typography.Text>{microphone.micro2 || "Pendiente"}</Typography.Text>
           </div>
           <div>
             <Tag bordered={false} color="green" style={{ width: 70 }}>
               Plataforma
             </Tag>{" "}
-            <Typography.Text>{microphone.plataforma}</Typography.Text>
+            <Typography.Text>{microphone.plataforma || "Pendiente"}</Typography.Text>
           </div>
         </Flex>
       ),
@@ -422,14 +458,14 @@ export const ScheduleTable: React.FC = () => {
       render: (_: string, record) => (
         <Flex vertical gap={4}>
           <div>
-            <Tag bordered={false} color="blue" style={{ width: 44 }}>
+            <Tag bordered={false} color="blue" style={{ width: 62 }}>
               Principal
             </Tag>{" "}
             <Typography.Text>{record.audioVideo || "Pendiente"}</Typography.Text>
           </div>
           <div>
-            <Tag bordered={false} color="cyan" style={{ width: 44 }}>
-              Aux
+            <Tag bordered={false} color="cyan" style={{ width: 62 }}>
+              Auxiliar
             </Tag>{" "}
             <Typography.Text>
               {record.audioVideoAuxiliar || "Pendiente"}
@@ -464,29 +500,29 @@ export const ScheduleTable: React.FC = () => {
       render: (_: unknown, record: ScheduleData) => (
         <Space size="small">
           <WhatsAppShareButton message={buildMecanicaWhatsAppMessage(record)} />
-          {isAdminApp && (
+          {canEditInCurrentView && (
             <>
+              <Button
+                icon={<EditOutlined />}
+                onClick={() => handleEdit(record)}
+                size="small"
+                shape="circle"
+                type="primary"
+                ghost
+              />
+              <Popconfirm
+                title="¿Estás seguro de eliminar esta asignación?"
+                onConfirm={() => handleDelete(record.key)}
+                okText="Sí"
+                cancelText="No"
+              >
                 <Button
-                  icon={<EditOutlined />}
-                  onClick={() => handleEdit(record)}
+                  danger
+                  icon={<DeleteOutlined />}
                   size="small"
                   shape="circle"
-                  type="primary"
-                  ghost
                 />
-                <Popconfirm
-                  title="¿Estás seguro de eliminar esta asignación?"
-                  onConfirm={() => handleDelete(record.key)}
-                  okText="Sí"
-                  cancelText="No"
-                  >
-                    <Button
-                      danger
-                      icon={<DeleteOutlined />}
-                      size="small"
-                      shape="circle"
-                    />
-                  </Popconfirm>
+              </Popconfirm>
             </>
           )}
         </Space>
@@ -495,171 +531,148 @@ export const ScheduleTable: React.FC = () => {
   ];
 
   const renderMobileView = () => (
-    <>
+    <div style={{ display: "grid", gap: 12 }}>
+      {isAdminApp && (
+        <NoticeBar
+          content="La edición administrativa de mecánicas sigue disponible en la vista desktop."
+          extra={
+            <MobileButton size="mini" onClick={() => setOverrideMode("desktop")}>
+              Ir a desktop
+            </MobileButton>
+          }
+        />
+      )}
+
+      <MobileCard className="mobile-screen-card">
+        <div style={{ display: "grid", gap: 12 }}>
+          <div>
+            <div style={{ fontWeight: 800, marginBottom: 4 }}>Mes activo</div>
+            <div style={{ color: "var(--app-muted)" }}>
+              Cambia rápido entre asignaciones sin salir de la vista móvil.
+            </div>
+          </div>
+          <Selector
+            columns={3}
+            options={monthSelectorOptions}
+            value={[activeMonthKey]}
+            onChange={(value) => setSelectedMonthKey(value[0] ?? defaultMonthKey)}
+          />
+          <div style={{ display: "flex", justifyContent: "flex-end" }}>
+            <PDFMecanicas data={filteredData} />
+          </div>
+        </div>
+      </MobileCard>
+
       {filteredData.length === 0 ? (
-        <Card>
+        <MobileCard className="mobile-screen-card">
           <Empty description={`No hay asignaciones para ${activeMonthLabel}`} />
-        </Card>
+        </MobileCard>
       ) : (
         filteredData.map((item) => (
-        <Card
-          key={item.key}
-          style={{ marginBottom: 16 }}
-          actions={
-            [
-                  <WhatsAppShareButton
-                    key="share"
-                    message={buildMecanicaWhatsAppMessage(item)}
-                  />,
-                  ...(isAdminApp
-                    ? [
-                  <Button
-                    key="edit"
-                    icon={<EditOutlined />}
-                    onClick={() => handleEdit(item)}
-                    size="small"
-                  />,
-                  <Popconfirm
-                    key="delete"
-                    title="¿Estás seguro de eliminar esta asignación?"
-                    onConfirm={() => handleDelete(item.key)}
-                    okText="Sí"
-                    cancelText="No"
-                  >
-                    <Button danger icon={<DeleteOutlined />} size="small" />
-                  </Popconfirm>,
-                    ]
-                    : []),
-                ]
-          }
-        >
-          <Flex vertical gap={4}>
-            <Typography.Text>
-              <strong>Fecha:</strong> {item.date}
-            </Typography.Text>
-            <Typography.Text>
-              <strong>Limpieza:</strong>{" "}
-              {item.cleaning.length ? item.cleaning.join(", ") : "Pendiente"}
-            </Typography.Text>
-            <Typography.Text>
-              <strong>Hospitalidad:</strong>{" "}
-              {item.hospitality.length ? item.hospitality.join(", ") : "Pendiente"}
-            </Typography.Text>
-            <Typography.Paragraph>
-              <Divider>
-                <Tag bordered={false} color="orange">
-                  Acomodadores
-                </Tag>
-              </Divider>
-              <Flex vertical gap={4}>
-                <Typography.Text>
-                  <strong> Dentro: </strong>
-                  {item.accommodators.dentro}
-                </Typography.Text>
-                <Typography.Text>
-                  {" "}
-                  <strong>Lobby: </strong>
-                  {item.accommodators.lobby}
-                </Typography.Text>{" "}
-                <Typography.Text>
-                  {" "}
-                  <strong>Reja: </strong>
-                  {item.accommodators.reja}
-                </Typography.Text>{" "}
-              </Flex>
-            </Typography.Paragraph>
-            <Typography.Paragraph>
-              <Divider>
-                <Tag bordered={false} color="green">
-                  Micrófonos
-                </Tag>
-              </Divider>
-              <Flex vertical gap={4}>
-                <Typography.Text>
-                  <strong> Micrófono: </strong>
-                  {item.microphone.micro1}
-                </Typography.Text>
-                <Typography.Text>
-                  {" "}
-                  <strong>Micrófono: </strong>
-                  {item.microphone.micro2}
-                </Typography.Text>{" "}
-                <Typography.Text>
-                  {" "}
-                  <strong>Plataforma: </strong>
-                  {item.microphone.plataforma}
-                </Typography.Text>{" "}
-              </Flex>
-            </Typography.Paragraph>
-            <Typography.Paragraph>
-              <Divider>
-                <Tag bordered={false} color="blue">
-                  Audio y Video
-                </Tag>
-              </Divider>
-              <Typography.Text>
-                <strong>Principal: </strong>
-                {item.audioVideo || "Pendiente"}
-              </Typography.Text>
-              <br />
-              <Typography.Text>
-                <strong>Auxiliar: </strong>
-                {item.audioVideoAuxiliar || "Pendiente"}
-              </Typography.Text>
-            </Typography.Paragraph>
-          </Flex>
-        </Card>
+          <MobileCard
+            key={item.key}
+            className="mobile-screen-card"
+            title={item.date}
+            extra={
+              <MobileTag color="primary" fill="outline">
+                {activeMonthLabel}
+              </MobileTag>
+            }
+          >
+            <MobileSpace direction="vertical" block style={{ width: "100%" }}>
+              <div>
+                <strong>Limpieza</strong>
+                <div style={{ marginTop: 8 }}>{renderGroupTags(item.cleaning)}</div>
+              </div>
+              <div>
+                <strong>Hospitalidad</strong>
+                <div style={{ marginTop: 8 }}>{renderGroupTags(item.hospitality)}</div>
+              </div>
+              <div>
+                <strong>Acomodadores</strong>
+                <div style={{ marginTop: 8, display: "grid", gap: 6 }}>
+                  <div>Dentro: {item.accommodators.dentro || "Pendiente"}</div>
+                  <div>Lobby: {item.accommodators.lobby || "Pendiente"}</div>
+                  <div>Reja: {item.accommodators.reja || "Pendiente"}</div>
+                </div>
+              </div>
+              <div>
+                <strong>Micrófonos</strong>
+                <div style={{ marginTop: 8, display: "grid", gap: 6 }}>
+                  <div>Micrófono 1: {item.microphone.micro1 || "Pendiente"}</div>
+                  <div>Micrófono 2: {item.microphone.micro2 || "Pendiente"}</div>
+                  <div>Plataforma: {item.microphone.plataforma || "Pendiente"}</div>
+                </div>
+              </div>
+              <div>
+                <strong>Audio y video</strong>
+                <div style={{ marginTop: 8, display: "grid", gap: 6 }}>
+                  <div>Principal: {item.audioVideo || "Pendiente"}</div>
+                  <div>Auxiliar: {item.audioVideoAuxiliar || "Pendiente"}</div>
+                </div>
+              </div>
+              <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                <WhatsAppShareButton
+                  message={buildMecanicaWhatsAppMessage(item)}
+                  shape="round"
+                  size="middle"
+                />
+              </div>
+            </MobileSpace>
+          </MobileCard>
         ))
       )}
-    </>
+    </div>
   );
 
   return (
     <>
       <Flex vertical gap={16}>
-        <Flex
-          gap={12}
-          align={isSmallScreen ? "stretch" : "center"}
-          justify="space-between"
-          wrap="wrap"
-        >
-          <div
-            style={{
-              flex: 1,
-              minWidth: 0,
-              padding: "0 16px",
-              background: "#fff",
-              border: "1px solid #f0f0f0",
-              borderRadius: 16,
-            }}
+        {!isNativeMobile && (
+          <Flex
+            gap={12}
+            align={isSmallScreen ? "stretch" : "center"}
+            justify="space-between"
+            wrap="wrap"
           >
-            <Tabs
-              activeKey={activeMonthKey}
-              items={monthTabs}
-              onChange={setSelectedMonthKey}
-              tabBarStyle={{ margin: 0, paddingTop: 8 }}
-            />
-          </div>
+            <div
+              style={{
+                flex: 1,
+                minWidth: 0,
+                padding: "0 16px",
+                background: "#fff",
+                border: "1px solid #f0f0f0",
+                borderRadius: 16,
+              }}
+            >
+              <Tabs
+                activeKey={activeMonthKey}
+                items={monthTabs}
+                onChange={setSelectedMonthKey}
+                tabBarStyle={{ margin: 0, paddingTop: 8 }}
+              />
+            </div>
 
-          <Space wrap size={12}>
-            {isAdminApp && (
-              <Button
-                type="primary"
-                onClick={() => {
-                  setEditingKey(null);
-                  setDuplicateError(null);
-                  form.resetFields();
-                  setIsModalVisible(true);
-                }}
-              >
-                Nueva Asignación
-              </Button>
-            )}
-            <PDFMecanicas data={filteredData} />
-          </Space>
-        </Flex>
+            <Space wrap size={12}>
+              {canEditInCurrentView && (
+                <Button
+                  type="primary"
+                  onClick={() => {
+                    setEditingKey(null);
+                    setDuplicateError(null);
+                    form.resetFields();
+                    setIsModalVisible(true);
+                  }}
+                >
+                  Nueva Asignación
+                </Button>
+              )}
+              <PDFMecanicas data={filteredData} />
+            </Space>
+          </Flex>
+        )}
 
-        {isSmallScreen ? (
+        {isNativeMobile ? (
           renderMobileView()
         ) : (
           <Table
@@ -675,7 +688,7 @@ export const ScheduleTable: React.FC = () => {
         )}
       </Flex>
 
-      {isAdminApp && (
+      {canEditInCurrentView && (
         <Modal
           title={editingKey ? "Editar Asignación" : "Agregar Asignación"}
           open={isModalVisible}
@@ -725,79 +738,67 @@ export const ScheduleTable: React.FC = () => {
               </Form.Item>
             </div>
 
-          <Divider>Acomodadores</Divider>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: isSmallScreen ? "1fr" : "repeat(3, minmax(0, 1fr))",
-              gap: 16,
-            }}
-          >
-            <Form.Item
-              label="Dentro"
-              name="dentro"
+            <Divider>Acomodadores</Divider>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: isSmallScreen
+                  ? "1fr"
+                  : "repeat(3, minmax(0, 1fr))",
+                gap: 16,
+              }}
             >
-              <SelectVarones />
-            </Form.Item>
-            <Form.Item
-              label="Lobby"
-              name="lobby"
+              <Form.Item label="Dentro" name="dentro">
+                <SelectVarones />
+              </Form.Item>
+              <Form.Item label="Lobby" name="lobby">
+                <SelectVarones />
+              </Form.Item>
+              <Form.Item label="Reja" name="reja">
+                <SelectVarones />
+              </Form.Item>
+            </div>
+
+            <Divider>Micrófonos</Divider>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: isSmallScreen
+                  ? "1fr"
+                  : "repeat(3, minmax(0, 1fr))",
+                gap: 16,
+              }}
             >
-              <SelectVarones />
-            </Form.Item>
-            <Form.Item
-              label="Reja"
-              name="reja"
+              <Form.Item label="Micrófono 1" name="micro1">
+                <SelectVarones />
+              </Form.Item>
+              <Form.Item label="Micrófono 2" name="micro2">
+                <SelectVarones />
+              </Form.Item>
+              <Form.Item label="Plataforma" name="plataforma">
+                <SelectVarones />
+              </Form.Item>
+            </div>
+
+            <Divider>Audio y video</Divider>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: isSmallScreen
+                  ? "1fr"
+                  : "repeat(2, minmax(0, 1fr))",
+                gap: 16,
+              }}
             >
-              <SelectVarones />
-            </Form.Item>
-          </div>
-          <Divider>Micrófonos</Divider>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: isSmallScreen ? "1fr" : "repeat(3, minmax(0, 1fr))",
-              gap: 16,
-            }}
-          >
-            <Form.Item
-              label="Micrófono 1"
-              name="micro1"
-            >
-              <SelectVarones />
-            </Form.Item>
-            <Form.Item
-              label="Micrófono 2"
-              name="micro2"
-            >
-              <SelectVarones />
-            </Form.Item>
-            <Form.Item
-              label="Plataforma"
-              name="plataforma"
-            >
-              <SelectVarones />
-            </Form.Item>
-          </div>
-          <Divider>Zoom</Divider>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: isSmallScreen
-                ? "1fr"
-                : "repeat(2, minmax(0, 1fr))",
-              gap: 16,
-            }}
-          >
-            <Form.Item label="Audio y Video" name="audioVideo">
-              <SelectVarones />
-            </Form.Item>
-            <Form.Item label="Auxiliar" name="audioVideoAuxiliar">
-              <SelectVarones />
-            </Form.Item>
-          </div>
-        </Form>
-        {/* Mostrar alerta si hay duplicados */}
+              <Form.Item label="Audio y Video" name="audioVideo">
+                <SelectVarones />
+              </Form.Item>
+              <Form.Item label="Auxiliar" name="audioVideoAuxiliar">
+                <SelectVarones />
+              </Form.Item>
+            </div>
+          </Form>
+
           {duplicateError && (
             <Alert
               message="Error"
@@ -806,7 +807,7 @@ export const ScheduleTable: React.FC = () => {
               showIcon
               closable
               onClose={() => setDuplicateError(null)}
-              style={{ marginBottom: 16 }}
+              style={{ marginTop: 16 }}
             />
           )}
         </Modal>

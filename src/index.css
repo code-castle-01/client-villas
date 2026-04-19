@@ -1,4 +1,159 @@
 @layer theme, base, components, utilities;
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@600;700&display=swap");
 @import "tailwindcss/theme.css" layer(theme);
 /* Preflight disabled to avoid clashing with Ant Design's base styles. */
 @import "tailwindcss/utilities.css" layer(utilities);
+
+:root {
+  --app-color-primary: #7e2c6f;
+  --app-color-primary-accent: #4b2b76;
+  --app-color-info: #7e2c6f;
+  --app-color-success: #566fa3;
+  --app-color-warning: #f39c12;
+  --app-color-error: #e74c3c;
+  --app-color-text: #1d1d1d;
+  --app-background: #f6f3f8;
+  --app-surface: rgba(255, 255, 255, 0.88);
+  --app-surface-elevated: rgba(255, 255, 255, 0.96);
+  --app-surface-strong: #ffffff;
+  --app-border: rgba(75, 43, 118, 0.14);
+  --app-shadow: 0 20px 60px rgba(75, 43, 118, 0.12);
+  --app-muted: #695f78;
+  --adm-color-primary: var(--app-color-primary);
+  --adm-color-success: var(--app-color-success);
+  --adm-color-warning: var(--app-color-warning);
+  --adm-color-danger: var(--app-color-error);
+  --adm-color-text: var(--app-color-text);
+  --adm-color-background: var(--app-background);
+  --adm-color-box: var(--app-surface-strong);
+  --adm-radius-s: 14px;
+  --adm-radius-m: 18px;
+  --adm-radius-l: 24px;
+}
+
+:root[data-color-mode="dark"] {
+  --app-color-text: #f4eff7;
+  --app-background: #140f1a;
+  --app-surface: rgba(32, 24, 40, 0.92);
+  --app-surface-elevated: rgba(24, 18, 31, 0.97);
+  --app-surface-strong: #1d1626;
+  --app-border: rgba(255, 255, 255, 0.08);
+  --app-shadow: 0 22px 64px rgba(0, 0, 0, 0.36);
+  --app-muted: #baaec9;
+  --adm-color-text: var(--app-color-text);
+  --adm-color-background: var(--app-background);
+  --adm-color-box: var(--app-surface-strong);
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: "Manrope", "Segoe UI", sans-serif;
+  color: var(--app-color-text);
+  background:
+    radial-gradient(circle at top left, rgba(126, 44, 111, 0.18), transparent 24%),
+    radial-gradient(circle at bottom right, rgba(86, 111, 163, 0.22), transparent 28%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.36), rgba(255, 255, 255, 0)),
+    var(--app-background);
+}
+
+a {
+  color: inherit;
+}
+
+.mobile-app-shell {
+  min-height: 100vh;
+  background: var(--app-background);
+}
+
+.mobile-app-shell__navbar {
+  background: var(--app-surface);
+  backdrop-filter: blur(18px);
+  border-bottom: 1px solid var(--app-border);
+}
+
+.mobile-app-shell__settings-trigger {
+  color: var(--app-color-primary);
+}
+
+.mobile-app-shell__content {
+  min-height: calc(100vh - 108px);
+  padding: 12px 12px 96px;
+  box-sizing: border-box;
+}
+
+.mobile-app-shell__tabbar {
+  position: fixed;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 40;
+  border-top: 1px solid var(--app-border);
+  background: color-mix(in srgb, var(--app-surface-elevated) 92%, transparent);
+  backdrop-filter: blur(22px);
+}
+
+.mobile-app-shell__settings {
+  padding: 20px 16px calc(20px + env(safe-area-inset-bottom));
+}
+
+.mobile-app-shell__settings h3 {
+  margin: 0 0 16px;
+  font-size: 1rem;
+}
+
+.mobile-app-shell__setting-group,
+.mobile-app-shell__setting-row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mobile-app-shell__setting-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  color: var(--app-color-text);
+}
+
+.mobile-app-shell__setting-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--app-muted);
+  font-size: 0.93rem;
+}
+
+.mobile-route-unavailable {
+  display: grid;
+  gap: 14px;
+}
+
+.mobile-route-unavailable__copy {
+  color: var(--app-muted);
+  line-height: 1.5;
+}
+
+.mobile-screen-card {
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  box-shadow: var(--app-shadow);
+  border-radius: 24px;
+}
+
+.mobile-assignment-item,
+.mobile-assignment-summary {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--app-border);
+}
+
+.mobile-assignment-item:last-child,
+.mobile-assignment-summary:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}

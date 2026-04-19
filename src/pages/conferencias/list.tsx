@@ -1,6 +1,13 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { DeleteOutlined, EditOutlined, UserAddOutlined } from "@ant-design/icons";
 import {
+  Button as MobileButton,
+  Card as MobileCard,
+  NoticeBar,
+  Space as MobileSpace,
+  Tag as MobileTag,
+} from "antd-mobile";
+import {
   Button,
   DatePicker,
   Empty,
@@ -9,23 +16,23 @@ import {
   Input,
   InputNumber,
   Modal,
+  Popconfirm,
   Space,
   Switch,
   Table,
-  Card,
   Tabs,
   Typography,
-  Popconfirm,
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import dayjs from "dayjs";
+import { useAdaptiveUI } from "../../adaptive/useAdaptiveUI";
+import { createEntry, deleteEntry, getCollection, updateEntry } from "../../api/client";
 import PDFConferencias from "../../components/PDFConferencias";
 import SelectSiervos from "../../components/select-siervos";
 import SelectTemas from "../../components/select-temas";
 import WhatsAppShareButton from "../../components/whatsapp-share-button";
-import useMediaQuery from "../../hooks/useMediaQuery";
-import { createEntry, deleteEntry, getCollection, updateEntry } from "../../api/client";
 import { useDirectory } from "../../contexts/directory";
+import useMediaQuery from "../../hooks/useMediaQuery";
 import { useIsAdminApp } from "../../hooks/useIsAdminApp";
 import {
   getMonthKeyFromIsoDate,
@@ -33,8 +40,6 @@ import {
   MONTH_TAB_ITEMS,
   resolveDefaultMonthKey,
 } from "../../utils/monthTabs";
-
-const { Text, Paragraph } = Typography;
 
 export interface Conferencia {
   id: string;
@@ -129,18 +134,21 @@ const buildConferenceWhatsAppMessage = (conferencia: Conferencia) => {
 
 export const ConferenciasTable: React.FC = () => {
   const isSmallScreen = useMediaQuery("(max-width: 768px)");
+  const { resolvedMode, setOverrideMode } = useAdaptiveUI();
   const isAdminApp = useIsAdminApp();
-  const isReadOnly = !isAdminApp;
+  const isNativeMobile = resolvedMode === "mobile";
+  const canEditInCurrentView = isAdminApp && !isNativeMobile;
 
   const [conferencias, setConferencias] = useState<Conferencia[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingConferencia, setEditingConferencia] = useState<Conferencia | null>(
-    null
+    null,
   );
   const [isLocalSpeaker, setIsLocalSpeaker] = useState(false);
   const [selectedMonthKey, setSelectedMonthKey] = useState<string | null>(null);
   const [form] = Form.useForm();
   const { miembros } = useDirectory();
+
   const leadershipMembers = useMemo(
     () =>
       miembros
@@ -151,16 +159,19 @@ export const ConferenciasTable: React.FC = () => {
 
   useEffect(() => {
     let mounted = true;
+
     const load = async () => {
       const data = await getCollection<ConferenciaResponse>("conferencias", {
         "pagination[pageSize]": 1000,
       });
-      const mapped = data.map(mapConferencia);
+
       if (mounted) {
-        setConferencias(mapped);
+        setConferencias(data.map(mapConferencia));
       }
     };
+
     load();
+
     return () => {
       mounted = false;
     };
@@ -189,12 +200,16 @@ export const ConferenciasTable: React.FC = () => {
   const activeMonthLabel = getMonthLabel(activeMonthKey);
 
   const openModal = (record?: Conferencia) => {
-    if (isReadOnly) return;
+    if (!canEditInCurrentView) return;
+
     setEditingConferencia(record || null);
     if (record) {
       const matchedLocalSpeaker = leadershipMembers.find(
-        (member) => member.nombre.trim().toLowerCase() === record.orador.trim().toLowerCase()
+        (member) =>
+          member.nombre.trim().toLowerCase() ===
+          record.orador.trim().toLowerCase(),
       );
+
       setIsLocalSpeaker(Boolean(matchedLocalSpeaker));
       form.setFieldsValue({
         ...record,
@@ -213,16 +228,18 @@ export const ConferenciasTable: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (isReadOnly) return;
+    if (!canEditInCurrentView) return;
+
     await deleteEntry("conferencias", Number(id));
-    setConferencias(conferencias.filter((c) => c.id !== id));
+    setConferencias((current) => current.filter((item) => item.id !== id));
     form.resetFields();
   };
 
   const handleSave = async (values: any) => {
-    if (isReadOnly) return;
+    if (!canEditInCurrentView) return;
+
     const selectedLocalSpeaker = leadershipMembers.find(
-      (member) => member.id === values.localOrador
+      (member) => member.id === values.localOrador,
     );
     const payload = {
       orador:
@@ -245,6 +262,7 @@ export const ConferenciasTable: React.FC = () => {
     const data = await getCollection<ConferenciaResponse>("conferencias", {
       "pagination[pageSize]": 1000,
     });
+
     setConferencias(data.map(mapConferencia));
     form.resetFields();
     setIsLocalSpeaker(false);
@@ -259,7 +277,7 @@ export const ConferenciasTable: React.FC = () => {
       key: "orador",
       fixed: true,
       filters: Array.from(
-        new Set(filteredConferencias.map((item) => item.orador).filter(Boolean))
+        new Set(filteredConferencias.map((item) => item.orador).filter(Boolean)),
       ).map((orador) => ({
         text: orador,
         value: orador,
@@ -303,26 +321,27 @@ export const ConferenciasTable: React.FC = () => {
       width: "30",
       title: "Menu",
       key: "menu",
-      render: (_: unknown, record: Conferencia) => (
+      render: (_value: unknown, record: Conferencia) => (
         <Space>
           <WhatsAppShareButton message={buildConferenceWhatsAppMessage(record)} />
-          {isAdminApp && (
+          {canEditInCurrentView && (
             <>
-                <Button
-                  ghost
-                  type="primary"
-                  size="small"
-                  shape="circle"
-                  icon={<EditOutlined />}
-                  onClick={() => openModal(record)}
-                />
-                <Popconfirm
-                  title="¿Estás seguro de eliminar esta conferencia?"
-                  onConfirm={() => handleDelete(record.id)}
-                  okText="Sí"
-                  cancelText="No">
-                  <Button size="small" shape="circle" icon={<DeleteOutlined />} danger />
-                </Popconfirm>
+              <Button
+                ghost
+                type="primary"
+                size="small"
+                shape="circle"
+                icon={<EditOutlined />}
+                onClick={() => openModal(record)}
+              />
+              <Popconfirm
+                title="¿Estás seguro de eliminar esta conferencia?"
+                onConfirm={() => handleDelete(record.id)}
+                okText="Sí"
+                cancelText="No"
+              >
+                <Button size="small" shape="circle" icon={<DeleteOutlined />} danger />
+              </Popconfirm>
             </>
           )}
         </Space>
@@ -330,71 +349,56 @@ export const ConferenciasTable: React.FC = () => {
     },
   ];
 
-  const setStoredConferencias = (_data: Conferencia[]) => {};
-
   const renderMobileView = () => (
-    <>
+    <div style={{ display: "grid", gap: 12 }}>
+      {isAdminApp && (
+        <NoticeBar
+          content="La edición administrativa de conferencias sigue disponible en la vista desktop."
+          extra={
+            <MobileButton size="mini" onClick={() => setOverrideMode("desktop")}>
+              Ir a desktop
+            </MobileButton>
+          }
+        />
+      )}
+
       {filteredConferencias.length === 0 ? (
-        <Card style={{ marginBottom: 16 }}>
+        <MobileCard className="mobile-screen-card">
           <Empty description={`No hay conferencias para ${activeMonthLabel}`} />
-        </Card>
+        </MobileCard>
       ) : (
         filteredConferencias.map((item) => (
-          <Card
+          <MobileCard
             key={item.id}
-            style={{ marginBottom: 16 }}
-            actions={
-              [
-                    <WhatsAppShareButton
-                      key="share"
-                      message={buildConferenceWhatsAppMessage(item)}
-                    />,
-                    ...(isAdminApp
-                      ? [
-                    <Button
-                      type="primary"
-                      size="small"
-                      shape="circle"
-                      key="edit"
-                      icon={<EditOutlined />}
-                      onClick={() => openModal(item)}
-                    />,
-                    <Popconfirm
-                      key="delete"
-                      title="¿Estás seguro de eliminar esta conferencia?"
-                      onConfirm={() => handleDelete(item.id)}
-                      okText="Sí"
-                      cancelText="No">
-                      <Button size="small" shape="circle" danger icon={<DeleteOutlined />} />
-                    </Popconfirm>,
-                      ]
-                      : []),
-                  ]
-            }>
-            <Flex vertical gap={4}>
-              <Paragraph>
-                <Text strong>Orador:</Text> {item.orador}
-              </Paragraph>
-              <Paragraph>
-                <Text strong>Congregación:</Text> {item.cong}
-              </Paragraph>
-              <Paragraph>
-                <Text strong>Tema:</Text> {item.tema}
-              </Paragraph>
-              <Paragraph>
-                <Text strong>Canción:</Text> {item.cancion}
-              </Paragraph>
-              <Paragraph>
-                <Text strong>Fecha:</Text> {item.fecha}
-              </Paragraph>
-              <Paragraph>
-                <Text strong>Auxiliar:</Text> {item.auxiliar || "N/A"}
-              </Paragraph>
-            </Flex>
-          </Card>
+            className="mobile-screen-card"
+            title={item.orador}
+            extra={<MobileTag color="primary" fill="outline">{item.fecha}</MobileTag>}
+          >
+            <MobileSpace direction="vertical" block style={{ width: "100%" }}>
+              <div>
+                <strong>Congregación:</strong> {item.cong}
+              </div>
+              <div>
+                <strong>Tema:</strong> {item.tema || "Pendiente"}
+              </div>
+              <div>
+                <strong>Canción:</strong> {item.cancion || "Pendiente"}
+              </div>
+              <div>
+                <strong>Auxiliar:</strong> {item.auxiliar || "N/A"}
+              </div>
+              <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                <WhatsAppShareButton
+                  message={buildConferenceWhatsAppMessage(item)}
+                  shape="round"
+                  size="middle"
+                />
+              </div>
+            </MobileSpace>
+          </MobileCard>
         ))
       )}
-    </>
+    </div>
   );
 
   return (
@@ -425,11 +429,12 @@ export const ConferenciasTable: React.FC = () => {
           </div>
 
           <Space wrap size={12}>
-            {isAdminApp && (
+            {canEditInCurrentView && (
               <Button
                 type="primary"
                 onClick={() => openModal()}
-                icon={<UserAddOutlined />}>
+                icon={<UserAddOutlined />}
+              >
                 Agregar
               </Button>
             )}
@@ -437,7 +442,7 @@ export const ConferenciasTable: React.FC = () => {
           </Space>
         </Flex>
 
-        {isSmallScreen ? (
+        {isNativeMobile ? (
           renderMobileView()
         ) : (
           <Table
@@ -454,18 +459,20 @@ export const ConferenciasTable: React.FC = () => {
         )}
       </Flex>
 
-      {isAdminApp && (
+      {canEditInCurrentView && (
         <Modal
           title={editingConferencia ? "Editar Conferencia" : "Agregar Conferencia"}
           open={isModalOpen}
           onCancel={() => setIsModalOpen(false)}
           footer={null}
-          width={isSmallScreen ? "100%" : 520}>
+          width={isSmallScreen ? "100%" : 520}
+        >
           <Form
             form={form}
             layout="vertical"
             initialValues={{ fecha: dayjs() }}
-            onFinish={handleSave}>
+            onFinish={handleSave}
+          >
             <Form.Item name="localSpeaker" valuePropName="checked" style={{ marginBottom: 12 }}>
               <Flex align="center" gap={8}>
                 <Switch
@@ -480,6 +487,7 @@ export const ConferenciasTable: React.FC = () => {
                 <Typography.Text>Local</Typography.Text>
               </Flex>
             </Form.Item>
+
             {isLocalSpeaker ? (
               <Form.Item
                 name="localOrador"
@@ -493,20 +501,19 @@ export const ConferenciasTable: React.FC = () => {
                 <Input />
               </Form.Item>
             )}
+
             <Form.Item name="cong" label="Congregación" rules={[{ required: true }]}>
               <Input />
             </Form.Item>
             <Form.Item
               name="tema"
               label="Tema del Bosquejo"
-              rules={[{ required: true }]}>
+              rules={[{ required: true }]}
+            >
               <SelectTemas />
             </Form.Item>
             <Space align="center" split size={12}>
-              <Form.Item
-                name="cancion"
-                label="N° Canción"
-                rules={[{ required: true }]}>
+              <Form.Item name="cancion" label="N° Canción" rules={[{ required: true }]}>
                 <InputNumber />
               </Form.Item>
               <Form.Item name="fecha" label="Fecha" rules={[{ required: true }]}>
