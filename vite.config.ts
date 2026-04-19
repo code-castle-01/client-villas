@@ -58,26 +58,6 @@ export default defineConfig({
     }),
   ],
   assetsInclude: ["**/*.docx"],
-  build: {
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          react: ["react", "react-dom", "react-router", "@tanstack/react-query"],
-          refine: [
-            "@refinedev/core",
-            "@refinedev/antd",
-            "@refinedev/react-router",
-            "@refinedev/kbar",
-            "@refinedev/devtools",
-          ],
-          antd: ["antd", "@ant-design/icons"],
-          "antd-mobile": ["antd-mobile"],
-          pdf: ["@react-pdf/renderer", "html-to-image"],
-          maps: ["leaflet", "react-leaflet"],
-        },
-      },
-    },
-  },
   test: {
     environment: "jsdom",
     globals: true,
