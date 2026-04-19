@@ -3,6 +3,7 @@ import { DeleteOutlined, EditOutlined, UserAddOutlined } from "@ant-design/icons
 import {
   Button,
   DatePicker,
+  Empty,
   Flex,
   Form,
   Input,
@@ -12,6 +13,7 @@ import {
   Switch,
   Table,
   Card,
+  Tabs,
   Typography,
   Popconfirm,
 } from "antd";
@@ -25,6 +27,12 @@ import useMediaQuery from "../../hooks/useMediaQuery";
 import { createEntry, deleteEntry, getCollection, updateEntry } from "../../api/client";
 import { useDirectory } from "../../contexts/directory";
 import { useIsAdminApp } from "../../hooks/useIsAdminApp";
+import {
+  getMonthKeyFromIsoDate,
+  getMonthLabel,
+  MONTH_TAB_ITEMS,
+  resolveDefaultMonthKey,
+} from "../../utils/monthTabs";
 
 const { Text, Paragraph } = Typography;
 
@@ -130,6 +138,7 @@ export const ConferenciasTable: React.FC = () => {
     null
   );
   const [isLocalSpeaker, setIsLocalSpeaker] = useState(false);
+  const [selectedMonthKey, setSelectedMonthKey] = useState<string | null>(null);
   const [form] = Form.useForm();
   const { miembros } = useDirectory();
   const leadershipMembers = useMemo(
@@ -156,6 +165,28 @@ export const ConferenciasTable: React.FC = () => {
       mounted = false;
     };
   }, []);
+
+  const defaultMonthKey = useMemo(
+    () =>
+      resolveDefaultMonthKey(
+        conferencias,
+        (conferencia) => getMonthKeyFromIsoDate(conferencia.fecha),
+      ),
+    [conferencias],
+  );
+
+  const activeMonthKey = selectedMonthKey ?? defaultMonthKey;
+
+  const filteredConferencias = useMemo(
+    () =>
+      conferencias.filter(
+        (conferencia) =>
+          getMonthKeyFromIsoDate(conferencia.fecha) === activeMonthKey,
+      ),
+    [activeMonthKey, conferencias],
+  );
+
+  const activeMonthLabel = getMonthLabel(activeMonthKey);
 
   const openModal = (record?: Conferencia) => {
     if (isReadOnly) return;
@@ -228,7 +259,7 @@ export const ConferenciasTable: React.FC = () => {
       key: "orador",
       fixed: true,
       filters: Array.from(
-        new Set(conferencias.map((c) => c.orador).filter(Boolean))
+        new Set(filteredConferencias.map((item) => item.orador).filter(Boolean))
       ).map((orador) => ({
         text: orador,
         value: orador,
@@ -303,89 +334,125 @@ export const ConferenciasTable: React.FC = () => {
 
   const renderMobileView = () => (
     <>
-      {conferencias.map((item) => (
-        <Card
-          key={item.id}
-          style={{ marginBottom: 16 }}
-          actions={
-            [
-                  <WhatsAppShareButton
-                    key="share"
-                    message={buildConferenceWhatsAppMessage(item)}
-                  />,
-                  ...(isAdminApp
-                    ? [
-                  <Button
-                    type="primary"
-                    size="small"
-                    shape="circle"
-                    key="edit"
-                    icon={<EditOutlined />}
-                    onClick={() => openModal(item)}
-                  />,
-                  <Popconfirm
-                    key="delete"
-                    title="¿Estás seguro de eliminar esta conferencia?"
-                    onConfirm={() => handleDelete(item.id)}
-                    okText="Sí"
-                    cancelText="No">
-                    <Button size="small" shape="circle" danger icon={<DeleteOutlined />} />
-                  </Popconfirm>,
-                    ]
-                    : []),
-                ]
-          }>
-          <Flex vertical gap={4}>
-            <Paragraph>
-              <Text strong>Orador:</Text> {item.orador}
-            </Paragraph>
-            <Paragraph>
-              <Text strong>Congregación:</Text> {item.cong}
-            </Paragraph>
-            <Paragraph>
-              <Text strong>Tema:</Text> {item.tema}
-            </Paragraph>
-            <Paragraph>
-              <Text strong>Canción:</Text> {item.cancion}
-            </Paragraph>
-            <Paragraph>
-              <Text strong>Fecha:</Text> {item.fecha}
-            </Paragraph>
-            <Paragraph>
-              <Text strong>Auxiliar:</Text> {item.auxiliar || "N/A"}
-            </Paragraph>
-          </Flex>
+      {filteredConferencias.length === 0 ? (
+        <Card style={{ marginBottom: 16 }}>
+          <Empty description={`No hay conferencias para ${activeMonthLabel}`} />
         </Card>
-      ))}
+      ) : (
+        filteredConferencias.map((item) => (
+          <Card
+            key={item.id}
+            style={{ marginBottom: 16 }}
+            actions={
+              [
+                    <WhatsAppShareButton
+                      key="share"
+                      message={buildConferenceWhatsAppMessage(item)}
+                    />,
+                    ...(isAdminApp
+                      ? [
+                    <Button
+                      type="primary"
+                      size="small"
+                      shape="circle"
+                      key="edit"
+                      icon={<EditOutlined />}
+                      onClick={() => openModal(item)}
+                    />,
+                    <Popconfirm
+                      key="delete"
+                      title="¿Estás seguro de eliminar esta conferencia?"
+                      onConfirm={() => handleDelete(item.id)}
+                      okText="Sí"
+                      cancelText="No">
+                      <Button size="small" shape="circle" danger icon={<DeleteOutlined />} />
+                    </Popconfirm>,
+                      ]
+                      : []),
+                  ]
+            }>
+            <Flex vertical gap={4}>
+              <Paragraph>
+                <Text strong>Orador:</Text> {item.orador}
+              </Paragraph>
+              <Paragraph>
+                <Text strong>Congregación:</Text> {item.cong}
+              </Paragraph>
+              <Paragraph>
+                <Text strong>Tema:</Text> {item.tema}
+              </Paragraph>
+              <Paragraph>
+                <Text strong>Canción:</Text> {item.cancion}
+              </Paragraph>
+              <Paragraph>
+                <Text strong>Fecha:</Text> {item.fecha}
+              </Paragraph>
+              <Paragraph>
+                <Text strong>Auxiliar:</Text> {item.auxiliar || "N/A"}
+              </Paragraph>
+            </Flex>
+          </Card>
+        ))
+      )}
     </>
   );
 
   return (
     <>
-      <Flex gap={12} align="center" justify="flex-end" style={{ marginBottom: 16 }}>
-        {isAdminApp && (
-          <Button
-            type="primary"
-            onClick={() => openModal()}
-            icon={<UserAddOutlined />}>
-            Agregar
-          </Button>
-        )}
-        <PDFConferencias data={conferencias} />
-      </Flex>
+      <Flex vertical gap={16}>
+        <Flex
+          gap={12}
+          align={isSmallScreen ? "stretch" : "center"}
+          justify="space-between"
+          wrap="wrap"
+        >
+          <div
+            style={{
+              flex: 1,
+              minWidth: 0,
+              padding: "0 16px",
+              background: "#fff",
+              border: "1px solid #f0f0f0",
+              borderRadius: 16,
+            }}
+          >
+            <Tabs
+              activeKey={activeMonthKey}
+              items={MONTH_TAB_ITEMS}
+              onChange={setSelectedMonthKey}
+              tabBarStyle={{ margin: 0, paddingTop: 8 }}
+            />
+          </div>
 
-      {isSmallScreen ? (
-        renderMobileView()
-      ) : (
-        <Table
-          columns={columns}
-          dataSource={conferencias}
-          rowKey="id"
-          scroll={{ x: 600 }}
-          size="small"
-          pagination={false}
-        />
-      )}
+          <Space wrap size={12}>
+            {isAdminApp && (
+              <Button
+                type="primary"
+                onClick={() => openModal()}
+                icon={<UserAddOutlined />}>
+                Agregar
+              </Button>
+            )}
+            <PDFConferencias data={filteredConferencias} />
+          </Space>
+        </Flex>
+
+        {isSmallScreen ? (
+          renderMobileView()
+        ) : (
+          <Table
+            columns={columns}
+            dataSource={filteredConferencias}
+            rowKey="id"
+            scroll={{ x: 600 }}
+            size="small"
+            pagination={false}
+            locale={{
+              emptyText: `No hay conferencias para ${activeMonthLabel}`,
+            }}
+          />
+        )}
+      </Flex>
 
       {isAdminApp && (
         <Modal

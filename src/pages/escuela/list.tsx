@@ -51,6 +51,12 @@ import { useDirectory } from "../../contexts/directory";
 import { useIsAdminApp } from "../../hooks/useIsAdminApp";
 import s140TemplateUrl from "../../assets/img/S-140_S.docx";
 import SelectMiembrosCongregacion from "../../components/select-miembros-congregacion";
+import {
+  getMonthKeyFromDisplayDate,
+  getMonthLabel,
+  MONTH_TAB_ITEMS,
+  resolveDefaultMonthKey,
+} from "../../utils/monthTabs";
 import "./styles.css";
 
 type VmWeek = {
@@ -320,6 +326,8 @@ export const MeetingAssignmentUI: React.FC = () => {
     useState<MeetingAssignment | null>(null);
   const [viewMode, setViewMode] = useState<boolean>(isSmallScreen);
   const [selectedCardsDate, setSelectedCardsDate] = useState<string>("all");
+  const [selectedAssignmentsMonthKey, setSelectedAssignmentsMonthKey] =
+    useState<string | null>(null);
 
   const [vmLoading, setVmLoading] = useState(false);
   const [vmWeeks, setVmWeeks] = useState<VmWeek[]>([]);
@@ -1879,6 +1887,30 @@ export const MeetingAssignmentUI: React.FC = () => {
     [selectedHistoryParticipant, assignments],
   );
 
+  const defaultAssignmentsMonthKey = useMemo(
+    () =>
+      resolveDefaultMonthKey(
+        assignments,
+        (assignment) => getMonthKeyFromDisplayDate(assignment.date),
+      ),
+    [assignments],
+  );
+
+  const activeAssignmentsMonthKey =
+    selectedAssignmentsMonthKey ?? defaultAssignmentsMonthKey;
+
+  const filteredAssignmentsByMonth = useMemo(
+    () =>
+      assignments.filter(
+        (assignment) =>
+          getMonthKeyFromDisplayDate(assignment.date) ===
+          activeAssignmentsMonthKey,
+      ),
+    [activeAssignmentsMonthKey, assignments],
+  );
+
+  const activeAssignmentsMonthLabel = getMonthLabel(activeAssignmentsMonthKey);
+
   const handleDownloadImage = async (assignment: MeetingAssignment) => {
     const node = document.getElementById(`asignacion-${assignment.id}`);
     if (node) {
@@ -1892,12 +1924,12 @@ export const MeetingAssignmentUI: React.FC = () => {
 
   const assignmentDateOptions = useMemo(() => {
     const uniqueDates = Array.from(
-      new Set(assignments.map((item) => item.date)),
+      new Set(filteredAssignmentsByMonth.map((item) => item.date)),
     );
     return uniqueDates.sort(
       (a, b) => assignmentDateToTimestamp(a) - assignmentDateToTimestamp(b),
     );
-  }, [assignments]);
+  }, [filteredAssignmentsByMonth]);
 
   const activeCardsDate = assignmentDateOptions.includes(selectedCardsDate)
     ? selectedCardsDate
@@ -1906,8 +1938,8 @@ export const MeetingAssignmentUI: React.FC = () => {
   const groupedCardAssignments = useMemo(() => {
     const filteredAssignments =
       activeCardsDate === "all"
-        ? assignments
-        : assignments.filter(
+        ? filteredAssignmentsByMonth
+        : filteredAssignmentsByMonth.filter(
             (assignment) => assignment.date === activeCardsDate,
           );
 
@@ -1950,7 +1982,7 @@ export const MeetingAssignmentUI: React.FC = () => {
         },
       ].filter((hall) => hall.items.length > 0),
     }));
-  }, [activeCardsDate, assignments]);
+  }, [activeCardsDate, filteredAssignmentsByMonth]);
 
   const renderAssignmentCard = (assignment: MeetingAssignment) => (
     <Card
@@ -2046,6 +2078,23 @@ export const MeetingAssignmentUI: React.FC = () => {
 
   const assignmentsContent = (
     <>
+      <div
+        style={{
+          marginBottom: 16,
+          padding: "0 16px",
+          background: "#fff",
+          border: "1px solid #f0f0f0",
+          borderRadius: 16,
+        }}
+      >
+        <Tabs
+          activeKey={activeAssignmentsMonthKey}
+          items={MONTH_TAB_ITEMS}
+          onChange={setSelectedAssignmentsMonthKey}
+          tabBarStyle={{ margin: 0, paddingTop: 8 }}
+        />
+      </div>
+
       <Flex
         gap={12}
         align="center"
@@ -2097,6 +2146,10 @@ export const MeetingAssignmentUI: React.FC = () => {
 
       {!assignments.length ? (
         <Empty />
+      ) : !filteredAssignmentsByMonth.length ? (
+        <Empty
+          description={`No hay asignaciones para ${activeAssignmentsMonthLabel}.`}
+        />
       ) : viewMode ? (
         <div className="escuela-card-groups">
           {groupedCardAssignments.map((group) => (
@@ -2170,7 +2223,7 @@ export const MeetingAssignmentUI: React.FC = () => {
 
           const grouped: GroupRow[] = [];
           const mapBy = new Map<number | string, GroupRow>();
-          assignments.forEach((a) => {
+          filteredAssignmentsByMonth.forEach((a) => {
             const key = a.managerId ?? (a.manager || "unknown");
             const mapKey = typeof key === "number" ? key : String(key);
             const existing = mapBy.get(mapKey as any);
@@ -2219,6 +2272,9 @@ export const MeetingAssignmentUI: React.FC = () => {
               columns={groupColumns}
               dataSource={grouped}
               rowKey={(r: GroupRow) => r.key}
+              locale={{
+                emptyText: `No hay asignaciones para ${activeAssignmentsMonthLabel}.`,
+              }}
               expandable={{
                 expandedRowRender: (record: GroupRow) => (
                   <Table

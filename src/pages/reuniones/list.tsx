@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Button,
   DatePicker,
+  Empty,
   Flex,
   Form,
   Modal,
@@ -9,6 +10,7 @@ import {
   Space,
   Table,
   Card,
+  Tabs,
   Typography,
   Divider,
 } from "antd";
@@ -21,6 +23,12 @@ import useMediaQuery from "../../hooks/useMediaQuery";
 import { ColumnsType } from "antd/es/table";
 import { createEntry, deleteEntry, getCollection, updateEntry } from "../../api/client";
 import { useIsAdminApp } from "../../hooks/useIsAdminApp";
+import {
+  getMonthKeyFromDisplayDate,
+  getMonthLabel,
+  MONTH_TAB_ITEMS,
+  resolveDefaultMonthKey,
+} from "../../utils/monthTabs";
 
 export interface Reunion {
   id: number;
@@ -76,6 +84,7 @@ export const ReunionesTable: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [form] = Form.useForm();
   const [editingReunion, setEditingReunion] = useState<Reunion | null>(null);
+  const [selectedMonthKey, setSelectedMonthKey] = useState<string | null>(null);
   const isSmallScreen = useMediaQuery("(max-width: 768px)");
   const isAdminApp = useIsAdminApp();
   const isReadOnly = !isAdminApp;
@@ -94,6 +103,28 @@ export const ReunionesTable: React.FC = () => {
       mounted = false;
     };
   }, []);
+
+  const defaultMonthKey = useMemo(
+    () =>
+      resolveDefaultMonthKey(
+        reuniones,
+        (reunion) => getMonthKeyFromDisplayDate(reunion.fecha),
+      ),
+    [reuniones],
+  );
+
+  const activeMonthKey = selectedMonthKey ?? defaultMonthKey;
+
+  const filteredReuniones = useMemo(
+    () =>
+      reuniones.filter(
+        (reunion) =>
+          getMonthKeyFromDisplayDate(reunion.fecha) === activeMonthKey,
+      ),
+    [activeMonthKey, reuniones],
+  );
+
+  const activeMonthLabel = getMonthLabel(activeMonthKey);
 
   const openModal = (reunion: Reunion | null = null) => {
     if (isReadOnly) return;
@@ -214,83 +245,114 @@ export const ReunionesTable: React.FC = () => {
 
   const renderMobileView = () => (
     <>
-      {reuniones.map((item) => (
-        <Card
-          key={item.id}
-          style={{ marginBottom: 16 }}
-          actions={
-            [
-                  <WhatsAppShareButton
-                    key="share"
-                    message={buildReunionWhatsAppMessage(item)}
-                  />,
-                  ...(isAdminApp
-                    ? [
-                  <Button
-                    key="edit"
-                    icon={<EditOutlined />}
-                    onClick={() => openModal(item)}
-                    size="small"
-                  />,
-                  <Popconfirm
-                    key="delete"
-                    title="¿Estás seguro de eliminar esta reunión?"
-                    onConfirm={() => handleDelete(item.id)}
-                    okText="Sí"
-                    cancelText="No"
-                  >
-                    <Button danger icon={<DeleteOutlined />} size="small" />
-                  </Popconfirm>,
-                    ]
-                    : []),
-                ]
-          }
-        >
-          <Flex vertical gap={4}>
-            <Typography.Text strong>Fecha: {item.fecha}</Typography.Text>
-            <Divider />
-            <Typography.Text>
-              <strong>Presidente:</strong> {item.presidente}
-            </Typography.Text>
-            <Typography.Text>
-              <strong>Lector:</strong> {item.lector}
-            </Typography.Text>
-            <Typography.Text>
-              <strong>Oración:</strong> {item.oracion}
-            </Typography.Text>
-          </Flex>
+      {filteredReuniones.length === 0 ? (
+        <Card style={{ marginBottom: 16 }}>
+          <Empty description={`No hay reuniones para ${activeMonthLabel}`} />
         </Card>
-      ))}
+      ) : (
+        filteredReuniones.map((item) => (
+          <Card
+            key={item.id}
+            style={{ marginBottom: 16 }}
+            actions={
+              [
+                    <WhatsAppShareButton
+                      key="share"
+                      message={buildReunionWhatsAppMessage(item)}
+                    />,
+                    ...(isAdminApp
+                      ? [
+                    <Button
+                      key="edit"
+                      icon={<EditOutlined />}
+                      onClick={() => openModal(item)}
+                      size="small"
+                    />,
+                    <Popconfirm
+                      key="delete"
+                      title="¿Estás seguro de eliminar esta reunión?"
+                      onConfirm={() => handleDelete(item.id)}
+                      okText="Sí"
+                      cancelText="No"
+                    >
+                      <Button danger icon={<DeleteOutlined />} size="small" />
+                    </Popconfirm>,
+                      ]
+                      : []),
+                  ]
+            }
+          >
+            <Flex vertical gap={4}>
+              <Typography.Text strong>Fecha: {item.fecha}</Typography.Text>
+              <Divider />
+              <Typography.Text>
+                <strong>Presidente:</strong> {item.presidente}
+              </Typography.Text>
+              <Typography.Text>
+                <strong>Lector:</strong> {item.lector}
+              </Typography.Text>
+              <Typography.Text>
+                <strong>Oración:</strong> {item.oracion}
+              </Typography.Text>
+            </Flex>
+          </Card>
+        ))
+      )}
     </>
   );
 
   return (
     <>
-      <Flex
-        gap={12}
-        align="center"
-        justify="flex-end"
-        style={{ marginBottom: 16 }}
-      >
-        {isAdminApp && (
-          <Button type="primary" onClick={() => openModal()}>
-            Nueva Reunión
-          </Button>
-        )}
-        <PDFReuniones data={reuniones} />
-      </Flex>
+      <Flex vertical gap={16}>
+        <Flex
+          gap={12}
+          align={isSmallScreen ? "stretch" : "center"}
+          justify="space-between"
+          wrap="wrap"
+        >
+          <div
+            style={{
+              flex: 1,
+              minWidth: 0,
+              padding: "0 16px",
+              background: "#fff",
+              border: "1px solid #f0f0f0",
+              borderRadius: 16,
+            }}
+          >
+            <Tabs
+              activeKey={activeMonthKey}
+              items={MONTH_TAB_ITEMS}
+              onChange={setSelectedMonthKey}
+              tabBarStyle={{ margin: 0, paddingTop: 8 }}
+            />
+          </div>
 
-      {isSmallScreen ? (
-        renderMobileView()
-      ) : (
-        <Table
-          columns={columns}
-          dataSource={reuniones}
-          rowKey="id"
-          scroll={{ x: 600 }}
-          pagination={false}
-        />
-      )}
+          <Space wrap size={12}>
+            {isAdminApp && (
+              <Button type="primary" onClick={() => openModal()}>
+                Nueva Reunión
+              </Button>
+            )}
+            <PDFReuniones data={filteredReuniones} />
+          </Space>
+        </Flex>
+
+        {isSmallScreen ? (
+          renderMobileView()
+        ) : (
+          <Table
+            columns={columns}
+            dataSource={filteredReuniones}
+            rowKey="id"
+            scroll={{ x: 600 }}
+            pagination={false}
+            locale={{
+              emptyText: `No hay reuniones para ${activeMonthLabel}`,
+            }}
+          />
+        )}
+      </Flex>
 
       {isAdminApp && (
         <Modal
