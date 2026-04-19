@@ -14,6 +14,8 @@ import {
   Card,
   Typography,
   Alert,
+  Empty,
+  Tabs,
 } from "antd";
 import { ColumnsType } from "antd/es/table";
 import { EditOutlined, DeleteOutlined } from "@ant-design/icons";
@@ -45,6 +47,7 @@ const normalizeGroupName = (value?: string) =>
 interface ScheduleData {
   key: string;
   documentId?: string;
+  dateValue: string;
   date: string;
   accommodators: {
     dentroId?: number;
@@ -93,6 +96,7 @@ type MecanicaResponse = {
 const mapAssignment = (item: MecanicaResponse & { id: number }) => ({
   key: item.id.toString(),
   documentId: item.documentId,
+  dateValue: item.fecha,
   date: dayjs(item.fecha).format("DD-MM-YYYY"),
   accommodators: {
     dentroId: item.acomodadorDentro?.id ?? undefined,
@@ -160,6 +164,24 @@ const buildMecanicaWhatsAppMessage = (assignment: ScheduleData) =>
     `Auxiliar: ${assignment.audioVideoAuxiliar || "Pendiente"}`,
   ].join("\n");
 
+const MONTH_LABELS = [
+  "Enero",
+  "Febrero",
+  "Marzo",
+  "Abril",
+  "Mayo",
+  "Junio",
+  "Julio",
+  "Agosto",
+  "Septiembre",
+  "Octubre",
+  "Noviembre",
+  "Diciembre",
+];
+
+const getMonthKeyFromAssignment = (assignment: ScheduleData) =>
+  dayjs(assignment.dateValue).month().toString();
+
 export const ScheduleTable: React.FC = () => {
   const isSmallScreen = useMediaQuery("(max-width: 768px)");
   const [form] = Form.useForm();
@@ -189,6 +211,7 @@ export const ScheduleTable: React.FC = () => {
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [duplicateError, setDuplicateError] = useState<string | null>(null);
+  const [selectedMonthKey, setSelectedMonthKey] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -203,6 +226,38 @@ export const ScheduleTable: React.FC = () => {
       mounted = false;
     };
   }, []);
+
+  const monthTabs = useMemo(
+    () =>
+      MONTH_LABELS.map((label, index) => ({
+        key: index.toString(),
+        label,
+      })),
+    [],
+  );
+
+  const defaultMonthKey = useMemo(() => {
+    const currentMonthKey = dayjs().month().toString();
+
+    if (data.some((item) => getMonthKeyFromAssignment(item) === currentMonthKey)) {
+      return currentMonthKey;
+    }
+
+    return data[0] ? getMonthKeyFromAssignment(data[0]) : currentMonthKey;
+  }, [data]);
+
+  const activeMonthKey = selectedMonthKey ?? defaultMonthKey;
+
+  const filteredData = useMemo(
+    () =>
+      data.filter(
+        (item) => getMonthKeyFromAssignment(item) === activeMonthKey,
+      ),
+    [activeMonthKey, data],
+  );
+
+  const activeMonthLabel =
+    MONTH_LABELS[Number(activeMonthKey)] ?? "este mes";
 
   const handleAddOrUpdateAssignment = () => {
     if (isReadOnly) return;
@@ -275,7 +330,7 @@ export const ScheduleTable: React.FC = () => {
     if (isReadOnly) return;
     setDuplicateError(null);
     form.setFieldsValue({
-      date: dayjs(record.date, "DD-MM-YYYY"),
+      date: dayjs(record.dateValue),
       dentro: record.accommodators.dentroId,
       lobby: record.accommodators.lobbyId,
       reja: record.accommodators.rejaId,
@@ -441,7 +496,12 @@ export const ScheduleTable: React.FC = () => {
 
   const renderMobileView = () => (
     <>
-      {data.map((item) => (
+      {filteredData.length === 0 ? (
+        <Card>
+          <Empty description={`No hay asignaciones para ${activeMonthLabel}`} />
+        </Card>
+      ) : (
+        filteredData.map((item) => (
         <Card
           key={item.key}
           style={{ marginBottom: 16 }}
@@ -549,45 +609,71 @@ export const ScheduleTable: React.FC = () => {
             </Typography.Paragraph>
           </Flex>
         </Card>
-      ))}
+        ))
+      )}
     </>
   );
 
   return (
     <>
-      <Flex
-        gap={12}
-        align="center"
-        justify="flex-end"
-        style={{ marginBottom: 16 }}
-      >
-        {isAdminApp && (
-          <Button
-            type="primary"
-            onClick={() => {
-              setEditingKey(null);
-              setDuplicateError(null);
-              form.resetFields();
-              setIsModalVisible(true);
+      <Flex vertical gap={16}>
+        <Flex
+          gap={12}
+          align={isSmallScreen ? "stretch" : "center"}
+          justify="space-between"
+          wrap="wrap"
+        >
+          <div
+            style={{
+              flex: 1,
+              minWidth: 0,
+              padding: "0 16px",
+              background: "#fff",
+              border: "1px solid #f0f0f0",
+              borderRadius: 16,
             }}
           >
-            Nueva Asignación
-          </Button>
-        )}
-        <PDFMecanicas data={data} />
-      </Flex>
+            <Tabs
+              activeKey={activeMonthKey}
+              items={monthTabs}
+              onChange={setSelectedMonthKey}
+              tabBarStyle={{ margin: 0, paddingTop: 8 }}
+            />
+          </div>
 
-      {isSmallScreen ? (
-        renderMobileView()
-      ) : (
-        <Table
-          columns={columns}
-          dataSource={data}
-          bordered
-          pagination={false}
-          scroll={{ x: "max-content" }}
-        />
-      )}
+          <Space wrap size={12}>
+            {isAdminApp && (
+              <Button
+                type="primary"
+                onClick={() => {
+                  setEditingKey(null);
+                  setDuplicateError(null);
+                  form.resetFields();
+                  setIsModalVisible(true);
+                }}
+              >
+                Nueva Asignación
+              </Button>
+            )}
+            <PDFMecanicas data={filteredData} />
+          </Space>
+        </Flex>
+
+        {isSmallScreen ? (
+          renderMobileView()
+        ) : (
+          <Table
+            columns={columns}
+            dataSource={filteredData}
+            bordered
+            pagination={false}
+            scroll={{ x: "max-content" }}
+            locale={{
+              emptyText: `No hay asignaciones para ${activeMonthLabel}`,
+            }}
+          />
+        )}
+      </Flex>
 
       {isAdminApp && (
         <Modal
