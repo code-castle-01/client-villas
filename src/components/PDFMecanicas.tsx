@@ -9,7 +9,9 @@ interface ScheduleData {
   accommodators: { dentro: string; lobby: string; reja: string };
   microphone: { micro1: string; micro2: string; plataforma: string };
   audioVideo: string;
+  audioVideoAuxiliar: string;
   cleaning: string[];
+  hospitality: string[];
 }
 
 interface PDFScheduleProps {
@@ -64,47 +66,56 @@ const PDFSchedule: React.FC<PDFScheduleProps> = ({ data }) => (
       <Text style={styles.title}>Arreglos Mecánicos</Text>
       <View style={styles.table}>
         <View style={styles.tableRow}>
-          <View style={[styles.tableCol, { width: "16%" }]}>
+          <View style={[styles.tableCol, { width: "12%" }]}>
             <Text style={styles.tableHeader}>Fecha</Text>
           </View>
-          <View style={[styles.tableCol, { width: "28%" }]}>
+          <View style={[styles.tableCol, { width: "24%" }]}>
             <Text style={styles.tableHeader}>Acomodadores</Text>
           </View>
-          <View style={[styles.tableCol, { width: "28%" }]}>
+          <View style={[styles.tableCol, { width: "24%" }]}>
             <Text style={styles.tableHeader}>Micrófonos</Text>
           </View>
-          <View style={[styles.tableCol, { width: "14%" }]}>
+          <View style={[styles.tableCol, { width: "16%" }]}>
             <Text style={styles.tableHeader}>Audio Video</Text>
           </View>
-          <View style={[styles.tableCol, { width: "14%" }]}>
+          <View style={[styles.tableCol, { width: "12%" }]}>
             <Text style={styles.tableHeader}>Limpieza</Text>
+          </View>
+          <View style={[styles.tableCol, { width: "12%" }]}>
+            <Text style={styles.tableHeader}>Hospitalidad</Text>
           </View>
         </View>
 
         {data.map((row) => (
           <View style={styles.tableRow} key={row.key}>
-            <View style={[styles.tableCol, { width: "16%" }]}>
+            <View style={[styles.tableCol, { width: "12%" }]}>
               <Text style={styles.tableCell}>{row.date}</Text>
             </View>
-            <View style={[styles.tableCol, { width: "28%" }]}>
+            <View style={[styles.tableCol, { width: "24%" }]}>
               <Text style={styles.tableCell}>
                 Dentro: {row.accommodators.dentro} {"\n"}
                 Lobby: {row.accommodators.lobby} {"\n"}
                 Reja: {row.accommodators.reja}
               </Text>
             </View>
-            <View style={[styles.tableCol, { width: "28%" }]}>
+            <View style={[styles.tableCol, { width: "24%" }]}>
               <Text style={styles.tableCell}>
                 Micrófono 1: {row.microphone.micro1} {"\n"}
                 Micrófono 2: {row.microphone.micro2} {"\n"}
                 Plataforma: {row.microphone.plataforma}
               </Text>
             </View>
-            <View style={[styles.tableCol, { width: "14%" }]}>
-              <Text style={styles.tableCell}>{row.audioVideo}</Text>
+            <View style={[styles.tableCol, { width: "16%" }]}>
+              <Text style={styles.tableCell}>
+                Principal: {row.audioVideo} {"\n"}
+                Auxiliar: {row.audioVideoAuxiliar}
+              </Text>
             </View>
-            <View style={[styles.tableCol, { width: "14%" }]}>
+            <View style={[styles.tableCol, { width: "12%" }]}>
               <Text style={styles.tableCell}>{row.cleaning.join(", ")}</Text>
+            </View>
+            <View style={[styles.tableCol, { width: "12%" }]}>
+              <Text style={styles.tableCell}>{row.hospitality.join(", ")}</Text>
             </View>
           </View>
         ))}

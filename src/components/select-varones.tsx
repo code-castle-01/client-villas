@@ -19,10 +19,6 @@ type GroupedOptions = Array<{
   options: MemberOption[];
 }>;
 
-const getLinkedUserLabel = (member: DirectoryMember) => {
-  return member.usuarioUsername || member.usuarioEmail || "";
-};
-
 const getBucket = (member: DirectoryMember) => {
   const nombramientos = member.nombramientos ?? [];
 
@@ -59,12 +55,10 @@ const fetchGroupedOptions = (miembros: DirectoryMember[]): GroupedOptions => {
     .forEach((member) => {
       const name = member.nombre?.trim();
       if (!name) return;
-      const linkedUser = getLinkedUserLabel(member);
-      const label = linkedUser ? `${name} · ${linkedUser}` : name;
 
       groups[getBucket(member)].push({
         value: member.id,
-        label,
+        label: name,
       });
     });
 

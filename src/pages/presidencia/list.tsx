@@ -14,7 +14,12 @@ import MeetingPDF from "../../components/MeetingPDF";
 import SelectSiervos from "../../components/select-siervos";
 import SelectVarones from "../../components/select-varones";
 import SelectTemas from "../../components/select-temas";
-import { getCollection, getSingle, updateSingle } from "../../api/client";
+import {
+  getAllCollection,
+  getCollection,
+  getSingle,
+  updateSingle,
+} from "../../api/client";
 import { useDirectory } from "../../contexts/directory";
 import { useIsAdminApp } from "../../hooks/useIsAdminApp";
 
@@ -69,7 +74,7 @@ export const MeetingInstructionsForm = () => {
     let mounted = true;
     const load = async () => {
       const [temas, conferenceData, meetingData, data] = await Promise.all([
-        getCollection<{ titulo: string }>("temas", {
+        getAllCollection<{ titulo: string }>("temas", {
           "pagination[pageSize]": 1000,
         }),
         getCollection<{

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Select, Typography } from "antd";
-import { getCollection } from "../api/client";
+import { getAllCollection } from "../api/client";
 
 interface SelectTemasProps {
   value?: number;
@@ -13,7 +13,7 @@ function SelectTemas({ value, onChange }: SelectTemasProps) {
   useEffect(() => {
     let mounted = true;
     const load = async () => {
-      const data = await getCollection<{ codigo: number; titulo: string }>(
+      const data = await getAllCollection<{ codigo: number; titulo: string }>(
         "temas",
         { "pagination[pageSize]": 1000, sort: "codigo:asc" }
       );

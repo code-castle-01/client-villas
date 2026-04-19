@@ -22,35 +22,52 @@ import useMediaQuery from "../../hooks/useMediaQuery";
 import PDFMecanicas from "../../components/PDFMecanicas";
 import SelectVarones from "../../components/select-varones";
 import WhatsAppShareButton from "../../components/whatsapp-share-button";
-import { createEntry, deleteEntry, getCollection, updateEntry } from "../../api/client";
+import {
+  createEntry,
+  deleteEntry,
+  getAllCollection,
+  updateEntry,
+} from "../../api/client";
 import { useDirectory } from "../../contexts/directory";
 import { useIsAdminApp } from "../../hooks/useIsAdminApp";
 
 const MECANICAS_RESOURCE = "mecanica-asignacions";
+const INACTIVE_GROUP_NAME = "HNOS. INACTIVOS";
+
+const normalizeGroupName = (value?: string) =>
+  (value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toUpperCase();
 
 interface ScheduleData {
   key: string;
   documentId?: string;
   date: string;
   accommodators: {
-    dentroId: number;
+    dentroId?: number;
     dentro: string;
-    lobbyId: number;
+    lobbyId?: number;
     lobby: string;
-    rejaId: number;
+    rejaId?: number;
     reja: string;
   };
   microphone: {
-    micro1Id: number;
+    micro1Id?: number;
     micro1: string;
-    micro2Id: number;
+    micro2Id?: number;
     micro2: string;
-    plataformaId: number;
+    plataformaId?: number;
     plataforma: string;
   };
-  audioVideoId: number;
+  audioVideoId?: number;
   audioVideo: string;
+  audioVideoAuxiliarId?: number;
+  audioVideoAuxiliar: string;
   cleaning: string[];
+  hospitality: string[];
 }
 
 type MemberRelation = {
@@ -68,7 +85,9 @@ type MecanicaResponse = {
   micro2?: MemberRelation;
   plataforma?: MemberRelation;
   audioVideo?: MemberRelation;
+  audioVideoAuxiliar?: MemberRelation;
   limpieza?: string[];
+  hospitalidad?: string[];
 };
 
 const mapAssignment = (item: MecanicaResponse & { id: number }) => ({
@@ -76,25 +95,47 @@ const mapAssignment = (item: MecanicaResponse & { id: number }) => ({
   documentId: item.documentId,
   date: dayjs(item.fecha).format("DD-MM-YYYY"),
   accommodators: {
-    dentroId: item.acomodadorDentro?.id ?? 0,
+    dentroId: item.acomodadorDentro?.id ?? undefined,
     dentro: item.acomodadorDentro?.nombre ?? "",
-    lobbyId: item.acomodadorLobby?.id ?? 0,
+    lobbyId: item.acomodadorLobby?.id ?? undefined,
     lobby: item.acomodadorLobby?.nombre ?? "",
-    rejaId: item.acomodadorReja?.id ?? 0,
+    rejaId: item.acomodadorReja?.id ?? undefined,
     reja: item.acomodadorReja?.nombre ?? "",
   },
   microphone: {
-    micro1Id: item.micro1?.id ?? 0,
+    micro1Id: item.micro1?.id ?? undefined,
     micro1: item.micro1?.nombre ?? "",
-    micro2Id: item.micro2?.id ?? 0,
+    micro2Id: item.micro2?.id ?? undefined,
     micro2: item.micro2?.nombre ?? "",
-    plataformaId: item.plataforma?.id ?? 0,
+    plataformaId: item.plataforma?.id ?? undefined,
     plataforma: item.plataforma?.nombre ?? "",
   },
-  audioVideoId: item.audioVideo?.id ?? 0,
+  audioVideoId: item.audioVideo?.id ?? undefined,
   audioVideo: item.audioVideo?.nombre ?? "",
+  audioVideoAuxiliarId: item.audioVideoAuxiliar?.id ?? undefined,
+  audioVideoAuxiliar: item.audioVideoAuxiliar?.nombre ?? "",
   cleaning: item.limpieza ?? [],
+  hospitality: item.hospitalidad ?? [],
 });
+
+const fetchAssignments = async () => {
+  const asignaciones = await getAllCollection<MecanicaResponse>(MECANICAS_RESOURCE, {
+    populate: [
+      "acomodadorDentro",
+      "acomodadorLobby",
+      "acomodadorReja",
+      "micro1",
+      "micro2",
+      "plataforma",
+      "audioVideo",
+      "audioVideoAuxiliar",
+    ],
+    sort: "fecha:asc",
+    "pagination[pageSize]": 100,
+  });
+
+  return asignaciones.map(mapAssignment);
+};
 
 const buildMecanicaWhatsAppMessage = (assignment: ScheduleData) =>
   [
@@ -102,6 +143,7 @@ const buildMecanicaWhatsAppMessage = (assignment: ScheduleData) =>
     "",
     `Fecha: ${assignment.date}`,
     `Limpieza: ${assignment.cleaning.length ? assignment.cleaning.join(", ") : "Pendiente"}`,
+    `Hospitalidad: ${assignment.hospitality.length ? assignment.hospitality.join(", ") : "Pendiente"}`,
     "",
     "Acomodadores",
     `Dentro: ${assignment.accommodators.dentro || "Pendiente"}`,
@@ -113,7 +155,9 @@ const buildMecanicaWhatsAppMessage = (assignment: ScheduleData) =>
     `Microfono 2: ${assignment.microphone.micro2 || "Pendiente"}`,
     `Plataforma: ${assignment.microphone.plataforma || "Pendiente"}`,
     "",
-    `Zoom: ${assignment.audioVideo || "Pendiente"}`,
+    "Audio y Video",
+    `Principal: ${assignment.audioVideo || "Pendiente"}`,
+    `Auxiliar: ${assignment.audioVideoAuxiliar || "Pendiente"}`,
   ].join("\n");
 
 export const ScheduleTable: React.FC = () => {
@@ -122,7 +166,7 @@ export const ScheduleTable: React.FC = () => {
   const [data, setData] = useState<ScheduleData[]>([]);
   const isAdminApp = useIsAdminApp();
   const isReadOnly = !isAdminApp;
-  const { miembros } = useDirectory();
+  const { grupos, miembros } = useDirectory();
   const memberNamesById = useMemo(
     () =>
       miembros.reduce<Record<number, string>>((accumulator, member) => {
@@ -131,6 +175,16 @@ export const ScheduleTable: React.FC = () => {
       }, {}),
     [miembros],
   );
+  const assignmentGroupOptions = useMemo(() => {
+    const totalActiveGroups = grupos.filter(
+      (group) => normalizeGroupName(group.nombre) !== INACTIVE_GROUP_NAME
+    ).length;
+
+    return Array.from({ length: totalActiveGroups }, (_, index) => ({
+      label: String(index + 1),
+      value: String(index + 1),
+    }));
+  }, [grupos]);
 
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
@@ -139,20 +193,7 @@ export const ScheduleTable: React.FC = () => {
   useEffect(() => {
     let mounted = true;
     const load = async () => {
-      const asignaciones = await getCollection<MecanicaResponse>(MECANICAS_RESOURCE, {
-        populate: [
-          "acomodadorDentro",
-          "acomodadorLobby",
-          "acomodadorReja",
-          "micro1",
-          "micro2",
-          "plataforma",
-          "audioVideo",
-        ],
-        "pagination[pageSize]": 1000,
-      });
-
-      const mapped = asignaciones.map(mapAssignment);
+      const mapped = await fetchAssignments();
 
       if (!mounted) return;
       setData(mapped);
@@ -166,20 +207,23 @@ export const ScheduleTable: React.FC = () => {
   const handleAddOrUpdateAssignment = () => {
     if (isReadOnly) return;
     form.validateFields().then(async (values) => {
-      const acomodadores = [values.dentro, values.lobby, values.reja];
-      const microfonos = [values.micro1, values.micro2, values.plataforma];
-      const audioVideo = [values.audioVideo];
-      const allSelectedValues = [...acomodadores, ...microfonos, ...audioVideo];
+      const allSelectedValues = [
+        values.dentro,
+        values.lobby,
+        values.reja,
+        values.micro1,
+        values.micro2,
+        values.plataforma,
+        values.audioVideo,
+        values.audioVideoAuxiliar,
+      ].filter((item): item is number => typeof item === "number");
       const duplicates = Array.from(
         new Set(
           allSelectedValues.filter(
-            (item, index) =>
-              item !== undefined &&
-              item !== null &&
-              allSelectedValues.indexOf(item) !== index
+            (item, index) => allSelectedValues.indexOf(item) !== index
           )
         )
-      ) as number[];
+      );
 
       if (duplicates.length > 0) {
         const duplicateNames = duplicates.map(
@@ -194,14 +238,16 @@ export const ScheduleTable: React.FC = () => {
 
       const payload = {
         fecha: values.date.format("YYYY-MM-DD"),
-        acomodadorDentro: values.dentro,
-        acomodadorLobby: values.lobby,
-        acomodadorReja: values.reja,
-        micro1: values.micro1,
-        micro2: values.micro2,
-        plataforma: values.plataforma,
-        audioVideo: values.audioVideo,
-        limpieza: values.cleaning,
+        acomodadorDentro: values.dentro ?? null,
+        acomodadorLobby: values.lobby ?? null,
+        acomodadorReja: values.reja ?? null,
+        micro1: values.micro1 ?? null,
+        micro2: values.micro2 ?? null,
+        plataforma: values.plataforma ?? null,
+        audioVideo: values.audioVideo ?? null,
+        audioVideoAuxiliar: values.audioVideoAuxiliar ?? null,
+        limpieza: values.cleaning ?? [],
+        hospitalidad: values.hospitality ?? [],
       };
 
       const targetId =
@@ -217,21 +263,7 @@ export const ScheduleTable: React.FC = () => {
         await createEntry(MECANICAS_RESOURCE, payload);
       }
 
-      const asignaciones = await getCollection<MecanicaResponse>(MECANICAS_RESOURCE, {
-        populate: [
-          "acomodadorDentro",
-          "acomodadorLobby",
-          "acomodadorReja",
-          "micro1",
-          "micro2",
-          "plataforma",
-          "audioVideo",
-        ],
-        "pagination[pageSize]": 1000,
-      });
-      const mapped = asignaciones.map(mapAssignment);
-
-      setData(mapped);
+      setData(await fetchAssignments());
       setIsModalVisible(false);
       setEditingKey(null);
       form.resetFields();
@@ -251,7 +283,9 @@ export const ScheduleTable: React.FC = () => {
       micro2: record.microphone.micro2Id,
       plataforma: record.microphone.plataformaId,
       audioVideo: record.audioVideoId,
+      audioVideoAuxiliar: record.audioVideoAuxiliarId,
       cleaning: record.cleaning,
+      hospitality: record.hospitality,
     });
     setEditingKey(record.key);
     setIsModalVisible(true);
@@ -330,13 +364,21 @@ export const ScheduleTable: React.FC = () => {
       title: "Audio y Video",
       dataIndex: "audioVideo",
       key: "audioVideo",
-      render: (audioVideo) => (
+      render: (_: string, record) => (
         <Flex vertical gap={4}>
           <div>
             <Tag bordered={false} color="blue" style={{ width: 44 }}>
-              Zoom
+              Principal
             </Tag>{" "}
-            <Typography.Text>{audioVideo}</Typography.Text>
+            <Typography.Text>{record.audioVideo || "Pendiente"}</Typography.Text>
+          </div>
+          <div>
+            <Tag bordered={false} color="cyan" style={{ width: 44 }}>
+              Aux
+            </Tag>{" "}
+            <Typography.Text>
+              {record.audioVideoAuxiliar || "Pendiente"}
+            </Typography.Text>
           </div>
         </Flex>
       ),
@@ -345,7 +387,21 @@ export const ScheduleTable: React.FC = () => {
       title: "Limpieza",
       dataIndex: "cleaning",
       key: "cleaning",
-      render: (cleaning) => <Tag color="magenta">{cleaning.join(" - ")}</Tag>,
+      render: (cleaning: string[]) => (
+        <Tag color="magenta">
+          {cleaning.length ? cleaning.join(" - ") : "Pendiente"}
+        </Tag>
+      ),
+    },
+    {
+      title: "Hospitalidad",
+      dataIndex: "hospitality",
+      key: "hospitality",
+      render: (hospitality: string[]) => (
+        <Tag color="purple">
+          {hospitality.length ? hospitality.join(" - ") : "Pendiente"}
+        </Tag>
+      ),
     },
     {
       title: "Acciones",
@@ -418,12 +474,17 @@ export const ScheduleTable: React.FC = () => {
           }
         >
           <Flex vertical gap={4}>
-            <Flex justify="space-between">
-              <Typography.Text strong>Fecha:</Typography.Text>{" "}
-              {dayjs(item.date).format("DD-MM-YY")}
-              <Divider type="vertical" /> <strong>Limpieza:</strong>{" "}
-              {item.cleaning.join(", ")}
-            </Flex>
+            <Typography.Text>
+              <strong>Fecha:</strong> {item.date}
+            </Typography.Text>
+            <Typography.Text>
+              <strong>Limpieza:</strong>{" "}
+              {item.cleaning.length ? item.cleaning.join(", ") : "Pendiente"}
+            </Typography.Text>
+            <Typography.Text>
+              <strong>Hospitalidad:</strong>{" "}
+              {item.hospitality.length ? item.hospitality.join(", ") : "Pendiente"}
+            </Typography.Text>
             <Typography.Paragraph>
               <Divider>
                 <Tag bordered={false} color="orange">
@@ -477,10 +538,14 @@ export const ScheduleTable: React.FC = () => {
                 </Tag>
               </Divider>
               <Typography.Text>
-                {" "}
-                <strong>Zoom: </strong>
-                {item.audioVideo}
-              </Typography.Text>{" "}
+                <strong>Principal: </strong>
+                {item.audioVideo || "Pendiente"}
+              </Typography.Text>
+              <br />
+              <Typography.Text>
+                <strong>Auxiliar: </strong>
+                {item.audioVideoAuxiliar || "Pendiente"}
+              </Typography.Text>
             </Typography.Paragraph>
           </Flex>
         </Card>
@@ -538,38 +603,41 @@ export const ScheduleTable: React.FC = () => {
           onOk={handleAddOrUpdateAssignment}
         >
           <Form form={form} layout="vertical">
-          <Flex
-            gap={16}
-            justify="space-between"
-            align="flex-start"
-            vertical={isSmallScreen}
-          >
-            <Form.Item
-              style={{ width: isSmallScreen ? "100%" : "50%" }}
-              label="Fecha"
-              name="date"
-              rules={[
-                { required: true, message: "Por favor ingrese la fecha" },
-              ]}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: isSmallScreen
+                  ? "1fr"
+                  : "repeat(3, minmax(0, 1fr))",
+                gap: 16,
+              }}
             >
-              <DatePicker style={{ width: "100%" }} format="DD-MM-YYYY" />
-            </Form.Item>
-            <Form.Item
-              style={{ width: isSmallScreen ? "100%" : "50%" }}
-              label="Limpieza"
-              name="cleaning"
-              rules={[{ required: true }]}
-            >
-              <Select
-                style={{ width: "100%" }}
-                mode="multiple"
-                options={[1, 2, 3, 4, 5, 6, 7, 8].map((num) => ({
-                  label: num.toString(),
-                  value: num.toString(),
-                }))}
-              />
-            </Form.Item>
-          </Flex>
+              <Form.Item
+                label="Fecha"
+                name="date"
+                rules={[
+                  { required: true, message: "Por favor ingrese la fecha" },
+                ]}
+              >
+                <DatePicker style={{ width: "100%" }} format="DD-MM-YYYY" />
+              </Form.Item>
+              <Form.Item label="Limpieza" name="cleaning">
+                <Select
+                  style={{ width: "100%" }}
+                  mode="multiple"
+                  options={assignmentGroupOptions}
+                  placeholder="Selecciona grupo(s)"
+                />
+              </Form.Item>
+              <Form.Item label="Hospitalidad" name="hospitality">
+                <Select
+                  style={{ width: "100%" }}
+                  mode="multiple"
+                  options={assignmentGroupOptions}
+                  placeholder="Selecciona grupo(s)"
+                />
+              </Form.Item>
+            </div>
 
           <Divider>Acomodadores</Divider>
           <div
@@ -582,21 +650,18 @@ export const ScheduleTable: React.FC = () => {
             <Form.Item
               label="Dentro"
               name="dentro"
-              rules={[{ required: true }]}
             >
               <SelectVarones />
             </Form.Item>
             <Form.Item
               label="Lobby"
               name="lobby"
-              rules={[{ required: true }]}
             >
               <SelectVarones />
             </Form.Item>
             <Form.Item
               label="Reja"
               name="reja"
-              rules={[{ required: true }]}
             >
               <SelectVarones />
             </Form.Item>
@@ -612,33 +677,39 @@ export const ScheduleTable: React.FC = () => {
             <Form.Item
               label="Micrófono 1"
               name="micro1"
-              rules={[{ required: true }]}
             >
               <SelectVarones />
             </Form.Item>
             <Form.Item
               label="Micrófono 2"
               name="micro2"
-              rules={[{ required: true }]}
             >
               <SelectVarones />
             </Form.Item>
             <Form.Item
               label="Plataforma"
               name="plataforma"
-              rules={[{ required: true }]}
             >
               <SelectVarones />
             </Form.Item>
           </div>
           <Divider>Zoom</Divider>
-          <Form.Item
-            label="Audio y Video"
-            name="audioVideo"
-            rules={[{ required: true }]}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: isSmallScreen
+                ? "1fr"
+                : "repeat(2, minmax(0, 1fr))",
+              gap: 16,
+            }}
           >
-            <SelectVarones />
-          </Form.Item>
+            <Form.Item label="Audio y Video" name="audioVideo">
+              <SelectVarones />
+            </Form.Item>
+            <Form.Item label="Auxiliar" name="audioVideoAuxiliar">
+              <SelectVarones />
+            </Form.Item>
+          </div>
         </Form>
         {/* Mostrar alerta si hay duplicados */}
           {duplicateError && (

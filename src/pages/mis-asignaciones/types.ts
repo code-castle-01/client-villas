@@ -95,6 +95,7 @@ export type MecanicaRow = {
   id: number;
   fecha: string;
   limpieza?: string[];
+  hospitalidad?: string[];
   acomodadorDentro?: RelationSummary;
   acomodadorLobby?: RelationSummary;
   acomodadorReja?: RelationSummary;
@@ -102,6 +103,7 @@ export type MecanicaRow = {
   micro2?: RelationSummary;
   plataforma?: RelationSummary;
   audioVideo?: RelationSummary;
+  audioVideoAuxiliar?: RelationSummary;
 };
 
 export type EscuelaRelation =

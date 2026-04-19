@@ -176,6 +176,9 @@ export const buildAssignmentItems = ({
     if (matchesMember(row.micro2)) roles.push("Micrófono 2");
     if (matchesMember(row.plataforma)) roles.push("Plataforma");
     if (matchesMember(row.audioVideo)) roles.push("Zoom / Audio y Video");
+    if (matchesMember(row.audioVideoAuxiliar)) {
+      roles.push("Auxiliar de audio y video");
+    }
 
     if (roles.length) {
       nextItems.push({
@@ -187,6 +190,7 @@ export const buildAssignmentItems = ({
         details: [
           `Rol(es): ${roles.join(", ")}`,
           `Limpieza: ${row.limpieza?.length ? row.limpieza.join(", ") : "Pendiente"}`,
+          `Hospitalidad: ${row.hospitalidad?.length ? row.hospitalidad.join(", ") : "Pendiente"}`,
         ],
         status: "programada",
       });
