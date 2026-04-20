@@ -164,10 +164,17 @@ export type VmSettings = {
 
 export type VisitaRow = {
   id: number;
+  documentId?: string;
   fecha: string;
   tema?: string;
   completada: boolean;
   tipoRegistro?: "visita" | "s4";
+  mesServicio?: string | null;
+  participoMinisterio?: boolean;
+  cursosBiblicos?: number;
+  horas?: string;
+  comentarios?: string;
+  precursorAuxiliar?: boolean;
   miembro?: RelationSummary;
   acompanante?: RelationSummary;
 };

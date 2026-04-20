@@ -242,12 +242,12 @@ const compareCandidates = (
   const leftStats = statsMap.get(left.id) ?? createEmptyStats();
   const rightStats = statsMap.get(right.id) ?? createEmptyStats();
 
-  if (leftStats.previousMonthCount !== rightStats.previousMonthCount) {
-    return leftStats.previousMonthCount - rightStats.previousMonthCount;
-  }
-
   if (leftStats.plannedCount !== rightStats.plannedCount) {
     return leftStats.plannedCount - rightStats.plannedCount;
+  }
+
+  if (leftStats.previousMonthCount !== rightStats.previousMonthCount) {
+    return leftStats.previousMonthCount - rightStats.previousMonthCount;
   }
 
   if (leftStats.lastAssignedAt !== rightStats.lastAssignedAt) {

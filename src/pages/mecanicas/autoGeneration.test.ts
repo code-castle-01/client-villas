@@ -163,6 +163,78 @@ describe("mecanicas auto generation", () => {
     expect(new Set(mayFiveRoles)).toEqual(new Set([9, 10, 11, 12, 13, 14]));
   });
 
+  it("uses the full available rotation before repeating brothers who were unused last month", () => {
+    const members: DirectoryMember[] = [
+      createMember(1, "Jorge Castillo"),
+      createMember(2, "Pedro Luna"),
+      createMember(3, "Henry Trejo"),
+      createMember(4, "Barreto Joel"),
+      createMember(5, "Edgar Hernandez"),
+      createMember(6, "Alexander Perez"),
+      createMember(7, "Harol Hernández"),
+      createMember(8, "Maurisio Sabas"),
+      createMember(9, "Daniel Pineda"),
+      createMember(10, "Jairo Sierra"),
+      createMember(11, "Loncio Murillo"),
+      createMember(12, "Jeremías Graterol"),
+      createMember(13, "José Rangel"),
+      createMember(14, "Leon Jose"),
+    ];
+
+    const assignments: MechanicsAssignmentRecord[] = [
+      createAssignment("2026-04-28", {
+        accommodators: {
+          dentroId: 1,
+          lobbyId: 2,
+          rejaId: 3,
+        },
+        microphone: {
+          micro1Id: 4,
+          micro2Id: 5,
+          plataformaId: 6,
+        },
+        audioVideoId: 2,
+      }),
+    ];
+
+    const plan = buildMecanicaAutoGenerationPlan({
+      assignments,
+      members,
+      groupSequence: [],
+      targetDates: ["2026-05-05", "2026-05-12"],
+    });
+
+    const firstPayload = plan.operations.find(
+      (operation) => operation.dateValue === "2026-05-05",
+    )?.payload;
+    const secondPayload = plan.operations.find(
+      (operation) => operation.dateValue === "2026-05-12",
+    )?.payload;
+
+    const firstRoles = [
+      firstPayload?.acomodadorDentro,
+      firstPayload?.acomodadorLobby,
+      firstPayload?.acomodadorReja,
+      firstPayload?.micro1,
+      firstPayload?.micro2,
+      firstPayload?.plataforma,
+    ];
+    const secondRoles = [
+      secondPayload?.acomodadorDentro,
+      secondPayload?.acomodadorLobby,
+      secondPayload?.acomodadorReja,
+      secondPayload?.micro1,
+      secondPayload?.micro2,
+      secondPayload?.plataforma,
+    ];
+
+    expect(new Set(firstRoles).size).toBe(6);
+    expect(firstRoles.every((id) => id && ![1, 2, 3, 4, 5, 6].includes(id))).toBe(
+      true,
+    );
+    expect(secondRoles.every((id) => id && !firstRoles.includes(id))).toBe(true);
+  });
+
   it("does not auto assign brothers marked with limitacion", () => {
     const members: DirectoryMember[] = [
       createMember(1, "Jorge Castillo", { limitacion: true }),

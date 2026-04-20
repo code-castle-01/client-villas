@@ -24,7 +24,6 @@ import {
   Flex,
   Form,
   Input,
-  InputNumber,
   Modal,
   Radio,
   Select,
@@ -46,9 +45,15 @@ import {
   S21BatchDocument,
   S21PdfData,
   S21PdfDownloadButton,
-  S4PdfData,
-  S4PdfDownloadButton,
 } from "../../components/PastoreoPublisherFormsPDF";
+import {
+  S4ReportModal,
+  buildS4Payload,
+  findS4ReportForMemberMonth,
+  isS4Record,
+  normalizeS4FileSegment as normalizeFileSegment,
+  type S4FormValues,
+} from "../../components/s4";
 import { useAdaptiveUI } from "../../adaptive/useAdaptiveUI";
 import { api, createEntry, getCollection, updateEntry } from "../../api/client";
 import type { DirectoryGroup, DirectoryMember } from "../../api/groupDirectory";
@@ -166,14 +171,6 @@ type S21GroupSummaryResponse = {
     nombre: string;
   };
   members: S21SummaryResponse[];
-};
-
-type S4FormValues = {
-  participoMinisterio?: boolean;
-  cursosBiblicos?: number;
-  horas?: string;
-  comentarios?: string;
-  precursorAuxiliar?: boolean;
 };
 
 const serviceMonthOrder = [
@@ -299,9 +296,6 @@ const mapMemberDetail = (member: RawMember): MemberDetail => ({
 const formatDisplayDate = (value?: string) =>
   value ? dayjs(value).format("DD-MM-YYYY") : "No registrada";
 
-const formatMonthLabel = (value?: string) =>
-  value ? dayjs(value).locale("es").format("MMMM YYYY") : "";
-
 const getCurrentServiceYear = (baseDate = dayjs()) =>
   baseDate.month() >= 8 ? baseDate.year() : baseDate.year() - 1;
 
@@ -319,23 +313,6 @@ const parseHoursToNumber = (value?: string) => {
   const parsed = Number(String(value).replace(",", "."));
   return Number.isFinite(parsed) ? parsed : 0;
 };
-
-const isS4Record = (item: VisitRecord) =>
-  item.tipoRegistro === "s4" ||
-  Boolean(item.mesServicio) ||
-  item.participoMinisterio ||
-  item.cursosBiblicos > 0 ||
-  Boolean(item.horas) ||
-  Boolean(item.comentarios) ||
-  item.precursorAuxiliar;
-
-const normalizeFileSegment = (value: string) =>
-  value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-zA-Z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .toLowerCase();
 
 const getMemberAppointments = (member?: MemberDetail | null) =>
   member?.nombramientos ?? [];
@@ -393,7 +370,6 @@ export const MiembrosList: React.FC = () => {
   );
 
   const [visitaForm] = Form.useForm();
-  const [s4Form] = Form.useForm<S4FormValues>();
 
   const isSmallScreen = useMediaQuery("(max-width: 768px)");
   const { resolvedMode } = useAdaptiveUI();
@@ -559,31 +535,10 @@ export const MiembrosList: React.FC = () => {
       }));
   }, [reportesS4]);
 
-  const hydrateS4Form = (memberId: number, monthValue: Dayjs) => {
-    const targetMonth = monthValue.startOf("month").format("YYYY-MM");
-    const existing = reportesS4
-      .filter(
-        (reporte) =>
-          reporte.miembroId === memberId &&
-          dayjs(reporte.mesServicio ?? reporte.fecha).format("YYYY-MM") ===
-            targetMonth,
-      )
-      .sort((a, b) => b.id - a.id)[0];
-
-    s4Form.setFieldsValue({
-      participoMinisterio: existing?.participoMinisterio ?? false,
-      cursosBiblicos: existing?.cursosBiblicos ?? 0,
-      horas: existing?.horas ?? "",
-      comentarios: existing?.comentarios ?? "",
-      precursorAuxiliar: existing?.precursorAuxiliar ?? false,
-    });
-  };
-
   const openS4Modal = (member: MemberSummary) => {
     const monthValue = dayjs().startOf("month");
     setMiembroSeleccionado(member);
     setS4Month(monthValue);
-    hydrateS4Form(member.id, monthValue);
     setVisibleS4Modal(true);
   };
 
@@ -655,30 +610,16 @@ export const MiembrosList: React.FC = () => {
   const handleGuardarS4 = async (values: S4FormValues) => {
     if (isReadOnly || !miembroSeleccionado) return;
 
-    const reportMonth = s4Month.startOf("month");
-    const existing = reportesS4
-      .filter(
-        (reporte) =>
-          reporte.miembroId === miembroSeleccionado.id &&
-          dayjs(reporte.mesServicio ?? reporte.fecha).format("YYYY-MM") ===
-            reportMonth.format("YYYY-MM"),
-      )
-      .sort((a, b) => b.id - a.id)[0];
-
-    const payload = {
-      miembro: miembroSeleccionado.id,
-      fecha: reportMonth.format("YYYY-MM-DD"),
-      mesServicio: reportMonth.format("YYYY-MM-DD"),
-      tipoRegistro: "s4",
-      participoMinisterio: values.participoMinisterio ?? false,
-      cursosBiblicos: values.cursosBiblicos ?? 0,
-      horas: values.horas?.trim() ?? "",
-      comentarios: values.comentarios?.trim() ?? "",
-      precursorAuxiliar: values.precursorAuxiliar ?? false,
-      tema: "",
-      acompanante: null,
-      completada: true,
-    };
+    const existing = findS4ReportForMemberMonth(
+      reportesS4,
+      miembroSeleccionado.id,
+      s4Month,
+    );
+    const payload = buildS4Payload({
+      memberId: miembroSeleccionado.id,
+      month: s4Month,
+      values,
+    });
 
     try {
       if (existing) {
@@ -799,25 +740,6 @@ export const MiembrosList: React.FC = () => {
       totalHours: totalHours > 0 ? String(totalHours) : "",
     };
   };
-
-  const watchedParticipoMinisterio = Form.useWatch(
-    "participoMinisterio",
-    s4Form,
-  );
-  const watchedCursosBiblicos = Form.useWatch("cursosBiblicos", s4Form);
-  const watchedHoras = Form.useWatch("horas", s4Form);
-  const watchedComentarios = Form.useWatch("comentarios", s4Form);
-
-  const s4PdfData: S4PdfData | null = miembroSeleccionado
-    ? {
-        memberName: miembroSeleccionado.nombre,
-        monthLabel: formatMonthLabel(s4Month.format("YYYY-MM-DD")),
-        participated: Boolean(watchedParticipoMinisterio),
-        bibleStudies: watchedCursosBiblicos ?? 0,
-        hours: watchedHoras ?? "",
-        comments: watchedComentarios ?? "",
-      }
-    : null;
 
   const s21PdfData: S21PdfData | null =
     miembroSeleccionado && selectedMemberDetails
@@ -1228,13 +1150,6 @@ export const MiembrosList: React.FC = () => {
     </div>
   );
 
-  const currentS4FileName =
-    s4PdfData && miembroSeleccionado
-      ? `s4-${normalizeFileSegment(
-          miembroSeleccionado.nombre,
-        )}-${s4Month.format("YYYY-MM")}.pdf`
-      : "s4.pdf";
-
   const currentS21FileName =
     s21PdfData && miembroSeleccionado
       ? `s21-${normalizeFileSegment(
@@ -1440,174 +1355,20 @@ export const MiembrosList: React.FC = () => {
         />
       </Modal>
 
-      <Modal
-        title={null}
+      <S4ReportModal
         open={visibleS4Modal}
+        member={miembroSeleccionado}
+        month={s4Month}
+        reports={reportesS4}
+        isSmallScreen={isSmallScreen}
+        readOnly={isReadOnly}
+        onMonthChange={setS4Month}
         onCancel={() => {
           setVisibleS4Modal(false);
-          s4Form.resetFields();
           setMiembroSeleccionado(null);
         }}
-        footer={
-          <Flex justify="space-between" wrap="wrap" gap={12}>
-            <Space>
-              {s4PdfData ? (
-                <S4PdfDownloadButton
-                  data={s4PdfData}
-                  fileName={currentS4FileName}
-                />
-              ) : null}
-            </Space>
-            <Space>
-              <Button
-                onClick={() => {
-                  setVisibleS4Modal(false);
-                  s4Form.resetFields();
-                  setMiembroSeleccionado(null);
-                }}
-              >
-                Cerrar
-              </Button>
-              {!isReadOnly ? (
-                <Button
-                  type="primary"
-                  icon={<DownloadOutlined />}
-                  onClick={() => s4Form.submit()}
-                >
-                  Guardar S-4
-                </Button>
-              ) : null}
-            </Space>
-          </Flex>
-        }
-        width={isSmallScreen ? "100%" : 640}
-      >
-        <div className="pastoreo-sheet-tools">
-          <DatePicker
-            picker="month"
-            value={s4Month}
-            format="MMMM YYYY"
-            onChange={(value) => {
-              const nextMonth = (value ?? dayjs()).startOf("month");
-              setS4Month(nextMonth);
-              if (miembroSeleccionado) {
-                hydrateS4Form(miembroSeleccionado.id, nextMonth);
-              }
-            }}
-          />
-        </div>
-
-        <Form
-          form={s4Form}
-          layout="vertical"
-          onFinish={handleGuardarS4}
-          initialValues={{
-            participoMinisterio: false,
-            cursosBiblicos: 0,
-            horas: "",
-            comentarios: "",
-            precursorAuxiliar: false,
-          }}
-        >
-          <div className="pastoreo-form-sheet pastoreo-form-sheet--s4">
-            <h2 className="pastoreo-form-sheet__title">
-              Informe de predicación
-            </h2>
-
-            <div className="pastoreo-s4-row">
-              <span className="pastoreo-s4-row__label">Nombre:</span>
-              <div className="pastoreo-s4-row__value">
-                {miembroSeleccionado?.nombre ?? ""}
-              </div>
-            </div>
-
-            <div className="pastoreo-s4-row">
-              <span className="pastoreo-s4-row__label">Mes:</span>
-              <div className="pastoreo-s4-row__value">
-                {formatMonthLabel(s4Month.format("YYYY-MM-DD"))}
-              </div>
-            </div>
-
-            <div className="pastoreo-s4-block">
-              <div className="pastoreo-s4-block__row">
-                <div className="pastoreo-s4-block__label">
-                  Marque la casilla si participó en alguna faceta de la
-                  predicación durante el mes
-                </div>
-                <div className="pastoreo-s4-block__value">
-                  <Form.Item
-                    name="participoMinisterio"
-                    valuePropName="checked"
-                    style={{ margin: 0 }}
-                  >
-                    <Checkbox />
-                  </Form.Item>
-                </div>
-              </div>
-
-              <div className="pastoreo-s4-block__row">
-                <div className="pastoreo-s4-block__label">
-                  Número de diferentes cursos bíblicos dirigidos
-                </div>
-                <div className="pastoreo-s4-block__value">
-                  <Form.Item name="cursosBiblicos" style={{ margin: 0 }}>
-                    <InputNumber
-                      min={0}
-                      controls={false}
-                      style={{ width: "100%" }}
-                    />
-                  </Form.Item>
-                </div>
-              </div>
-
-              <div className="pastoreo-s4-block__row">
-                <div className="pastoreo-s4-block__label">
-                  Horas (para precursores auxiliares, regulares y especiales, o
-                  misioneros en el campo)
-                </div>
-                <div className="pastoreo-s4-block__value">
-                  <Form.Item name="horas" style={{ margin: 0 }}>
-                    <Input placeholder="0" />
-                  </Form.Item>
-                </div>
-              </div>
-            </div>
-
-            <div style={{ marginTop: 12 }}>
-              <Form.Item
-                name="precursorAuxiliar"
-                valuePropName="checked"
-                style={{ marginBottom: 0 }}
-              >
-                <Checkbox>Sirvió como precursor auxiliar este mes</Checkbox>
-              </Form.Item>
-            </div>
-
-            <div className="pastoreo-s4-comments">
-              <div className="pastoreo-s4-comments__label">Comentarios:</div>
-              <div className="pastoreo-s4-comments__value">
-                <Form.Item name="comentarios" style={{ margin: 0 }}>
-                  <Input.TextArea
-                    autoSize={{ minRows: 4, maxRows: 6 }}
-                    bordered={false}
-                    style={{
-                      background: "transparent",
-                      boxShadow: "none",
-                      padding: 0,
-                      resize: "none",
-                    }}
-                  />
-                </Form.Item>
-              </div>
-            </div>
-
-            <div className="pastoreo-s4-footer">
-              <span>S-4-S</span>
-              <span>11/23</span>
-            </div>
-          </div>
-        </Form>
-      </Modal>
+        onSubmit={handleGuardarS4}
+      />
 
       <Modal
         title={null}

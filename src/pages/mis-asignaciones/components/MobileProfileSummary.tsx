@@ -8,6 +8,7 @@ type MobileProfileSummaryProps = {
   currentMember: ProfileMember;
   assignmentCount: number;
   currentWeekLink: string;
+  onInform: () => void;
   onSchedule: () => void;
   onEdit: () => void;
 };
@@ -17,6 +18,7 @@ export const MobileProfileSummary: React.FC<MobileProfileSummaryProps> = ({
   currentMember,
   assignmentCount,
   currentWeekLink,
+  onInform,
   onSchedule,
   onEdit,
 }) => {
@@ -78,6 +80,15 @@ export const MobileProfileSummary: React.FC<MobileProfileSummaryProps> = ({
           </div>
 
           <div className="mobile-profile-summary__actions">
+            <Button
+              block
+              color="primary"
+              fill="outline"
+              disabled={!currentMember}
+              onClick={onInform}
+            >
+              INFORMAR
+            </Button>
             <Button block color="primary" fill="outline" onClick={onSchedule}>
               Agendar
             </Button>

@@ -43,6 +43,7 @@ import {
 
 export interface Conferencia {
   id: string;
+  documentId?: string;
   orador: string;
   temaId?: number;
   tema: string;
@@ -65,6 +66,7 @@ type AuxiliarSummary = {
 } | null;
 
 type ConferenciaResponse = {
+  documentId?: string;
   orador: string;
   tema?: TemaSummary;
   auxiliar?: AuxiliarSummary;
@@ -104,6 +106,7 @@ const isLeadershipMember = (member: LeadershipMember) => {
 
 const mapConferencia = (conferencia: ConferenciaResponse & { id: number }) => ({
   id: String(conferencia.id),
+  documentId: conferencia.documentId,
   orador: conferencia.orador,
   temaId: conferencia.tema?.id,
   tema: conferencia.tema?.titulo ?? "",
@@ -113,6 +116,23 @@ const mapConferencia = (conferencia: ConferenciaResponse & { id: number }) => ({
   auxiliar: conferencia.auxiliar?.nombre ?? "",
   fecha: conferencia.fecha,
 });
+
+const getConferenciaDateValue = (conferencia: Conferencia) => {
+  const parsedDate = dayjs(conferencia.fecha);
+  return parsedDate.isValid() ? parsedDate.valueOf() : Number.MAX_SAFE_INTEGER;
+};
+
+const sortConferenciasByDate = (conferencias: Conferencia[]) =>
+  [...conferencias].sort((left, right) => {
+    const dateComparison =
+      getConferenciaDateValue(left) - getConferenciaDateValue(right);
+
+    if (dateComparison !== 0) {
+      return dateComparison;
+    }
+
+    return Number(left.id) - Number(right.id);
+  });
 
 const buildConferenceWhatsAppMessage = (conferencia: Conferencia) => {
   const lines = [
@@ -163,10 +183,11 @@ export const ConferenciasTable: React.FC = () => {
     const load = async () => {
       const data = await getCollection<ConferenciaResponse>("conferencias", {
         "pagination[pageSize]": 1000,
+        "sort[0]": "fecha:asc",
       });
 
       if (mounted) {
-        setConferencias(data.map(mapConferencia));
+        setConferencias(sortConferenciasByDate(data.map(mapConferencia)));
       }
     };
 
@@ -190,9 +211,11 @@ export const ConferenciasTable: React.FC = () => {
 
   const filteredConferencias = useMemo(
     () =>
-      conferencias.filter(
-        (conferencia) =>
-          getMonthKeyFromIsoDate(conferencia.fecha) === activeMonthKey,
+      sortConferenciasByDate(
+        conferencias.filter(
+          (conferencia) =>
+            getMonthKeyFromIsoDate(conferencia.fecha) === activeMonthKey,
+        ),
       ),
     [activeMonthKey, conferencias],
   );
@@ -230,7 +253,8 @@ export const ConferenciasTable: React.FC = () => {
   const handleDelete = async (id: string) => {
     if (!canEditInCurrentView) return;
 
-    await deleteEntry("conferencias", Number(id));
+    const targetId = conferencias.find((item) => item.id === id)?.documentId ?? id;
+    await deleteEntry("conferencias", targetId);
     setConferencias((current) => current.filter((item) => item.id !== id));
     form.resetFields();
   };
@@ -254,16 +278,18 @@ export const ConferenciasTable: React.FC = () => {
     };
 
     if (editingConferencia) {
-      await updateEntry("conferencias", Number(editingConferencia.id), payload);
+      const targetId = editingConferencia.documentId ?? editingConferencia.id;
+      await updateEntry("conferencias", targetId, payload);
     } else {
       await createEntry("conferencias", payload);
     }
 
     const data = await getCollection<ConferenciaResponse>("conferencias", {
       "pagination[pageSize]": 1000,
+      "sort[0]": "fecha:asc",
     });
 
-    setConferencias(data.map(mapConferencia));
+    setConferencias(sortConferenciasByDate(data.map(mapConferencia)));
     form.resetFields();
     setIsLocalSpeaker(false);
     setIsModalOpen(false);

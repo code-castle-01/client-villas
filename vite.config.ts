@@ -17,7 +17,7 @@ export default defineConfig({
       ],
       manifest: {
         name: "Congregación Las Villas",
-        short_name: "Congregación",
+        short_name: "Las Villas",
         description: "Aplicación de la Congregación",
         theme_color: "#7E2C6F",
         background_color: "#F6F3F8",
@@ -46,7 +46,8 @@ export default defineConfig({
         globPatterns: ["**/*.{js,css,html,png,svg,ico,json,woff2}"],
         runtimeCaching: [
           {
-            urlPattern: /^https:\/\/api-villas-production\.up\.railway\.app\/.*/i,
+            urlPattern:
+              /^https:\/\/api-villas-production\.up\.railway\.app\/.*/i,
             handler: "NetworkFirst",
             options: {
               cacheName: "api-runtime-cache",

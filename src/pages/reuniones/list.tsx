@@ -76,6 +76,22 @@ const mapReunion = (reunion: ReunionResponse & { id: number }): Reunion => ({
   oracion: reunion.oracion?.nombre ?? "",
 });
 
+const getReunionDateValue = (reunion: Reunion) => {
+  const parsedDate = dayjs(reunion.dateValue);
+  return parsedDate.isValid() ? parsedDate.valueOf() : Number.MAX_SAFE_INTEGER;
+};
+
+const sortReunionesByDate = (reuniones: Reunion[]) =>
+  [...reuniones].sort((left, right) => {
+    const dateComparison = getReunionDateValue(left) - getReunionDateValue(right);
+
+    if (dateComparison !== 0) {
+      return dateComparison;
+    }
+
+    return left.id - right.id;
+  });
+
 const buildReunionWhatsAppMessage = (reunion: Reunion) =>
   [
     "Reunion",
@@ -104,8 +120,9 @@ export const ReunionesTable: React.FC = () => {
     const load = async () => {
       const data = await getCollection<ReunionResponse>(REUNIONES_RESOURCE, {
         "pagination[pageSize]": 1000,
+        "sort[0]": "fecha:asc",
       });
-      const mapped = data.map(mapReunion);
+      const mapped = sortReunionesByDate(data.map(mapReunion));
       if (mounted) setReuniones(mapped);
     };
 
@@ -129,8 +146,10 @@ export const ReunionesTable: React.FC = () => {
 
   const filteredReuniones = useMemo(
     () =>
-      reuniones.filter(
-        (reunion) => getMonthKeyFromIsoDate(reunion.dateValue) === activeMonthKey,
+      sortReunionesByDate(
+        reuniones.filter(
+          (reunion) => getMonthKeyFromIsoDate(reunion.dateValue) === activeMonthKey,
+        ),
       ),
     [activeMonthKey, reuniones],
   );
@@ -173,9 +192,10 @@ export const ReunionesTable: React.FC = () => {
 
     const data = await getCollection<ReunionResponse>(REUNIONES_RESOURCE, {
       "pagination[pageSize]": 1000,
+      "sort[0]": "fecha:asc",
     });
 
-    setReuniones(data.map(mapReunion));
+    setReuniones(sortReunionesByDate(data.map(mapReunion)));
     setIsModalOpen(false);
     setEditingReunion(null);
   };

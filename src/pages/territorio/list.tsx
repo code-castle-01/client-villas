@@ -49,6 +49,7 @@ import {
 import SelectVarones from "../../components/select-varones";
 import { ColorModeContext } from "../../contexts/color-mode";
 import { useIsAdminApp } from "../../hooks/useIsAdminApp";
+import { TerritoryS12DownloadButton } from "./TerritoryS12Pdf";
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -586,13 +587,18 @@ export const TerritoriosTable: React.FC = () => {
                   </div>
                 </div>
 
-                {isAdminApp && (
-                  <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                <div className="territorio-mobile-actions">
+                  <TerritoryS12DownloadButton
+                    territory={territorio}
+                    buttonProps={{ size: "middle" }}
+                    label="Descargar S-12"
+                  />
+                  {isAdminApp && (
                     <MobileButton color="primary" fill="outline" onClick={openDesktopView}>
                       Llenar en desktop
                     </MobileButton>
-                  </div>
-                )}
+                  )}
+                </div>
               </MobileSpace>
             </MobileCard>
           );
@@ -716,15 +722,18 @@ export const TerritoriosTable: React.FC = () => {
                   }
                   cover={<Image src={territorio.img} width="auto" height={300} />}
                   extra={
-                    <Button
-                      size="small"
-                      type="default"
-                      icon={<EditFilled />}
-                      onClick={() => openModal(territorio)}
-                      disabled={!canEditInCurrentView}
-                    >
-                      Llenar
-                    </Button>
+                    <div className="territorio-card-actions">
+                      <TerritoryS12DownloadButton territory={territorio} />
+                      <Button
+                        size="small"
+                        type="default"
+                        icon={<EditFilled />}
+                        onClick={() => openModal(territorio)}
+                        disabled={!canEditInCurrentView}
+                      >
+                        Llenar
+                      </Button>
+                    </div>
                   }
                 >
                   <Card.Meta

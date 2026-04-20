@@ -14,7 +14,7 @@ export const DesktopAppShell: React.FC = () => {
           fixed
           Title={() => (
             <Typography.Title type="success" level={4}>
-              CONGREGACIÓN
+              LAS VILLAS
             </Typography.Title>
           )}
         />

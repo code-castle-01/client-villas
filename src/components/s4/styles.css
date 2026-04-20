@@ -1,0 +1,142 @@
+.s4-report-sheet-tools {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-bottom: 16px;
+}
+
+.s4-report-sheet-tools .ant-picker {
+  min-width: 160px;
+}
+
+.s4-report-form-sheet {
+  background: #ffffff;
+  border: 3px solid #2b2b2b;
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.12);
+  margin: 0 auto;
+  max-width: 540px;
+  padding: 20px 24px 24px;
+}
+
+.s4-report-form-sheet__title {
+  color: #111827;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  margin: 0 0 14px;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.s4-report-row {
+  align-items: center;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 86px 1fr;
+  margin-bottom: 6px;
+}
+
+.s4-report-row__label {
+  color: #111827;
+  font-weight: 700;
+}
+
+.s4-report-row__value {
+  background: #eef2ff;
+  min-height: 32px;
+  padding: 6px 10px;
+}
+
+.s4-report-block {
+  border: 1px solid #2b2b2b;
+  margin-top: 18px;
+}
+
+.s4-report-block__row {
+  border-bottom: 1px solid #2b2b2b;
+  display: grid;
+  grid-template-columns: 1fr 60px;
+  min-height: 48px;
+}
+
+.s4-report-block__row:last-child {
+  border-bottom: 0;
+}
+
+.s4-report-block__label {
+  align-items: center;
+  color: #111827;
+  display: flex;
+  font-size: 15px;
+  padding: 8px 10px;
+}
+
+.s4-report-block__value {
+  align-items: center;
+  background: #eef2ff;
+  border-left: 1px solid #2b2b2b;
+  display: flex;
+  justify-content: center;
+  min-width: 0;
+  padding: 8px;
+}
+
+.s4-report-comments {
+  border: 1px solid #2b2b2b;
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  margin-top: 16px;
+  min-height: 92px;
+}
+
+.s4-report-comments__label {
+  color: #111827;
+  font-size: 15px;
+  font-weight: 700;
+  padding: 10px;
+}
+
+.s4-report-comments__value {
+  background: #eef2ff;
+  border-left: 1px solid #2b2b2b;
+  min-height: 92px;
+  padding: 10px 12px;
+  white-space: pre-wrap;
+}
+
+.s4-report-footer {
+  color: #111827;
+  display: flex;
+  justify-content: space-between;
+  margin-top: 10px;
+}
+
+@media (max-width: 960px) {
+  .s4-report-form-sheet {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 640px) {
+  .s4-report-sheet-tools {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .s4-report-row {
+    grid-template-columns: 1fr;
+  }
+
+  .s4-report-block__row {
+    grid-template-columns: 1fr 54px;
+  }
+
+  .s4-report-comments {
+    grid-template-columns: 1fr;
+  }
+
+  .s4-report-comments__value {
+    border-left: 0;
+    border-top: 1px solid #2b2b2b;
+  }
+}

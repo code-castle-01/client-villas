@@ -140,6 +140,27 @@
   border-radius: 18px;
 }
 
+.territorio-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.territorio-pdf-link {
+  display: inline-flex;
+  text-decoration: none;
+}
+
+.territorio-mobile-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 @media (max-width: 768px) {
   .territorio-page {
     padding: 16px;

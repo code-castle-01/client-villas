@@ -3,7 +3,21 @@ import { Form, Skeleton, message } from "antd";
 import dayjs from "dayjs";
 import "dayjs/locale/es";
 import { useAdaptiveUI } from "../../adaptive/useAdaptiveUI";
-import { api, getCollection, getOptionalSingle } from "../../api/client";
+import {
+  api,
+  createEntry,
+  getCollection,
+  getOptionalSingle,
+  updateEntry,
+} from "../../api/client";
+import {
+  S4ReportModal,
+  buildS4Payload,
+  findS4ReportForMemberMonth,
+  isS4Record,
+  type S4FormValues,
+  type S4ReportRecord,
+} from "../../components/s4";
 import { useDirectory } from "../../contexts/directory";
 import useMediaQuery from "../../hooks/useMediaQuery";
 import { buildAssignmentItems, groupAssignmentItemsByDate } from "./assignments";
@@ -156,6 +170,32 @@ const resolveMeetingDate = (
   return week.weekStart;
 };
 
+const fetchVisitRows = () =>
+  getCollection<VisitaRow>("visitas", {
+    populate: ["miembro", "acompanante"],
+    "pagination[pageSize]": 1000,
+  });
+
+const mapVisitaToS4Report = (visita: VisitaRow): S4ReportRecord => ({
+  id: visita.id,
+  miembroId: visita.miembro?.id ?? 0,
+  fecha: visita.fecha,
+  tipoRegistro: visita.tipoRegistro,
+  mesServicio: visita.mesServicio ?? undefined,
+  participoMinisterio: Boolean(visita.participoMinisterio),
+  cursosBiblicos:
+    typeof visita.cursosBiblicos === "number" ? visita.cursosBiblicos : 0,
+  horas: visita.horas ?? "",
+  comentarios: visita.comentarios ?? "",
+  precursorAuxiliar: Boolean(visita.precursorAuxiliar),
+});
+
+const getS4ReportsFromVisits = (visitas: VisitaRow[]) =>
+  visitas.map(mapVisitaToS4Report).filter(isS4Record);
+
+const getAssignmentVisits = (visitas: VisitaRow[]) =>
+  visitas.filter((visita) => !isS4Record(mapVisitaToS4Report(visita)));
+
 export const MisAsignacionesPage: React.FC = () => {
   const isSmallScreen = useMediaQuery("(max-width: 992px)");
   const { resolvedMode } = useAdaptiveUI();
@@ -179,11 +219,14 @@ export const MisAsignacionesPage: React.FC = () => {
   const [currentMember, setCurrentMember] = useState<ProfileMember>(null);
   const [groups, setGroups] = useState<GroupSummary[]>([]);
   const [items, setItems] = useState<AssignmentItem[]>([]);
+  const [s4Reports, setS4Reports] = useState<S4ReportRecord[]>([]);
   const [personalAppointments, setPersonalAppointments] = useState<
     PersonalAppointment[]
   >([]);
   const [panelMonth, setPanelMonth] = useState(() => getDateKey(dayjs()));
   const [selectedDate, setSelectedDate] = useState(() => getDateKey(dayjs()));
+  const [s4Month, setS4Month] = useState(() => dayjs().startOf("month"));
+  const [s4ModalOpen, setS4ModalOpen] = useState(false);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [appointmentModalOpen, setAppointmentModalOpen] = useState(false);
   const [mobileProfileOpen, setMobileProfileOpen] = useState(false);
@@ -204,6 +247,7 @@ export const MisAsignacionesPage: React.FC = () => {
     confirmPassword: "",
   });
   const [savingProfile, setSavingProfile] = useState(false);
+  const [savingS4, setSavingS4] = useState(false);
 
   const miembros = useMemo<MiembroRow[]>(
     () =>
@@ -261,6 +305,7 @@ export const MisAsignacionesPage: React.FC = () => {
             setCurrentMember(null);
             setGroups([]);
             setItems([]);
+            setS4Reports([]);
             setLoading(false);
           }
           return;
@@ -306,9 +351,7 @@ export const MisAsignacionesPage: React.FC = () => {
             "pagination[pageSize]": 1000,
           }),
           getOptionalSingle<VmSettings>("vm-setting"),
-          getCollection<VisitaRow>("visitas", {
-            "pagination[pageSize]": 1000,
-          }),
+          fetchVisitRows(),
           getOptionalSingle<PresidenciaSingle>("presidencia", {
             populate: [
               "presidente",
@@ -332,6 +375,7 @@ export const MisAsignacionesPage: React.FC = () => {
 
         setProfile(resolvedProfile);
         setCurrentMember(resolvedMember);
+        setS4Reports(getS4ReportsFromVisits(visitas));
         setGroups(
           directoryGroups
             .map((group) => ({
@@ -362,7 +406,7 @@ export const MisAsignacionesPage: React.FC = () => {
                     assignees: normalizeVmAssignees(assignment.assignees),
                   } satisfies VmAssignmentRow;
                 }),
-                visitas,
+                visitas: getAssignmentVisits(visitas),
                 presidencia,
               })
             : []
@@ -370,6 +414,7 @@ export const MisAsignacionesPage: React.FC = () => {
       } catch {
         if (mounted) {
           setItems([]);
+          setS4Reports([]);
         }
       } finally {
         if (mounted) {
@@ -420,6 +465,18 @@ export const MisAsignacionesPage: React.FC = () => {
   );
 
   const selectedDateValue = useMemo(() => dayjs(selectedDate), [selectedDate]);
+
+  const openS4ReportModal = () => {
+    if (!currentMember) {
+      message.warning(
+        "Tu usuario todavía no tiene un miembro vinculado para informar.",
+      );
+      return;
+    }
+
+    setS4Month(dayjs().startOf("month"));
+    setS4ModalOpen(true);
+  };
 
   const openAppointmentModal = () => {
     appointmentForm.setFieldsValue({
@@ -580,6 +637,49 @@ export const MisAsignacionesPage: React.FC = () => {
     message.success("Cita personal agendada correctamente.");
   };
 
+  const handleSaveS4 = async (values: S4FormValues) => {
+    if (!currentMember) {
+      message.warning(
+        "Tu usuario todavía no tiene un miembro vinculado para informar.",
+      );
+      return;
+    }
+
+    setSavingS4(true);
+
+    try {
+      const existing = findS4ReportForMemberMonth(
+        s4Reports,
+        currentMember.id,
+        s4Month,
+      );
+      const payload = buildS4Payload({
+        memberId: currentMember.id,
+        month: s4Month,
+        values,
+      });
+
+      if (existing) {
+        await updateEntry("visitas", existing.id, payload);
+      } else {
+        await createEntry("visitas", payload);
+      }
+
+      const refreshedVisits = await fetchVisitRows();
+      setS4Reports(getS4ReportsFromVisits(refreshedVisits));
+      setS4ModalOpen(false);
+      message.success("Informe S-4 guardado correctamente.");
+    } catch (error: any) {
+      const detail =
+        error?.response?.data?.error?.message ||
+        error?.message ||
+        "No se pudo guardar el informe S-4.";
+      message.error(detail);
+    } finally {
+      setSavingS4(false);
+    }
+  };
+
   if (loading) {
     return <Skeleton active paragraph={{ rows: 12 }} />;
   }
@@ -592,6 +692,7 @@ export const MisAsignacionesPage: React.FC = () => {
           currentMember={currentMember}
           assignmentCount={monthItems.length}
           currentWeekLink={currentWeekLink}
+          onInform={openS4ReportModal}
           onSchedule={openAppointmentModal}
           onEdit={openProfileModal}
         />
@@ -602,6 +703,7 @@ export const MisAsignacionesPage: React.FC = () => {
           assignmentCount={monthItems.length}
           currentWeekLink={currentWeekLink}
           isSmallScreen={isSmallScreen}
+          onInform={openS4ReportModal}
           onSchedule={openAppointmentModal}
           onEdit={openProfileModal}
         />
@@ -668,6 +770,21 @@ export const MisAsignacionesPage: React.FC = () => {
         onChange={setMobileProfileValues}
         onClose={() => setMobileProfileOpen(false)}
         onSubmit={() => handleSaveProfile(mobileProfileValues)}
+      />
+      <S4ReportModal
+        open={s4ModalOpen}
+        member={
+          currentMember
+            ? { id: currentMember.id, nombre: currentMember.nombre }
+            : null
+        }
+        month={s4Month}
+        reports={s4Reports}
+        isSmallScreen={isSmallScreen}
+        saving={savingS4}
+        onMonthChange={setS4Month}
+        onCancel={() => setS4ModalOpen(false)}
+        onSubmit={handleSaveS4}
       />
     </section>
   );
