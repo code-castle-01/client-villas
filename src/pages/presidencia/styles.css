@@ -1,0 +1,29 @@
+.presidencia-mobile {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+}
+
+.presidencia-mobile-card .adm-card-body {
+  display: grid;
+  gap: 12px;
+}
+
+.presidencia-mobile-card .ant-form,
+.presidencia-mobile-card .ant-form-item,
+.presidencia-mobile-card .ant-select,
+.presidencia-mobile-card .ant-picker,
+.presidencia-mobile-card .ant-input,
+.presidencia-mobile-card .ant-input-number {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.presidencia-mobile-card .ant-input-number {
+  width: 100%;
+}
+
+.presidencia-mobile-card .ant-typography {
+  overflow-wrap: anywhere;
+}

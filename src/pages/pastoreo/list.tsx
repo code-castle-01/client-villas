@@ -8,6 +8,15 @@ import {
   SearchOutlined,
 } from "@ant-design/icons";
 import {
+  Button as MobileButton,
+  Card as MobileCard,
+  Empty as MobileEmpty,
+  SearchBar,
+  Selector,
+  Space as MobileSpace,
+  Tag as MobileTag,
+} from "antd-mobile";
+import {
   Button,
   Card,
   Checkbox,
@@ -40,6 +49,7 @@ import {
   S4PdfData,
   S4PdfDownloadButton,
 } from "../../components/PastoreoPublisherFormsPDF";
+import { useAdaptiveUI } from "../../adaptive/useAdaptiveUI";
 import { api, createEntry, getCollection, updateEntry } from "../../api/client";
 import type { DirectoryGroup, DirectoryMember } from "../../api/groupDirectory";
 import { ColorModeContext } from "../../contexts/color-mode";
@@ -386,6 +396,8 @@ export const MiembrosList: React.FC = () => {
   const [s4Form] = Form.useForm<S4FormValues>();
 
   const isSmallScreen = useMediaQuery("(max-width: 768px)");
+  const { resolvedMode } = useAdaptiveUI();
+  const isNativeMobile = resolvedMode === "mobile";
   const isAdminApp = useIsAdminApp();
   const isReadOnly = !isAdminApp;
   const grupos = useMemo<Grupo[]>(
@@ -1014,6 +1026,208 @@ export const MiembrosList: React.FC = () => {
     ? grupos.filter((grupo) => grupo.id === grupoSeleccionado)
     : grupos;
 
+  const renderMobilePastoreo = () => (
+    <div className="pastoreo-mobile">
+      <MobileCard className="mobile-screen-card pastoreo-mobile__filters">
+        <SearchBar
+          value={busquedaNombre}
+          onChange={setBusquedaNombre}
+          placeholder="Buscar publicador"
+        />
+
+        <div className="pastoreo-mobile__selector">
+          <span>Año S-21</span>
+          <Selector
+            columns={2}
+            options={batchServiceYearOptions}
+            value={[batchServiceYearSelected]}
+            onChange={(value) => {
+              if (value[0]) {
+                setBatchServiceYearSelected(Number(value[0]));
+              }
+            }}
+          />
+        </div>
+
+        <div className="pastoreo-mobile__selector">
+          <span>Grupo</span>
+          <Selector
+            columns={2}
+            options={grupos.map((grupo) => ({
+              label: grupo.nombre,
+              value: grupo.id,
+            }))}
+            value={grupoSeleccionado ? [grupoSeleccionado] : []}
+            onChange={(value) =>
+              setGrupoSeleccionado(value[0] ? Number(value[0]) : null)
+            }
+          />
+        </div>
+
+        <div className="pastoreo-mobile__selector">
+          <span>Visitas</span>
+          <Selector
+            columns={3}
+            options={[
+              { label: "Todas", value: "todas" },
+              { label: "Pendientes", value: "pendientes" },
+              { label: "Realizadas", value: "realizadas" },
+            ]}
+            value={[filtroVisita]}
+            onChange={(value) =>
+              setFiltroVisita(
+                (value[0] as "todas" | "pendientes" | "realizadas") ?? "todas",
+              )
+            }
+          />
+        </div>
+      </MobileCard>
+
+      {filteredGrupos.length ? (
+        filteredGrupos.map((grupo) => {
+          const filteredMiembros = grupo.miembros.filter((miembro) =>
+            miembro.nombre.toLowerCase().includes(busquedaNombre.toLowerCase()),
+          );
+          const visibleMiembros =
+            filtrarMiembrosPorEstadoVisita(filteredMiembros);
+
+          return (
+            <MobileCard
+              key={grupo.id}
+              className="mobile-screen-card pastoreo-mobile-group"
+              title={grupo.nombre}
+              extra={
+                <MobileTag color="primary" fill="outline">
+                  {visibleMiembros.length} miembros
+                </MobileTag>
+              }
+            >
+              <MobileSpace direction="vertical" block style={{ width: "100%" }}>
+                <div className="pastoreo-mobile-group__leaders">
+                  <div>
+                    <span>Superintendente</span>
+                    <strong>{grupo.superintendenteNombre || "N/A"}</strong>
+                  </div>
+                  <div>
+                    <span>Auxiliar</span>
+                    <strong>{grupo.auxiliarNombre || "N/A"}</strong>
+                  </div>
+                </div>
+
+                <MobileButton
+                  block
+                  color="primary"
+                  fill="outline"
+                  loading={downloadingGroupId === grupo.id}
+                  disabled={!grupo.miembros.length}
+                  onClick={() => void handleDownloadGroupS21(grupo)}
+                >
+                  <DownloadOutlined /> Descargar lote S-21
+                </MobileButton>
+
+                {visibleMiembros.length ? (
+                  <div className="pastoreo-mobile-members">
+                    {visibleMiembros.map((miembro, index) => {
+                      const monthlyReport = currentMonthReportByMember.get(
+                        miembro.id,
+                      );
+                      const hasVisit = latestVisitByMember.has(miembro.id);
+
+                      return (
+                        <div key={miembro.id} className="pastoreo-mobile-member">
+                          <div className="pastoreo-mobile-member__header">
+                            <strong>
+                              {index + 1}. {miembro.nombre}
+                            </strong>
+                            <span>
+                              {latestVisitByMember.get(miembro.id)
+                                ? `Última visita: ${
+                                    latestVisitByMember.get(miembro.id)?.fecha
+                                  }`
+                                : "Aún no se ha visitado"}
+                            </span>
+                          </div>
+
+                          <div className="pastoreo-mobile-member__tags">
+                            <MobileTag
+                              color={hasVisit ? "success" : "warning"}
+                              fill={hasVisit ? "solid" : "outline"}
+                            >
+                              {hasVisit ? "Visitado" : "Pendiente"}
+                            </MobileTag>
+                            <MobileTag
+                              color={monthlyReport ? "success" : "warning"}
+                              fill={monthlyReport ? "solid" : "outline"}
+                            >
+                              {monthlyReport
+                                ? `Informó ${currentMonthLabel}`
+                                : `Sin informe ${currentMonthLabel}`}
+                            </MobileTag>
+                          </div>
+
+                          <div className="pastoreo-mobile-member__actions">
+                            <MobileButton
+                              size="mini"
+                              fill="outline"
+                              onClick={() => openS4Modal(miembro)}
+                            >
+                              <FileTextOutlined /> S-4
+                            </MobileButton>
+                            <MobileButton
+                              size="mini"
+                              fill="outline"
+                              onClick={() => void openS21Modal(miembro)}
+                            >
+                              <IdcardOutlined /> S-21
+                            </MobileButton>
+                            <MobileButton
+                              size="mini"
+                              color="primary"
+                              disabled={isReadOnly}
+                              onClick={() => {
+                                if (isReadOnly) return;
+                                setMiembroSeleccionado({
+                                  id: miembro.id,
+                                  nombre: miembro.nombre,
+                                });
+                                visitaForm.setFieldsValue({
+                                  fecha: undefined,
+                                  acompanante: undefined,
+                                  tema: undefined,
+                                  completada: false,
+                                });
+                                setVisibleVisitaModal(true);
+                              }}
+                            >
+                              <CalendarOutlined /> Visita
+                            </MobileButton>
+                            <MobileButton
+                              size="mini"
+                              fill="outline"
+                              onClick={() => handleVerHistorial(miembro.id)}
+                            >
+                              <EyeOutlined /> Historial
+                            </MobileButton>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <MobileEmpty description="No hay miembros con estos filtros." />
+                )}
+              </MobileSpace>
+            </MobileCard>
+          );
+        })
+      ) : (
+        <MobileCard className="mobile-screen-card">
+          <MobileEmpty description="No hay grupos registrados." />
+        </MobileCard>
+      )}
+    </div>
+  );
+
   const currentS4FileName =
     s4PdfData && miembroSeleccionado
       ? `s4-${normalizeFileSegment(
@@ -1053,114 +1267,118 @@ export const MiembrosList: React.FC = () => {
         </Button>
       </div>
 
-      <Card className="grupos-card" bordered={false}>
-        <Table<Grupo>
-          className="grupos-table"
-          title={() => (
-            <Flex
-              wrap="wrap"
-              justify="space-between"
-              align="center"
-              style={{ padding: "20px 24px 0", gap: 8 }}
-            >
-              <Typography.Title level={5} style={{ margin: 0 }}>
-                Filtrar por Grupo
-              </Typography.Title>
-              <Flex wrap="wrap" gap={8} justify="flex-end">
-                <Select
-                  style={{
-                    width: isSmallScreen ? "100%" : 190,
-                    marginBottom: isSmallScreen ? 8 : 0,
-                  }}
-                  value={batchServiceYearSelected}
-                  options={batchServiceYearOptions}
-                  onChange={setBatchServiceYearSelected}
-                  placeholder="Año S-21"
-                />
-                <Select
-                  style={{
-                    width: isSmallScreen ? "100%" : 220,
-                    marginBottom: isSmallScreen ? 8 : 0,
-                  }}
-                  placeholder="Seleccionar Grupo"
-                  onChange={setGrupoSeleccionado}
-                  allowClear
-                >
-                  {grupos.map((grupo) => (
-                    <Select.Option key={grupo.id} value={grupo.id}>
-                      {grupo.nombre}
-                    </Select.Option>
-                  ))}
-                </Select>
-              </Flex>
-            </Flex>
-          )}
-          dataSource={filteredGrupos}
-          rowKey="id"
-          loading={loading}
-          expandable={{
-            expandedRowRender,
-            rowExpandable: (record) => record.miembros.length > 0,
-          }}
-          pagination={false}
-          scroll={{ x: true }}
-        >
-          <Table.Column<Grupo>
-            title="Nombre"
-            dataIndex="nombre"
-            render={(value: string) => (
-              <span className="grupos-table__name">{value}</span>
-            )}
-          />
-          <Table.Column<Grupo>
-            title="Miembros"
-            key="miembros"
-            render={(_, record) => (
-              <span className="grupos-table__count">
-                {record.miembros.length} miembro
-                {record.miembros.length !== 1 ? "s" : ""}
-              </span>
-            )}
-          />
-          <Table.Column<Grupo>
-            title="Superintendente"
-            dataIndex="superintendenteNombre"
-            render={(value?: string) =>
-              value && value !== "N/A" ? (
-                value
-              ) : (
-                <Typography.Text type="secondary">N/A</Typography.Text>
-              )
-            }
-          />
-          <Table.Column<Grupo>
-            title="Auxiliar"
-            dataIndex="auxiliarNombre"
-            render={(value?: string) =>
-              value && value !== "N/A" ? (
-                value
-              ) : (
-                <Typography.Text type="secondary">N/A</Typography.Text>
-              )
-            }
-          />
-          <Table.Column<Grupo>
-            title="S21 lote"
-            key="s21-lote"
-            render={(_, record) => (
-              <Button
-                icon={<DownloadOutlined />}
-                type="primary"
-                onClick={() => handleDownloadGroupS21(record)}
-                loading={downloadingGroupId === record.id}
-                disabled={!record.miembros.length}
+      {isNativeMobile ? (
+        renderMobilePastoreo()
+      ) : (
+        <Card className="grupos-card" bordered={false}>
+          <Table<Grupo>
+            className="grupos-table"
+            title={() => (
+              <Flex
+                wrap="wrap"
+                justify="space-between"
+                align="center"
+                style={{ padding: "20px 24px 0", gap: 8 }}
               >
-                Descargar lote S-21
-              </Button>
+                <Typography.Title level={5} style={{ margin: 0 }}>
+                  Filtrar por Grupo
+                </Typography.Title>
+                <Flex wrap="wrap" gap={8} justify="flex-end">
+                  <Select
+                    style={{
+                      width: isSmallScreen ? "100%" : 190,
+                      marginBottom: isSmallScreen ? 8 : 0,
+                    }}
+                    value={batchServiceYearSelected}
+                    options={batchServiceYearOptions}
+                    onChange={setBatchServiceYearSelected}
+                    placeholder="Año S-21"
+                  />
+                  <Select
+                    style={{
+                      width: isSmallScreen ? "100%" : 220,
+                      marginBottom: isSmallScreen ? 8 : 0,
+                    }}
+                    placeholder="Seleccionar Grupo"
+                    onChange={setGrupoSeleccionado}
+                    allowClear
+                  >
+                    {grupos.map((grupo) => (
+                      <Select.Option key={grupo.id} value={grupo.id}>
+                        {grupo.nombre}
+                      </Select.Option>
+                    ))}
+                  </Select>
+                </Flex>
+              </Flex>
             )}
-          />
-        </Table>
-      </Card>
+            dataSource={filteredGrupos}
+            rowKey="id"
+            loading={loading}
+            expandable={{
+              expandedRowRender,
+              rowExpandable: (record) => record.miembros.length > 0,
+            }}
+            pagination={false}
+            scroll={{ x: true }}
+          >
+            <Table.Column<Grupo>
+              title="Nombre"
+              dataIndex="nombre"
+              render={(value: string) => (
+                <span className="grupos-table__name">{value}</span>
+              )}
+            />
+            <Table.Column<Grupo>
+              title="Miembros"
+              key="miembros"
+              render={(_, record) => (
+                <span className="grupos-table__count">
+                  {record.miembros.length} miembro
+                  {record.miembros.length !== 1 ? "s" : ""}
+                </span>
+              )}
+            />
+            <Table.Column<Grupo>
+              title="Superintendente"
+              dataIndex="superintendenteNombre"
+              render={(value?: string) =>
+                value && value !== "N/A" ? (
+                  value
+                ) : (
+                  <Typography.Text type="secondary">N/A</Typography.Text>
+                )
+              }
+            />
+            <Table.Column<Grupo>
+              title="Auxiliar"
+              dataIndex="auxiliarNombre"
+              render={(value?: string) =>
+                value && value !== "N/A" ? (
+                  value
+                ) : (
+                  <Typography.Text type="secondary">N/A</Typography.Text>
+                )
+              }
+            />
+            <Table.Column<Grupo>
+              title="S21 lote"
+              key="s21-lote"
+              render={(_, record) => (
+                <Button
+                  icon={<DownloadOutlined />}
+                  type="primary"
+                  onClick={() => handleDownloadGroupS21(record)}
+                  loading={downloadingGroupId === record.id}
+                  disabled={!record.miembros.length}
+                >
+                  Descargar lote S-21
+                </Button>
+              )}
+            />
+          </Table>
+        </Card>
+      )}
 
       <Modal
         title={`Registrar Visita a ${miembroSeleccionado?.nombre ?? ""}`}

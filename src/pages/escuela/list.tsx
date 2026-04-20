@@ -8,6 +8,12 @@ import {
   UnorderedListOutlined,
 } from "@ant-design/icons";
 import {
+  Button as MobileButton,
+  Card as MobileCard,
+  Dialog,
+  Tag as MobileTag,
+} from "antd-mobile";
+import {
   Button,
   Card,
   Collapse,
@@ -45,6 +51,7 @@ import {
   updateSingle,
 } from "../../api/client";
 import { ColumnsType } from "antd/es/table";
+import { useAdaptiveUI } from "../../adaptive/useAdaptiveUI";
 import useMediaQuery from "../../hooks/useMediaQuery";
 import { ColorModeContext } from "../../contexts/color-mode";
 import { useDirectory } from "../../contexts/directory";
@@ -303,6 +310,8 @@ const sortHistoryItemsByDateDesc = <
 export const MeetingAssignmentUI: React.FC = () => {
   const isSmallScreen = useMediaQuery("(max-width: 768px)");
   const isDesktop = useMediaQuery("(min-width: 769px)");
+  const { resolvedMode } = useAdaptiveUI();
+  const isNativeMobile = resolvedMode === "mobile";
   const { mode } = useContext(ColorModeContext);
   const isAdminApp = useIsAdminApp();
   const isReadOnly = !isAdminApp;
@@ -1984,49 +1993,8 @@ export const MeetingAssignmentUI: React.FC = () => {
     }));
   }, [activeCardsDate, filteredAssignmentsByMonth]);
 
-  const renderAssignmentCard = (assignment: MeetingAssignment) => (
-    <Card
-      size="small"
-      key={assignment.id}
-      actions={
-        isAdminApp
-          ? [
-              <Button
-                key="edit"
-                size="small"
-                type="primary"
-                ghost
-                onClick={() => openModal(assignment)}
-                icon={<EditOutlined />}
-              />,
-              <Popconfirm
-                key="delete"
-                title="¿Estás seguro de eliminar esta asignación?"
-                onConfirm={() => handleDelete(assignment.id)}
-                okText="Sí"
-                cancelText="No"
-              >
-                <Button size="small" danger icon={<DeleteOutlined />} />
-              </Popconfirm>,
-              <Button
-                size="small"
-                key="download"
-                type="primary"
-                onClick={() => handleDownloadImage(assignment)}
-                icon={<DownloadOutlined />}
-              />,
-            ]
-          : [
-              <Button
-                size="small"
-                key="download"
-                type="primary"
-                onClick={() => handleDownloadImage(assignment)}
-                icon={<DownloadOutlined />}
-              />,
-            ]
-      }
-    >
+  const renderAssignmentCard = (assignment: MeetingAssignment) => {
+    const assignmentBody = (
       <Flex
         justify="space-between"
         vertical
@@ -2035,7 +2003,7 @@ export const MeetingAssignmentUI: React.FC = () => {
         style={{
           backgroundColor: mode === "dark" ? "#141414" : "#fff",
         }}
-        className="p-2"
+        className="p-2 escuela-assignment-card-body"
       >
         <Flex gap={4} align="center" vertical>
           <b>ASIGNACIÓN PARA LA REUNION</b>
@@ -2066,15 +2034,115 @@ export const MeetingAssignmentUI: React.FC = () => {
           </span>
         </Flex>
 
-        <div className="text-[12px] w-[300px] mt-[12px] break-words">
-          <b>Nota al estudiante:</b> En la Guia de actividades encontrarå la
+        <div className="escuela-assignment-note">
+          <b>Nota al estudiante:</b> En la Guia de actividades encontrará la
           información que necesita para su intervención. Repase también las
           indicaciones que se describen en las Instrucciones para la reunión
           Vida y Ministerio Cristianos (S-38).
         </div>
       </Flex>
-    </Card>
-  );
+    );
+
+    if (isNativeMobile) {
+      return (
+        <MobileCard
+          key={assignment.id}
+          className="mobile-screen-card escuela-mobile-assignment"
+          title={assignment.manager}
+          extra={
+            <MobileTag color="primary" fill="outline">
+              {assignment.date}
+            </MobileTag>
+          }
+        >
+          {assignmentBody}
+          <div className="escuela-mobile-assignment__actions">
+            {isAdminApp ? (
+              <>
+                <MobileButton
+                  size="mini"
+                  fill="outline"
+                  onClick={() => openModal(assignment)}
+                >
+                  <EditOutlined /> Editar
+                </MobileButton>
+                <MobileButton
+                  size="mini"
+                  color="danger"
+                  fill="outline"
+                  onClick={() => {
+                    void Dialog.confirm({
+                      title: "Eliminar asignación",
+                      content: "Esta acción no se puede deshacer.",
+                      confirmText: "Eliminar",
+                      cancelText: "Cancelar",
+                      onConfirm: () => handleDelete(assignment.id),
+                    });
+                  }}
+                >
+                  <DeleteOutlined /> Eliminar
+                </MobileButton>
+              </>
+            ) : null}
+            <MobileButton
+              size="mini"
+              color="primary"
+              onClick={() => handleDownloadImage(assignment)}
+            >
+              <DownloadOutlined /> Descargar
+            </MobileButton>
+          </div>
+        </MobileCard>
+      );
+    }
+
+    return (
+      <Card
+        size="small"
+        key={assignment.id}
+        actions={
+          isAdminApp
+            ? [
+                <Button
+                  key="edit"
+                  size="small"
+                  type="primary"
+                  ghost
+                  onClick={() => openModal(assignment)}
+                  icon={<EditOutlined />}
+                />,
+                <Popconfirm
+                  key="delete"
+                  title="¿Estás seguro de eliminar esta asignación?"
+                  onConfirm={() => handleDelete(assignment.id)}
+                  okText="Sí"
+                  cancelText="No"
+                >
+                  <Button size="small" danger icon={<DeleteOutlined />} />
+                </Popconfirm>,
+                <Button
+                  size="small"
+                  key="download"
+                  type="primary"
+                  onClick={() => handleDownloadImage(assignment)}
+                  icon={<DownloadOutlined />}
+                />,
+              ]
+            : [
+                <Button
+                  size="small"
+                  key="download"
+                  type="primary"
+                  onClick={() => handleDownloadImage(assignment)}
+                  icon={<DownloadOutlined />}
+                />,
+              ]
+        }
+      >
+        {assignmentBody}
+      </Card>
+    );
+  };
 
   const assignmentsContent = (
     <>

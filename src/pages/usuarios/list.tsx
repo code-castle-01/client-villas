@@ -5,6 +5,16 @@ import {
   ReloadOutlined,
 } from "@ant-design/icons";
 import {
+  Button as MobileButton,
+  Card as MobileCard,
+  Dialog,
+  Empty as MobileEmpty,
+  SearchBar,
+  Selector,
+  Space as MobileSpace,
+  Tag as MobileTag,
+} from "antd-mobile";
+import {
   App as AntdApp,
   Button,
   Card,
@@ -22,6 +32,7 @@ import {
   Result,
 } from "antd";
 import React, { useContext, useEffect, useMemo, useState } from "react";
+import { useAdaptiveUI } from "../../adaptive/useAdaptiveUI";
 import useMediaQuery from "../../hooks/useMediaQuery";
 import { ColorModeContext } from "../../contexts/color-mode";
 import { api } from "../../api/client";
@@ -56,6 +67,8 @@ const normalizeArray = <T,>(data: any): T[] => {
 
 export const UsuariosList: React.FC = () => {
   const isSmallScreen = useMediaQuery("(max-width: 768px)");
+  const { resolvedMode } = useAdaptiveUI();
+  const isNativeMobile = resolvedMode === "mobile";
   const isAdminApp = useIsAdminApp();
   const { mode } = useContext(ColorModeContext);
   const { notification } = AntdApp.useApp();
@@ -64,6 +77,11 @@ export const UsuariosList: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(false);
+  const [searchText, setSearchText] = useState("");
+  const [roleFilter, setRoleFilter] = useState<number | null>(null);
+  const [accessFilter, setAccessFilter] = useState<
+    "active" | "blocked" | "unconfirmed" | null
+  >(null);
   const [form] = Form.useForm();
 
   const notifySuccess = (title: string, description?: string) => {
@@ -130,6 +148,21 @@ export const UsuariosList: React.FC = () => {
       })),
     [roles],
   );
+
+  const mobileRoleOptions = useMemo(
+    () =>
+      roleOptions.map((role) => ({
+        label: role.label,
+        value: role.value,
+      })),
+    [roleOptions],
+  );
+
+  const accessOptions = [
+    { label: "Activos", value: "active" },
+    { label: "Bloqueados", value: "blocked" },
+    { label: "Sin confirmar", value: "unconfirmed" },
+  ];
 
   const roleLabelFor = (role?: Role) => role?.name || role?.type || "Sin rol";
 
@@ -207,6 +240,142 @@ export const UsuariosList: React.FC = () => {
     }
   };
 
+  const filteredUsers = useMemo(() => {
+    const query = searchText.trim().toLowerCase();
+
+    return users.filter((user) => {
+      if (roleFilter && user.role?.id !== roleFilter) {
+        return false;
+      }
+
+      if (accessFilter === "active" && (user.blocked || !user.confirmed)) {
+        return false;
+      }
+
+      if (accessFilter === "blocked" && !user.blocked) {
+        return false;
+      }
+
+      if (accessFilter === "unconfirmed" && user.confirmed) {
+        return false;
+      }
+
+      if (!query) {
+        return true;
+      }
+
+      return `${user.username} ${user.email} ${roleLabelFor(user.role)}`
+        .toLowerCase()
+        .includes(query);
+    });
+  }, [accessFilter, roleFilter, searchText, users]);
+
+  const getMobileStatusTag = (user: User) => {
+    if (user.blocked) {
+      return <MobileTag color="danger">Bloqueado</MobileTag>;
+    }
+
+    if (!user.confirmed) {
+      return <MobileTag color="warning">Sin confirmar</MobileTag>;
+    }
+
+    return <MobileTag color="success">Activo</MobileTag>;
+  };
+
+  const confirmMobileDelete = (user: User) => {
+    Dialog.confirm({
+      title: "Eliminar usuario",
+      content: `Se eliminará ${user.username}.`,
+      confirmText: "Eliminar",
+      cancelText: "Cancelar",
+      onConfirm: () => handleDelete(user.id),
+    });
+  };
+
+  const renderMobileUsers = () => (
+    <div className="usuarios-mobile">
+      <MobileCard className="mobile-screen-card usuarios-mobile__filters">
+        <SearchBar
+          value={searchText}
+          onChange={setSearchText}
+          placeholder="Buscar usuario, correo o rol"
+        />
+
+        <div className="usuarios-mobile__selector-group">
+          <span className="usuarios-mobile__selector-label">Rol</span>
+          <Selector
+            columns={2}
+            options={mobileRoleOptions}
+            value={roleFilter ? [roleFilter] : []}
+            onChange={(value) => setRoleFilter(value[0] ? Number(value[0]) : null)}
+          />
+        </div>
+
+        <div className="usuarios-mobile__selector-group">
+          <span className="usuarios-mobile__selector-label">Estado</span>
+          <Selector
+            columns={3}
+            options={accessOptions}
+            value={accessFilter ? [accessFilter] : []}
+            onChange={(value) =>
+              setAccessFilter((value[0] as typeof accessFilter) ?? null)
+            }
+          />
+        </div>
+      </MobileCard>
+
+      {filteredUsers.length ? (
+        filteredUsers.map((user) => (
+          <MobileCard
+            key={user.id}
+            className="mobile-screen-card usuarios-mobile-card"
+            title={user.username}
+            extra={getMobileStatusTag(user)}
+          >
+            <MobileSpace direction="vertical" block style={{ width: "100%" }}>
+              <div className="usuarios-mobile-card__email">{user.email}</div>
+
+              <div className="usuarios-mobile-card__meta">
+                <div>
+                  <span>Rol</span>
+                  <MobileTag color="primary" fill="outline">
+                    {roleLabelFor(user.role)}
+                  </MobileTag>
+                </div>
+                <div>
+                  <span>Proveedor</span>
+                  <strong>{user.provider || "local"}</strong>
+                </div>
+              </div>
+
+              <div className="usuarios-mobile-card__actions">
+                <MobileButton
+                  size="small"
+                  fill="outline"
+                  onClick={() => openModal(user)}
+                >
+                  <EditOutlined /> Editar
+                </MobileButton>
+                <MobileButton
+                  size="small"
+                  color="danger"
+                  fill="outline"
+                  onClick={() => confirmMobileDelete(user)}
+                >
+                  <DeleteOutlined /> Eliminar
+                </MobileButton>
+              </div>
+            </MobileSpace>
+          </MobileCard>
+        ))
+      ) : (
+        <MobileCard className="mobile-screen-card">
+          <MobileEmpty description="No hay usuarios que coincidan con los filtros." />
+        </MobileCard>
+      )}
+    </div>
+  );
+
   return (
     <section
       className={`usuarios-page ${
@@ -230,7 +399,7 @@ export const UsuariosList: React.FC = () => {
                 Administra roles, permisos y estados de acceso.
               </Typography.Text>
             </div>
-            <Space>
+            <Space wrap>
               <Button
                 className="usuarios-btn usuarios-btn--ghost"
                 icon={<ReloadOutlined />}
@@ -250,111 +419,115 @@ export const UsuariosList: React.FC = () => {
             </Space>
           </div>
 
-          <Card className="usuarios-card" bordered={false}>
-            <Table<User>
-              className="usuarios-table"
-              dataSource={users}
-              rowKey="id"
-              loading={loading}
-              pagination={{ pageSize: 10, showSizeChanger: false }}
-              scroll={{ x: 900 }}
-              columns={[
-                {
-                  title: "Usuario",
-                  dataIndex: "username",
-                  sorter: (a, b) => a.username.localeCompare(b.username),
-                },
-                {
-                  title: "Email",
-                  dataIndex: "email",
-                  sorter: (a, b) => a.email.localeCompare(b.email),
-                },
-                {
-                  title: "Rol",
-                  filters: roleFilters,
-                  onFilter: (value, record) =>
-                    String(record.role?.id ?? "") === String(value),
-                  sorter: (a, b) =>
-                    roleLabelFor(a.role).localeCompare(roleLabelFor(b.role)),
-                  render: (_, record) => (
-                    <Tag className={roleTagClass(record.role)}>
-                      {roleLabelFor(record.role)}
-                    </Tag>
-                  ),
-                },
-                {
-                  title: "Confirmado",
-                  filters: [
-                    { text: "Sí", value: "true" },
-                    { text: "No", value: "false" },
-                  ],
-                  onFilter: (value, record) =>
-                    String(record.confirmed ?? false) === String(value),
-                  render: (_, record) =>
-                    record.confirmed ? (
-                      <Tag color="green">Sí</Tag>
-                    ) : (
-                      <Tag>No</Tag>
+          {isNativeMobile ? (
+            renderMobileUsers()
+          ) : (
+            <Card className="usuarios-card" bordered={false}>
+              <Table<User>
+                className="usuarios-table"
+                dataSource={filteredUsers}
+                rowKey="id"
+                loading={loading}
+                pagination={{ pageSize: 10, showSizeChanger: false }}
+                scroll={{ x: 900 }}
+                columns={[
+                  {
+                    title: "Usuario",
+                    dataIndex: "username",
+                    sorter: (a, b) => a.username.localeCompare(b.username),
+                  },
+                  {
+                    title: "Email",
+                    dataIndex: "email",
+                    sorter: (a, b) => a.email.localeCompare(b.email),
+                  },
+                  {
+                    title: "Rol",
+                    filters: roleFilters,
+                    onFilter: (value, record) =>
+                      String(record.role?.id ?? "") === String(value),
+                    sorter: (a, b) =>
+                      roleLabelFor(a.role).localeCompare(roleLabelFor(b.role)),
+                    render: (_, record) => (
+                      <Tag className={roleTagClass(record.role)}>
+                        {roleLabelFor(record.role)}
+                      </Tag>
                     ),
-                },
-                {
-                  title: "Bloqueado",
-                  filters: [
-                    { text: "Sí", value: "true" },
-                    { text: "No", value: "false" },
-                  ],
-                  onFilter: (value, record) =>
-                    String(record.blocked ?? false) === String(value),
-                  render: (_, record) =>
-                    record.blocked ? (
-                      <Tag color="red">Sí</Tag>
-                    ) : (
-                      <Tag color="green">No</Tag>
-                    ),
-                },
-                {
-                  title: "Proveedor",
-                  dataIndex: "provider",
-                  filters: [
-                    { text: "local", value: "local" },
-                    { text: "google", value: "google" },
-                  ],
-                  onFilter: (value, record) =>
-                    String(record.provider ?? "") === String(value),
-                  sorter: (a, b) =>
-                    (a.provider ?? "").localeCompare(b.provider ?? ""),
-                },
-                {
-                  title: "Acciones",
-                  render: (_, record) => (
-                    <Space>
-                      <Button
-                        size="small"
-                        type="text"
-                        className="usuarios-action-btn"
-                        icon={<EditOutlined />}
-                        onClick={() => openModal(record)}
-                      />
-                      <Popconfirm
-                        title="¿Eliminar usuario?"
-                        onConfirm={() => handleDelete(record.id)}
-                        okText="Sí"
-                        cancelText="No"
-                      >
+                  },
+                  {
+                    title: "Confirmado",
+                    filters: [
+                      { text: "Sí", value: "true" },
+                      { text: "No", value: "false" },
+                    ],
+                    onFilter: (value, record) =>
+                      String(record.confirmed ?? false) === String(value),
+                    render: (_, record) =>
+                      record.confirmed ? (
+                        <Tag color="green">Sí</Tag>
+                      ) : (
+                        <Tag>No</Tag>
+                      ),
+                  },
+                  {
+                    title: "Bloqueado",
+                    filters: [
+                      { text: "Sí", value: "true" },
+                      { text: "No", value: "false" },
+                    ],
+                    onFilter: (value, record) =>
+                      String(record.blocked ?? false) === String(value),
+                    render: (_, record) =>
+                      record.blocked ? (
+                        <Tag color="red">Sí</Tag>
+                      ) : (
+                        <Tag color="green">No</Tag>
+                      ),
+                  },
+                  {
+                    title: "Proveedor",
+                    dataIndex: "provider",
+                    filters: [
+                      { text: "local", value: "local" },
+                      { text: "google", value: "google" },
+                    ],
+                    onFilter: (value, record) =>
+                      String(record.provider ?? "") === String(value),
+                    sorter: (a, b) =>
+                      (a.provider ?? "").localeCompare(b.provider ?? ""),
+                  },
+                  {
+                    title: "Acciones",
+                    render: (_, record) => (
+                      <Space>
                         <Button
                           size="small"
                           type="text"
-                          className="usuarios-action-btn usuarios-action-btn--danger"
-                          danger
-                          icon={<DeleteOutlined />}
+                          className="usuarios-action-btn"
+                          icon={<EditOutlined />}
+                          onClick={() => openModal(record)}
                         />
-                      </Popconfirm>
-                    </Space>
-                  ),
-                },
-              ]}
-            />
-          </Card>
+                        <Popconfirm
+                          title="¿Eliminar usuario?"
+                          onConfirm={() => handleDelete(record.id)}
+                          okText="Sí"
+                          cancelText="No"
+                        >
+                          <Button
+                            size="small"
+                            type="text"
+                            className="usuarios-action-btn usuarios-action-btn--danger"
+                            danger
+                            icon={<DeleteOutlined />}
+                          />
+                        </Popconfirm>
+                      </Space>
+                    ),
+                  },
+                ]}
+              />
+            </Card>
+          )}
 
           <Modal
             title={editingUser ? "Editar usuario" : "Crear usuario"}

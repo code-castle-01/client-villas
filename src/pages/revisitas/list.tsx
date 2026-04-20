@@ -6,6 +6,14 @@ import {
   SearchOutlined,
 } from "@ant-design/icons";
 import {
+  Button as MobileButton,
+  Card as MobileCard,
+  Dialog,
+  Empty as MobileEmpty,
+  Space as MobileSpace,
+  Tag as MobileTag,
+} from "antd-mobile";
+import {
   Button,
   Card,
   Col,
@@ -27,6 +35,7 @@ import {
 import dayjs, { Dayjs } from "dayjs";
 import "dayjs/locale/es";
 import React, { useContext, useEffect, useMemo, useState } from "react";
+import { useAdaptiveUI } from "../../adaptive/useAdaptiveUI";
 import { createEntry, deleteEntry, getCollection, updateEntry } from "../../api/client";
 import { ColorModeContext } from "../../contexts/color-mode";
 import useMediaQuery from "../../hooks/useMediaQuery";
@@ -175,6 +184,8 @@ export const RevisitasPage: React.FC = () => {
   const [form] = Form.useForm<RevisitaFormValues>();
 
   const isSmallScreen = useMediaQuery("(max-width: 768px)");
+  const { resolvedMode } = useAdaptiveUI();
+  const isNativeMobile = resolvedMode === "mobile";
 
   const loadRevisitas = async () => {
     setLoading(true);
@@ -275,6 +286,98 @@ export const RevisitasPage: React.FC = () => {
     }
   };
 
+  const getMobileStatusTag = (record: RevisitaRecord) => {
+    if (!record.proximaVisita) {
+      return <MobileTag fill="outline">Sin próxima</MobileTag>;
+    }
+
+    const nextVisit = dayjs(record.proximaVisita);
+
+    if (nextVisit.isSame(dayjs(), "day")) {
+      return <MobileTag color="success">Hoy</MobileTag>;
+    }
+
+    if (nextVisit.isBefore(dayjs(), "day")) {
+      return <MobileTag color="danger">Pendiente</MobileTag>;
+    }
+
+    return <MobileTag color="primary" fill="outline">Programada</MobileTag>;
+  };
+
+  const confirmMobileDelete = (record: RevisitaRecord) => {
+    Dialog.confirm({
+      title: "Eliminar revisita",
+      content: "Esta acción no se puede deshacer.",
+      confirmText: "Eliminar",
+      cancelText: "Cancelar",
+      onConfirm: () => handleDelete(record),
+    });
+  };
+
+  const statItems = [
+    ["Total", stats.total],
+    ["Con próxima visita", stats.programadas],
+    ["Para hoy", stats.hoy],
+    ["Pendientes", stats.pendientes],
+  ];
+
+  const renderMobileList = () =>
+    filteredRecords.length ? (
+      <div className="revisitas-mobile-list">
+        {filteredRecords.map((record) => (
+          <MobileCard
+            key={record.id}
+            className="mobile-screen-card revisitas-mobile-card"
+            title={record.nombre}
+            extra={getMobileStatusTag(record)}
+          >
+            <MobileSpace direction="vertical" block style={{ width: "100%" }}>
+              <div className="revisitas-mobile-card__date">
+                Última visita: {formatDateTime(record.fechaHoraVisita)}
+              </div>
+
+              <div className="revisitas-detail revisitas-detail--mobile">
+                {[
+                  ["Próxima visita", formatDateTime(record.proximaVisita)],
+                  ["Tema", record.temaConversado],
+                  ["Dirección", record.direccion],
+                  ["Textos usados", record.textosUsados],
+                  ["Pregunta pendiente", record.preguntaPendiente],
+                ].map(([label, value]) => (
+                  <div key={String(label)} className="revisitas-detail__item">
+                    <span className="revisitas-detail__label">{label}</span>
+                    <p className="revisitas-detail__value">{value || "Sin registrar"}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="revisitas-mobile-card__actions">
+                <MobileButton
+                  size="small"
+                  fill="outline"
+                  onClick={() => openEditModal(record)}
+                >
+                  <EditOutlined /> Editar
+                </MobileButton>
+                <MobileButton
+                  size="small"
+                  color="danger"
+                  fill="outline"
+                  onClick={() => confirmMobileDelete(record)}
+                >
+                  <DeleteOutlined /> Eliminar
+                </MobileButton>
+              </div>
+            </MobileSpace>
+          </MobileCard>
+        ))}
+      </div>
+    ) : (
+      <MobileCard className="mobile-screen-card">
+        <MobileEmpty description="Todavía no tienes revisitas registradas." />
+      </MobileCard>
+    );
+
   return (
     <section
       className={`grupos-page ${
@@ -311,28 +414,39 @@ export const RevisitasPage: React.FC = () => {
         </Space>
       </div>
 
-      <Row gutter={[16, 16]} className="revisitas-stats">
-        <Col xs={24} sm={12} xl={6}>
-          <Card className="revisitas-stat-card" bordered={false}>
-            <Statistic title="Total" value={stats.total} />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} xl={6}>
-          <Card className="revisitas-stat-card" bordered={false}>
-            <Statistic title="Con próxima visita" value={stats.programadas} />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} xl={6}>
-          <Card className="revisitas-stat-card" bordered={false}>
-            <Statistic title="Para hoy" value={stats.hoy} />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} xl={6}>
-          <Card className="revisitas-stat-card" bordered={false}>
-            <Statistic title="Pendientes" value={stats.pendientes} />
-          </Card>
-        </Col>
-      </Row>
+      {isNativeMobile ? (
+        <div className="revisitas-mobile-stats">
+          {statItems.map(([label, value]) => (
+            <MobileCard key={String(label)} className="mobile-screen-card revisitas-mobile-stat">
+              <span>{label}</span>
+              <strong>{value}</strong>
+            </MobileCard>
+          ))}
+        </div>
+      ) : (
+        <Row gutter={[16, 16]} className="revisitas-stats">
+          <Col xs={24} sm={12} xl={6}>
+            <Card className="revisitas-stat-card" bordered={false}>
+              <Statistic title="Total" value={stats.total} />
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} xl={6}>
+            <Card className="revisitas-stat-card" bordered={false}>
+              <Statistic title="Con próxima visita" value={stats.programadas} />
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} xl={6}>
+            <Card className="revisitas-stat-card" bordered={false}>
+              <Statistic title="Para hoy" value={stats.hoy} />
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} xl={6}>
+            <Card className="revisitas-stat-card" bordered={false}>
+              <Statistic title="Pendientes" value={stats.pendientes} />
+            </Card>
+          </Col>
+        </Row>
+      )}
 
       <Card className="grupos-card" bordered={false}>
         <Flex
@@ -360,64 +474,8 @@ export const RevisitasPage: React.FC = () => {
           />
         </Flex>
 
-        {isSmallScreen ? (
-          filteredRecords.length ? (
-            <div className="revisitas-mobile-list">
-              {filteredRecords.map((record) => (
-                <Card key={record.id} className="revisitas-mobile-card" bordered={false}>
-                  <Flex justify="space-between" align="flex-start" gap={12}>
-                    <div>
-                      <Typography.Title level={5} style={{ margin: 0 }}>
-                        {record.nombre}
-                      </Typography.Title>
-                      <Typography.Text type="secondary">
-                        Ultima visita: {formatDateTime(record.fechaHoraVisita)}
-                      </Typography.Text>
-                    </div>
-                    {getStatusTag(record)}
-                  </Flex>
-
-                  <div className="revisitas-detail" style={{ paddingTop: 14 }}>
-                    {[
-                      ["Proxima visita", formatDateTime(record.proximaVisita)],
-                      ["Tema", record.temaConversado],
-                      ["Direccion", record.direccion],
-                      ["Textos usados", record.textosUsados],
-                      ["Pregunta pendiente", record.preguntaPendiente],
-                    ].map(([label, value]) => (
-                      <div key={String(label)} className="revisitas-detail__item">
-                        <span className="revisitas-detail__label">{label}</span>
-                        <p className="revisitas-detail__value">{value || "Sin registrar"}</p>
-                      </div>
-                    ))}
-                  </div>
-
-                  <Flex justify="flex-end" gap={8} style={{ marginTop: 14 }}>
-                    <Button
-                      className="grupos-action-btn"
-                      icon={<EditOutlined />}
-                      onClick={() => openEditModal(record)}
-                    />
-                    <Popconfirm
-                      title="Eliminar revisita"
-                      description="Esta acción no se puede deshacer."
-                      okText="Eliminar"
-                      cancelText="Cancelar"
-                      onConfirm={() => void handleDelete(record)}
-                    >
-                      <Button
-                        danger
-                        className="grupos-action-btn grupos-action-btn--danger"
-                        icon={<DeleteOutlined />}
-                      />
-                    </Popconfirm>
-                  </Flex>
-                </Card>
-              ))}
-            </div>
-          ) : (
-            <Empty description="Todavía no tienes revisitas registradas." />
-          )
+        {isNativeMobile ? (
+          renderMobileList()
         ) : (
           <Table<RevisitaRecord>
             className="grupos-table"

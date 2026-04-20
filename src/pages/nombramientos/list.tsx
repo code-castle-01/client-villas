@@ -1,5 +1,13 @@
 import React, { useContext, useMemo, useState } from "react";
 import {
+  Card as MobileCard,
+  Empty as MobileEmpty,
+  SearchBar,
+  Selector,
+  Space as MobileSpace,
+  Tag as MobileTag,
+} from "antd-mobile";
+import {
   App as AntdApp,
   Button,
   Card,
@@ -12,6 +20,7 @@ import {
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { ReloadOutlined } from "@ant-design/icons";
+import { useAdaptiveUI } from "../../adaptive/useAdaptiveUI";
 import { ColorModeContext } from "../../contexts/color-mode";
 import { useDirectory } from "../../contexts/directory";
 import useMediaQuery from "../../hooks/useMediaQuery";
@@ -71,6 +80,8 @@ export const NombramientosPorGrupo: React.FC = () => {
   const { mode } = useContext(ColorModeContext);
   const { notification } = AntdApp.useApp();
   const isSmallScreen = useMediaQuery("(max-width: 768px)");
+  const { resolvedMode } = useAdaptiveUI();
+  const isNativeMobile = resolvedMode === "mobile";
   const {
     grupos: directoryGroups,
     miembros: directoryMembers,
@@ -249,6 +260,126 @@ export const NombramientosPorGrupo: React.FC = () => {
     },
   ];
 
+  const mobileNombramientoColor = (value: string) => {
+    if (value.includes("anciano")) return "primary" as const;
+    if (value.includes("siervo")) return "primary" as const;
+    if (value.includes("precursor")) return "success" as const;
+    if (value.includes("no_bautizado")) return "warning" as const;
+    return "default" as const;
+  };
+
+  const renderMobileFilters = () => (
+    <MobileCard className="mobile-screen-card nombramientos-mobile-filters">
+      <SearchBar
+        value={searchText}
+        onChange={setSearchText}
+        placeholder="Buscar miembro, correo o grupo"
+      />
+
+      <div className="nombramientos-mobile-filter">
+        <span>Grupo</span>
+        <Selector
+          columns={2}
+          options={grupos.map((grupo) => ({
+            value: grupo.id,
+            label: grupo.nombre,
+          }))}
+          value={grupoFilter ? [grupoFilter] : []}
+          onChange={(value) =>
+            setGrupoFilter(value[0] ? Number(value[0]) : undefined)
+          }
+        />
+      </div>
+
+      <div className="nombramientos-mobile-filter">
+        <span>Nombramiento</span>
+        <Selector
+          columns={2}
+          options={Object.entries(nombramientoLabels).map(([value, label]) => ({
+            value,
+            label,
+          }))}
+          value={nombramientoFilter ? [nombramientoFilter] : []}
+          onChange={(value) =>
+            setNombramientoFilter(value[0] ? String(value[0]) : undefined)
+          }
+        />
+      </div>
+
+      <div className="nombramientos-mobile-filter">
+        <span>Género</span>
+        <Selector
+          columns={2}
+          options={[
+            { value: "hombre", label: "Hombre" },
+            { value: "mujer", label: "Mujer" },
+          ]}
+          value={generoFilter ? [generoFilter] : []}
+          onChange={(value) =>
+            setGeneroFilter(value[0] ? String(value[0]) : undefined)
+          }
+        />
+      </div>
+    </MobileCard>
+  );
+
+  const renderMobileRows = () =>
+    filteredRows.length ? (
+      <div className="nombramientos-mobile-list">
+        {filteredRows.map((row) => (
+          <MobileCard
+            key={row.key}
+            className="mobile-screen-card nombramientos-mobile-card"
+            title={row.miembroNombre}
+            extra={<MobileTag color="primary" fill="outline">{row.grupoNombre}</MobileTag>}
+          >
+            <MobileSpace direction="vertical" block style={{ width: "100%" }}>
+              <div className="nombramientos-mobile-card__grid">
+                <div>
+                  <span>Género</span>
+                  <strong>
+                    {row.genero === "mujer"
+                      ? "Mujer"
+                      : row.genero === "hombre"
+                      ? "Hombre"
+                      : "N/A"}
+                  </strong>
+                </div>
+                <div>
+                  <span>Email</span>
+                  <strong>{row.email || "N/A"}</strong>
+                </div>
+                <div>
+                  <span>Celular</span>
+                  <strong>{row.celular || "N/A"}</strong>
+                </div>
+              </div>
+
+              <div className="nombramientos-mobile-tags">
+                {row.nombramientos?.length ? (
+                  row.nombramientos.map((value) => (
+                    <MobileTag
+                      key={value}
+                      color={mobileNombramientoColor(value)}
+                      fill="outline"
+                    >
+                      {nombramientoLabels[value] ?? value}
+                    </MobileTag>
+                  ))
+                ) : (
+                  <MobileTag fill="outline">Sin nombramientos</MobileTag>
+                )}
+              </div>
+            </MobileSpace>
+          </MobileCard>
+        ))}
+      </div>
+    ) : (
+      <MobileCard className="mobile-screen-card">
+        <MobileEmpty description="No hay miembros que coincidan con los filtros." />
+      </MobileCard>
+    );
+
   return (
     <section
       className={`grupos-page nombramientos-page ${
@@ -276,46 +407,53 @@ export const NombramientosPorGrupo: React.FC = () => {
         </Button>
       </div>
 
-      <Card className="grupos-card nombramientos-card" style={{ marginBottom: 16 }}>
-        <div className="nombramientos-filters">
-          <Select
-            allowClear
-            placeholder="Filtrar por grupo"
-            value={grupoFilter}
-            onChange={(value) => setGrupoFilter(value)}
-            options={grupos.map((g) => ({ value: g.id, label: g.nombre }))}
-          />
-          <Select
-            allowClear
-            placeholder="Filtrar por nombramiento"
-            value={nombramientoFilter}
-            onChange={(value) => setNombramientoFilter(value)}
-            options={Object.entries(nombramientoLabels).map(([value, label]) => ({
-              value,
-              label,
-            }))}
-          />
-          <Select
-            allowClear
-            placeholder="Filtrar por género"
-            value={generoFilter}
-            onChange={(value) => setGeneroFilter(value)}
-            options={[
-              { value: "hombre", label: "Hombre" },
-              { value: "mujer", label: "Mujer" },
-            ]}
-          />
-          <Input
-            placeholder="Buscar por miembro, email o grupo"
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-            allowClear
-          />
-        </div>
-      </Card>
+      {isNativeMobile ? (
+        renderMobileFilters()
+      ) : (
+        <Card className="grupos-card nombramientos-card" style={{ marginBottom: 16 }}>
+          <div className="nombramientos-filters">
+            <Select
+              allowClear
+              placeholder="Filtrar por grupo"
+              value={grupoFilter}
+              onChange={(value) => setGrupoFilter(value)}
+              options={grupos.map((g) => ({ value: g.id, label: g.nombre }))}
+            />
+            <Select
+              allowClear
+              placeholder="Filtrar por nombramiento"
+              value={nombramientoFilter}
+              onChange={(value) => setNombramientoFilter(value)}
+              options={Object.entries(nombramientoLabels).map(([value, label]) => ({
+                value,
+                label,
+              }))}
+            />
+            <Select
+              allowClear
+              placeholder="Filtrar por género"
+              value={generoFilter}
+              onChange={(value) => setGeneroFilter(value)}
+              options={[
+                { value: "hombre", label: "Hombre" },
+                { value: "mujer", label: "Mujer" },
+              ]}
+            />
+            <Input
+              placeholder="Buscar por miembro, email o grupo"
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              allowClear
+            />
+          </div>
+        </Card>
+      )}
 
-      <Card className="grupos-card nombramientos-card" bordered={false}>
-        {isSmallScreen ? (
+      {isNativeMobile ? (
+        renderMobileRows()
+      ) : (
+        <Card className="grupos-card nombramientos-card" bordered={false}>
+          {isSmallScreen ? (
           filteredRows.length ? (
             <div className="nombramientos-mobile-list">
               {filteredRows.map((row) => (
@@ -388,8 +526,9 @@ export const NombramientosPorGrupo: React.FC = () => {
             loading={loading}
             pagination={{ pageSize: 40, showSizeChanger: false }}
           />
-        )}
-      </Card>
+          )}
+        </Card>
+      )}
     </section>
   );
 };

@@ -13,6 +13,30 @@
   padding: 18px 20px;
 }
 
+.revisitas-mobile-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.revisitas-mobile-stat .adm-card-body {
+  display: grid;
+  gap: 4px;
+}
+
+.revisitas-mobile-stat span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.revisitas-mobile-stat strong {
+  color: var(--ink);
+  font-size: 24px;
+  line-height: 1;
+}
+
 .revisitas-sheet {
   background: #fffef8;
   border: 2px solid #2b2b2b;
@@ -155,6 +179,28 @@
   padding: 16px;
 }
 
+.revisitas-mobile-card .adm-card-header-title {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.revisitas-mobile-card__date {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.revisitas-detail--mobile {
+  grid-template-columns: 1fr;
+  padding: 0;
+}
+
+.revisitas-mobile-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 @media (max-width: 768px) {
   .revisitas-sheet__header {
     align-items: flex-start;
@@ -172,5 +218,9 @@
   .revisitas-sheet__label {
     border-right: 0;
     border-bottom: 1px solid #2b2b2b;
+  }
+
+  .revisitas-mobile-stats {
+    grid-template-columns: 1fr 1fr;
   }
 }

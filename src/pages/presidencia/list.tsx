@@ -1,4 +1,8 @@
 import {
+  Button as MobileButton,
+  Card as MobileCard,
+} from "antd-mobile";
+import {
   Button,
   Card,
   DatePicker,
@@ -20,9 +24,11 @@ import {
   getSingle,
   updateSingle,
 } from "../../api/client";
+import { useAdaptiveUI } from "../../adaptive/useAdaptiveUI";
 import { useDirectory } from "../../contexts/directory";
 import useMediaQuery from "../../hooks/useMediaQuery";
 import { useIsAdminApp } from "../../hooks/useIsAdminApp";
+import "./styles.css";
 
 const { Title } = Typography;
 const { TextArea } = Input;
@@ -53,6 +59,8 @@ export const MeetingInstructionsForm = () => {
   const isAdminApp = useIsAdminApp();
   const isReadOnly = !isAdminApp;
   const isSmallScreen = useMediaQuery("(max-width: 768px)");
+  const { resolvedMode } = useAdaptiveUI();
+  const isNativeMobile = resolvedMode === "mobile";
 
   const [conferencias, setConferencias] = useState<any>({});
   const [conferenceRows, setConferenceRows] = useState<ConferenceSummary[]>([]);
@@ -264,8 +272,8 @@ export const MeetingInstructionsForm = () => {
     }
   };
 
-  return (
-    <Card style={{ maxWidth: 800, margin: "0 auto" }}>
+  const content = (
+    <>
       <Title level={2} style={{ textAlign: "center", marginBottom: 24 }}>
         Presidencia de la Reunión Pública
       </Title>
@@ -399,28 +407,51 @@ export const MeetingInstructionsForm = () => {
             style={{ marginTop: 24 }}
           >
             {isAdminApp && (
-              <>
-                <Button
-                  onClick={handleReset}
-                  icon={<span>🗑️</span>}
-                  style={{ width: isSmallScreen ? "100%" : undefined }}
-                >
-                  Limpiar
-                </Button>
-                <Button
-                  type="primary"
-                  htmlType="submit"
-                  icon={<span>💾</span>}
-                  style={{ width: isSmallScreen ? "100%" : undefined }}
-                >
-                  Guardar
-                </Button>
-              </>
+              isNativeMobile ? (
+                <>
+                  <MobileButton block fill="outline" onClick={handleReset}>
+                    Limpiar
+                  </MobileButton>
+                  <MobileButton block color="primary" onClick={() => form.submit()}>
+                    Guardar
+                  </MobileButton>
+                </>
+              ) : (
+                <>
+                  <Button
+                    onClick={handleReset}
+                    icon={<span>🗑️</span>}
+                    style={{ width: isSmallScreen ? "100%" : undefined }}
+                  >
+                    Limpiar
+                  </Button>
+                  <Button
+                    type="primary"
+                    htmlType="submit"
+                    icon={<span>💾</span>}
+                    style={{ width: isSmallScreen ? "100%" : undefined }}
+                  >
+                    Guardar
+                  </Button>
+                </>
+              )
             )}
             <MeetingPDF data={conferencias} />
           </Flex>
         </Form.Item>
       </Form>
-    </Card>
+    </>
   );
+
+  if (isNativeMobile) {
+    return (
+      <div className="presidencia-mobile">
+        <MobileCard className="mobile-screen-card presidencia-mobile-card">
+          {content}
+        </MobileCard>
+      </div>
+    );
+  }
+
+  return <Card style={{ maxWidth: 800, margin: "0 auto" }}>{content}</Card>;
 };

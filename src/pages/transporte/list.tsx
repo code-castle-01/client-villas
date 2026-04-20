@@ -9,6 +9,15 @@ import {
 } from "@ant-design/icons";
 import { PDFDownloadLink } from "@react-pdf/renderer";
 import {
+  Button as MobileButton,
+  Card as MobileCard,
+  Empty as MobileEmpty,
+  SearchBar,
+  Selector,
+  Space as MobileSpace,
+  Tag as MobileTag,
+} from "antd-mobile";
+import {
   Button,
   Card,
   DatePicker,
@@ -29,6 +38,7 @@ import {
 import { toPng } from "html-to-image";
 import moment from "moment";
 import React, { useContext, useEffect, useMemo, useState } from "react";
+import { useAdaptiveUI } from "../../adaptive/useAdaptiveUI";
 import {
   createEntry,
   deleteEntry,
@@ -43,6 +53,7 @@ import { useDirectory } from "../../contexts/directory";
 import { useIsAdminApp } from "../../hooks/useIsAdminApp";
 import useMediaQuery from "../../hooks/useMediaQuery";
 import "../grupos/styles.css";
+import "./styles.css";
 
 interface Grupo {
   id: number;
@@ -112,6 +123,8 @@ export const GruposMiembrosList: React.FC = () => {
   const [form] = Form.useForm();
 
   const isSmallScreen = useMediaQuery("(max-width: 768px)");
+  const { resolvedMode } = useAdaptiveUI();
+  const isNativeMobile = resolvedMode === "mobile";
   const isAdminApp = useIsAdminApp();
   const isReadOnly = !isAdminApp;
   const grupos = useMemo<Grupo[]>(
@@ -440,6 +453,210 @@ export const GruposMiembrosList: React.FC = () => {
     ? grupos.filter((grupo) => grupo.id === grupoSeleccionado)
     : grupos;
 
+  const renderMobileTransporte = () => (
+    <div className="transporte-mobile">
+      <MobileCard className="mobile-screen-card transporte-mobile__filters">
+        <SearchBar
+          value={busquedaNombre}
+          onChange={setBusquedaNombre}
+          placeholder="Buscar miembro"
+        />
+
+        <div className="transporte-mobile__selector">
+          <span>Grupo</span>
+          <Selector
+            columns={2}
+            options={grupos.map((grupo) => ({
+              label: grupo.nombre,
+              value: grupo.id,
+            }))}
+            value={grupoSeleccionado ? [grupoSeleccionado] : []}
+            onChange={(value) =>
+              setGrupoSeleccionado(value[0] ? Number(value[0]) : null)
+            }
+          />
+        </div>
+
+        <div className="transporte-mobile__selector">
+          <span>Estado de pago</span>
+          <Selector
+            columns={2}
+            options={[
+              { label: "Completo", value: "completo" },
+              { label: "Pendiente", value: "pendiente" },
+            ]}
+            value={estadoPagoFiltro ? [estadoPagoFiltro] : []}
+            onChange={(value) =>
+              setEstadoPagoFiltro(value[0] ? String(value[0]) : null)
+            }
+          />
+        </div>
+
+        <div className="transporte-mobile__fare">
+          <span>Precio del pasaje</span>
+          {editingTotal ? (
+            <InputNumber
+              defaultValue={totalAPagar}
+              onPressEnter={(event) =>
+                handleTotalChange(
+                  Number((event.target as HTMLInputElement).value),
+                )
+              }
+              onBlur={(event) => handleTotalChange(Number(event.target.value))}
+              style={{ width: "100%" }}
+            />
+          ) : (
+            <div>
+              <MobileTag color="success">${totalAPagar}</MobileTag>
+              {isAdminApp ? (
+                <MobileButton
+                  size="mini"
+                  fill="outline"
+                  onClick={() => setEditingTotal(true)}
+                >
+                  <EditOutlined /> Editar
+                </MobileButton>
+              ) : null}
+            </div>
+          )}
+        </div>
+      </MobileCard>
+
+      {filteredGrupos.length ? (
+        filteredGrupos.map((grupo) => {
+          const totalPagosGrupo = grupo.miembros.reduce((acc, miembro) => {
+            const totalPagos = pagosMiembro(miembro.id).reduce(
+              (sum, pago) => sum + pago.monto,
+              0,
+            );
+            return acc + totalPagos;
+          }, 0);
+          const pagosMiembros = grupo.miembros.map((miembro) => ({
+            miembro: miembro.nombre,
+            pagos: pagosMiembro(miembro.id),
+          }));
+          const visibleMiembros = grupo.miembros.filter((miembro) => {
+            const totalPagos = pagosMiembro(miembro.id).reduce(
+              (acc, pago) => acc + pago.monto,
+              0,
+            );
+            const completo = totalPagos >= totalAPagar;
+            const cumpleEstadoPago =
+              !estadoPagoFiltro ||
+              (estadoPagoFiltro === "completo" && completo) ||
+              (estadoPagoFiltro === "pendiente" && !completo);
+            const cumpleBusquedaNombre = miembro.nombre
+              .toLowerCase()
+              .includes(busquedaNombre.toLowerCase());
+
+            return cumpleEstadoPago && cumpleBusquedaNombre;
+          });
+
+          return (
+            <MobileCard
+              key={grupo.id}
+              className="mobile-screen-card transporte-mobile-group"
+              title={grupo.nombre}
+              extra={
+                <MobileTag color="primary" fill="outline">
+                  {visibleMiembros.length} miembros
+                </MobileTag>
+              }
+            >
+              <MobileSpace direction="vertical" block style={{ width: "100%" }}>
+                <div className="transporte-mobile-group__total">
+                  <span>Total del grupo</span>
+                  <strong>${totalPagosGrupo}</strong>
+                </div>
+
+                <PDFDownloadLink
+                  document={
+                    <PDFDocument
+                      nombreGrupo={grupo.nombre}
+                      totalPagado={totalPagosGrupo}
+                      pagosMiembros={pagosMiembros}
+                    />
+                  }
+                  fileName={`reporte-pagos-${grupo.nombre}.pdf`}
+                >
+                  <MobileButton block color="primary" fill="outline">
+                    <FilePdfTwoTone twoToneColor="red" /> Descargar PDF
+                  </MobileButton>
+                </PDFDownloadLink>
+
+                {visibleMiembros.length ? (
+                  <div className="transporte-mobile-members">
+                    {visibleMiembros.map((miembro, index) => {
+                      const pagosDelMiembro = pagosMiembro(miembro.id);
+                      const totalPagos = pagosDelMiembro.reduce(
+                        (acc, pago) => acc + pago.monto,
+                        0,
+                      );
+                      const completo = totalPagos >= totalAPagar;
+
+                      return (
+                        <div key={miembro.id} className="transporte-mobile-member">
+                          <div className="transporte-mobile-member__header">
+                            <strong>
+                              {index + 1}. {miembro.nombre}
+                            </strong>
+                            <MobileTag
+                              color={completo ? "success" : "warning"}
+                              fill={completo ? "solid" : "outline"}
+                            >
+                              {completo ? "Completo" : "Pendiente"}
+                            </MobileTag>
+                          </div>
+
+                          <div className="transporte-mobile-member__amount">
+                            <span>Pagado</span>
+                            <strong>${totalPagos}</strong>
+                          </div>
+
+                          <div className="transporte-mobile-member__actions">
+                            <MobileButton
+                              size="mini"
+                              fill="outline"
+                              onClick={() => handleVerDetalles(miembro)}
+                            >
+                              <EyeFilled /> Detalles
+                            </MobileButton>
+                            <MobileButton
+                              size="mini"
+                              color="primary"
+                              disabled={completo || isReadOnly}
+                              onClick={() => {
+                                if (isReadOnly) return;
+                                setMiembroSeleccionado({
+                                  id: miembro.id,
+                                  nombre: miembro.nombre,
+                                });
+                                setGrupoSeleccionadoParaEdicion(grupo.id);
+                                setVisibleRegistrarPago(true);
+                              }}
+                            >
+                              <DollarCircleFilled /> Pago
+                            </MobileButton>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <MobileEmpty description="No hay miembros con estos filtros." />
+                )}
+              </MobileSpace>
+            </MobileCard>
+          );
+        })
+      ) : (
+        <MobileCard className="mobile-screen-card">
+          <MobileEmpty description="No hay grupos registrados." />
+        </MobileCard>
+      )}
+    </div>
+  );
+
   return (
     <section
       className={`grupos-page ${
@@ -465,99 +682,103 @@ export const GruposMiembrosList: React.FC = () => {
         </Button>
       </div>
 
-      <Card className="grupos-card" bordered={false}>
-        <Table<Grupo>
-          className="grupos-table"
-          title={() => (
-            <Flex
-              justify="space-between"
-              align="baseline"
-              style={{ padding: "20px 24px 0", gap: 16 }}
-              wrap="wrap"
-            >
-              <Flex gap={12} wrap="wrap" align="center">
-                <Typography.Title level={5} style={{ margin: 0 }}>
-                  Filtrar por Grupo
-                </Typography.Title>
-                <Select
-                  style={{ width: isSmallScreen ? "100%" : 220 }}
-                  placeholder="Seleccionar Grupo"
-                  onChange={setGrupoSeleccionado}
-                  allowClear
-                >
-                  {grupos.map((grupo) => (
-                    <Select.Option key={grupo.id} value={grupo.id}>
-                      {grupo.nombre}
-                    </Select.Option>
-                  ))}
-                </Select>
-              </Flex>
-              <Flex gap={12} wrap="wrap" align="center">
-                <Typography.Title level={5} style={{ margin: 0 }}>
-                  Precio del pasaje
-                </Typography.Title>
-                {editingTotal ? (
-                  <InputNumber
-                    defaultValue={totalAPagar}
-                    onPressEnter={(e) =>
-                      handleTotalChange(
-                        Number((e.target as HTMLInputElement).value),
-                      )
-                    }
-                    onBlur={(e) => handleTotalChange(Number(e.target.value))}
-                    style={{ width: isSmallScreen ? "100%" : 160 }}
-                  />
-                ) : (
-                  <Tag
-                    color="green"
-                    style={{
-                      fontSize: 20,
-                      textAlign: "center",
-                      marginInlineStart: 0,
-                      paddingInline: 14,
-                    }}
+      {isNativeMobile ? (
+        renderMobileTransporte()
+      ) : (
+        <Card className="grupos-card" bordered={false}>
+          <Table<Grupo>
+            className="grupos-table"
+            title={() => (
+              <Flex
+                justify="space-between"
+                align="baseline"
+                style={{ padding: "20px 24px 0", gap: 16 }}
+                wrap="wrap"
+              >
+                <Flex gap={12} wrap="wrap" align="center">
+                  <Typography.Title level={5} style={{ margin: 0 }}>
+                    Filtrar por Grupo
+                  </Typography.Title>
+                  <Select
+                    style={{ width: isSmallScreen ? "100%" : 220 }}
+                    placeholder="Seleccionar Grupo"
+                    onChange={setGrupoSeleccionado}
+                    allowClear
                   >
-                    ${totalAPagar}{" "}
-                    {isAdminApp ? (
-                      <EditOutlined
-                        onClick={() => setEditingTotal(true)}
-                        style={{ cursor: "pointer" }}
-                      />
-                    ) : null}
-                  </Tag>
-                )}
+                    {grupos.map((grupo) => (
+                      <Select.Option key={grupo.id} value={grupo.id}>
+                        {grupo.nombre}
+                      </Select.Option>
+                    ))}
+                  </Select>
+                </Flex>
+                <Flex gap={12} wrap="wrap" align="center">
+                  <Typography.Title level={5} style={{ margin: 0 }}>
+                    Precio del pasaje
+                  </Typography.Title>
+                  {editingTotal ? (
+                    <InputNumber
+                      defaultValue={totalAPagar}
+                      onPressEnter={(e) =>
+                        handleTotalChange(
+                          Number((e.target as HTMLInputElement).value),
+                        )
+                      }
+                      onBlur={(e) => handleTotalChange(Number(e.target.value))}
+                      style={{ width: isSmallScreen ? "100%" : 160 }}
+                    />
+                  ) : (
+                    <Tag
+                      color="green"
+                      style={{
+                        fontSize: 20,
+                        textAlign: "center",
+                        marginInlineStart: 0,
+                        paddingInline: 14,
+                      }}
+                    >
+                      ${totalAPagar}{" "}
+                      {isAdminApp ? (
+                        <EditOutlined
+                          onClick={() => setEditingTotal(true)}
+                          style={{ cursor: "pointer" }}
+                        />
+                      ) : null}
+                    </Tag>
+                  )}
+                </Flex>
               </Flex>
-            </Flex>
-          )}
-          dataSource={filteredGrupos}
-          rowKey="id"
-          loading={loading}
-          expandable={{
-            expandedRowRender,
-            rowExpandable: (record) => record.miembros.length > 0,
-          }}
-          pagination={false}
-          scroll={{ x: true }}
-        >
-          <Table.Column<Grupo>
-            dataIndex="nombre"
-            title="Nombre"
-            render={(value: string) => (
-              <span className="grupos-table__name">{value}</span>
             )}
-          />
-          <Table.Column<Grupo>
-            title="Miembros"
-            key="miembros"
-            render={(_, record) => (
-              <span className="grupos-table__count">
-                {record.miembros.length} miembro
-                {record.miembros.length !== 1 ? "s" : ""}
-              </span>
-            )}
-          />
-        </Table>
-      </Card>
+            dataSource={filteredGrupos}
+            rowKey="id"
+            loading={loading}
+            expandable={{
+              expandedRowRender,
+              rowExpandable: (record) => record.miembros.length > 0,
+            }}
+            pagination={false}
+            scroll={{ x: true }}
+          >
+            <Table.Column<Grupo>
+              dataIndex="nombre"
+              title="Nombre"
+              render={(value: string) => (
+                <span className="grupos-table__name">{value}</span>
+              )}
+            />
+            <Table.Column<Grupo>
+              title="Miembros"
+              key="miembros"
+              render={(_, record) => (
+                <span className="grupos-table__count">
+                  {record.miembros.length} miembro
+                  {record.miembros.length !== 1 ? "s" : ""}
+                </span>
+              )}
+            />
+          </Table>
+        </Card>
+      )}
 
       <Modal
         title={`Registrar Pago para ${miembroSeleccionado?.nombre ?? ""}`}

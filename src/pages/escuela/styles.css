@@ -70,6 +70,35 @@
   align-items: stretch;
 }
 
+.escuela-mobile-assignment .adm-card-header-title {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.escuela-assignment-card-body {
+  min-width: 0;
+}
+
+.escuela-assignment-card-body .text-xl {
+  overflow-wrap: anywhere;
+}
+
+.escuela-assignment-note {
+  width: 100%;
+  max-width: 300px;
+  margin-top: 12px;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.escuela-mobile-assignment__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+
 .escuela-card-groups {
   display: flex;
   flex-direction: column;
@@ -286,6 +315,14 @@
 }
 
 @media (max-width: 900px) {
+  .escuela-card-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .escuela-assignment-note {
+    max-width: 100%;
+  }
+
   .escuela-part-row {
     grid-template-columns: 1fr;
   }

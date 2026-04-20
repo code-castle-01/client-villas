@@ -227,10 +227,59 @@
   gap: 12px;
 }
 
+.nombramientos-mobile-filters .adm-card-body {
+  display: grid;
+  gap: 12px;
+}
+
+.nombramientos-mobile-filter {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.nombramientos-mobile-filter > span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.nombramientos-mobile-card .adm-card-header-title {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .nombramientos-mobile-card__grid {
   display: grid;
   gap: 10px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.nombramientos-mobile-card__grid > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-muted);
+}
+
+.nombramientos-mobile-card__grid span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.nombramientos-mobile-card__grid strong {
+  overflow-wrap: anywhere;
+}
+
+.nombramientos-mobile-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 @media (max-width: 768px) {

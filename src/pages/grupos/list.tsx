@@ -1,5 +1,15 @@
 import React, { useContext, useEffect, useMemo, useState } from "react";
 import {
+  Button as MobileButton,
+  Card as MobileCard,
+  Dialog,
+  Empty as MobileEmpty,
+  SearchBar,
+  Space as MobileSpace,
+  Tabs as MobileTabs,
+  Tag as MobileTag,
+} from "antd-mobile";
+import {
   App as AntdApp,
   Button,
   Card,
@@ -32,6 +42,7 @@ import {
   ReloadOutlined,
   UserAddOutlined,
 } from "@ant-design/icons";
+import { useAdaptiveUI } from "../../adaptive/useAdaptiveUI";
 import {
   api,
   createEntry,
@@ -233,6 +244,8 @@ const attachMembersToGroups = (grupos: Grupo[], miembros: Miembro[]): Grupo[] =>
 
 export const GruposAdminPage: React.FC = () => {
   const isAdminApp = useIsAdminApp();
+  const { resolvedMode } = useAdaptiveUI();
+  const isNativeMobile = resolvedMode === "mobile";
   const { mode } = useContext(ColorModeContext);
   const { notification } = AntdApp.useApp();
   const { refreshDirectory } = useDirectory();
@@ -266,6 +279,7 @@ export const GruposAdminPage: React.FC = () => {
   const [importSummary, setImportSummary] = useState<{ total: number } | null>(
     null,
   );
+  const [mobileMemberSearch, setMobileMemberSearch] = useState("");
 
   const notifySuccess = (title: string, description?: string) => {
     notification.success({
@@ -1280,6 +1294,241 @@ export const GruposAdminPage: React.FC = () => {
     [groupedMemberRows, miembroColumns, loading],
   );
 
+  const groupNameById = useMemo(
+    () => new Map(grupos.map((grupo) => [grupo.id, grupo.nombre])),
+    [grupos],
+  );
+
+  const mobileGroupedMemberRows = useMemo(() => {
+    const query = mobileMemberSearch.trim().toLowerCase();
+
+    return groupedMemberRows
+      .map((group) => ({
+        ...group,
+        miembros: group.miembros.filter((miembro) => {
+          if (!query) return true;
+          const name = `${miembro.nombre ?? ""} ${miembro.nombres ?? ""} ${
+            miembro.apellidos ?? ""
+          }`;
+          const haystack = `${name} ${miembro.usuarioEmail ?? ""} ${
+            miembro.celular ?? ""
+          } ${miembro.telefono ?? ""}`.toLowerCase();
+          return haystack.includes(query);
+        }),
+      }))
+      .filter((group) => group.miembros.length > 0 || !query);
+  }, [groupedMemberRows, mobileMemberSearch]);
+
+  const getMobileNombramientoColor = (value: Nombramiento) => {
+    if (value === "anciano" || value === "siervo_ministerial") {
+      return "primary" as const;
+    }
+    if (value.startsWith("precursor") || value === "publicador") {
+      return "success" as const;
+    }
+    if (value === "publicador_no_bautizado") {
+      return "warning" as const;
+    }
+    return "default" as const;
+  };
+
+  const confirmMobileDeleteGrupo = (grupo: Grupo) => {
+    Dialog.confirm({
+      title: "Eliminar grupo",
+      content: `Se eliminará ${grupo.nombre}.`,
+      confirmText: "Eliminar",
+      cancelText: "Cancelar",
+      onConfirm: () => deleteGrupo(grupo.id, grupo.documentId),
+    });
+  };
+
+  const confirmMobileDeleteMiembro = (miembro: Miembro) => {
+    Dialog.confirm({
+      title: "Eliminar miembro",
+      content: `Se eliminará ${miembro.nombre || "este miembro"}.`,
+      confirmText: "Eliminar",
+      cancelText: "Cancelar",
+      onConfirm: () => deleteMiembro(miembro.id, miembro.documentId),
+    });
+  };
+
+  const renderMobileGrupos = () => (
+    <div className="grupos-mobile">
+      <div className="grupos-mobile-actions">
+        <MobileButton fill="outline" onClick={() => setImportModalOpen(true)}>
+          Importar Excel
+        </MobileButton>
+        <MobileButton fill="outline" onClick={() => openMiembroModal()}>
+          <UserAddOutlined /> Miembro
+        </MobileButton>
+        <MobileButton color="primary" onClick={() => openGrupoModal()}>
+          <PlusOutlined /> Grupo
+        </MobileButton>
+      </div>
+
+      <MobileTabs className="grupos-mobile-tabs">
+        <MobileTabs.Tab title="Grupos" key="grupos">
+          <div className="grupos-mobile-list">
+            {grupos.length ? (
+              grupos.map((grupo) => (
+                <MobileCard
+                  key={grupo.id}
+                  className="mobile-screen-card grupos-mobile-card"
+                  title={grupo.nombre}
+                  extra={
+                    <MobileTag color="primary" fill="outline">
+                      {grupo.miembros.length} miembros
+                    </MobileTag>
+                  }
+                >
+                  <MobileSpace direction="vertical" block style={{ width: "100%" }}>
+                    <div className="grupos-mobile-card__leaders">
+                      <div>
+                        <span>Superintendente</span>
+                        <strong>{grupo.superintendenteNombre || "N/A"}</strong>
+                      </div>
+                      <div>
+                        <span>Auxiliar</span>
+                        <strong>{grupo.auxiliarNombre || "N/A"}</strong>
+                      </div>
+                    </div>
+                    <div className="grupos-mobile-card__actions">
+                      <MobileButton
+                        size="mini"
+                        fill="outline"
+                        onClick={() => openGrupoModal(grupo)}
+                      >
+                        <EditOutlined /> Editar
+                      </MobileButton>
+                      <MobileButton
+                        size="mini"
+                        color="danger"
+                        fill="outline"
+                        onClick={() => confirmMobileDeleteGrupo(grupo)}
+                      >
+                        <DeleteOutlined /> Eliminar
+                      </MobileButton>
+                    </div>
+                  </MobileSpace>
+                </MobileCard>
+              ))
+            ) : (
+              <MobileCard className="mobile-screen-card">
+                <MobileEmpty description="No hay grupos registrados." />
+              </MobileCard>
+            )}
+          </div>
+        </MobileTabs.Tab>
+
+        <MobileTabs.Tab title="Miembros" key="miembros">
+          <div className="grupos-mobile-list">
+            <MobileCard className="mobile-screen-card grupos-mobile-search">
+              <SearchBar
+                value={mobileMemberSearch}
+                onChange={setMobileMemberSearch}
+                placeholder="Buscar miembro, correo o celular"
+              />
+            </MobileCard>
+
+            {mobileGroupedMemberRows.map((group) => (
+              <MobileCard
+                key={group.id}
+                className="mobile-screen-card grupos-mobile-group"
+                title={group.nombre}
+                extra={
+                  <MobileTag color="primary" fill="outline">
+                    {group.miembros.length} miembros
+                  </MobileTag>
+                }
+              >
+                {group.miembros.length ? (
+                  <div className="grupos-mobile-members">
+                    {group.miembros.map((miembro) => {
+                      const nombramientos = (miembro.nombramientos ?? []).filter(
+                        isNombramiento,
+                      );
+                      const memberGroups = miembro.grupos
+                        .map((id) => groupNameById.get(id))
+                        .filter(Boolean)
+                        .join(", ");
+
+                      return (
+                        <div key={miembro.id} className="grupos-mobile-member">
+                          <div className="grupos-mobile-member__top">
+                            <div className="miembro-detail__avatar">
+                              {getInitials(miembro)}
+                            </div>
+                            <div>
+                              <strong>{miembro.nombre || "Sin nombre"}</strong>
+                              <span>{miembro.usuarioEmail || "Sin correo"}</span>
+                            </div>
+                          </div>
+
+                          <div className="grupos-mobile-member__meta">
+                            <div>
+                              <span>Celular</span>
+                              <strong>
+                                {miembro.celular || miembro.telefono || "N/A"}
+                              </strong>
+                            </div>
+                            <div>
+                              <span>Grupo</span>
+                              <strong>{memberGroups || group.nombre}</strong>
+                            </div>
+                            <div>
+                              <span>Limitación</span>
+                              <strong>{miembro.limitacion ? "Sí" : "No"}</strong>
+                            </div>
+                          </div>
+
+                          <div className="grupos-mobile-member__tags">
+                            {nombramientos.length ? (
+                              nombramientos.map((value) => (
+                                <MobileTag
+                                  key={value}
+                                  color={getMobileNombramientoColor(value)}
+                                  fill="outline"
+                                >
+                                  {miembroNombramientoLabels[value]}
+                                </MobileTag>
+                              ))
+                            ) : (
+                              <MobileTag fill="outline">Sin nombramientos</MobileTag>
+                            )}
+                          </div>
+
+                          <div className="grupos-mobile-card__actions">
+                            <MobileButton
+                              size="mini"
+                              fill="outline"
+                              onClick={() => openMiembroModal(miembro)}
+                            >
+                              <EditOutlined /> Editar
+                            </MobileButton>
+                            <MobileButton
+                              size="mini"
+                              color="danger"
+                              fill="outline"
+                              onClick={() => confirmMobileDeleteMiembro(miembro)}
+                            >
+                              <DeleteOutlined /> Eliminar
+                            </MobileButton>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <MobileEmpty description="No hay miembros en este grupo." />
+                )}
+              </MobileCard>
+            ))}
+          </div>
+        </MobileTabs.Tab>
+      </MobileTabs>
+    </div>
+  );
+
   if (!isAdminApp) {
     return (
       <Result
@@ -1315,65 +1564,69 @@ export const GruposAdminPage: React.FC = () => {
         </Button>
       </div>
 
-      <Tabs
-        className="grupos-tabs"
-        tabBarExtraContent={
-          <Space size="middle" className="grupos-actions">
-            <Button
-              className="grupos-btn grupos-btn--ghost"
-              onClick={() => setImportModalOpen(true)}
-            >
-              Importar Excel
-            </Button>
-            <Button
-              className="grupos-btn grupos-btn--ghost"
-              icon={<UserAddOutlined />}
-              onClick={() => openMiembroModal()}
-            >
-              Crear o Vincular Miembro
-            </Button>
-            <Button
-              type="primary"
-              className="grupos-btn grupos-btn--primary"
-              icon={<PlusOutlined />}
-              onClick={() => openGrupoModal()}
-            >
-              Crear Grupo
-            </Button>
-          </Space>
-        }
-        items={[
-          {
-            key: "grupos",
-            label: "Grupos",
-            children: (
-              <Card className="grupos-card" bordered={false}>
-                <Table
-                  className="grupos-table"
-                  dataSource={grupos}
-                  columns={grupoColumns}
-                  rowKey="id"
-                  pagination={{ pageSize: 30, showSizeChanger: false }}
-                  loading={loading}
-                />
-              </Card>
-            ),
-          },
-          {
-            key: "miembros",
-            label: "Miembros",
-            children: (
-              <div className="grupos-collapse">
-                <Collapse
-                  ghost
-                  expandIconPosition="end"
-                  items={membersCollapseItems}
-                />
-              </div>
-            ),
-          },
-        ]}
-      />
+      {isNativeMobile ? (
+        renderMobileGrupos()
+      ) : (
+        <Tabs
+          className="grupos-tabs"
+          tabBarExtraContent={
+            <Space size="middle" className="grupos-actions">
+              <Button
+                className="grupos-btn grupos-btn--ghost"
+                onClick={() => setImportModalOpen(true)}
+              >
+                Importar Excel
+              </Button>
+              <Button
+                className="grupos-btn grupos-btn--ghost"
+                icon={<UserAddOutlined />}
+                onClick={() => openMiembroModal()}
+              >
+                Crear o Vincular Miembro
+              </Button>
+              <Button
+                type="primary"
+                className="grupos-btn grupos-btn--primary"
+                icon={<PlusOutlined />}
+                onClick={() => openGrupoModal()}
+              >
+                Crear Grupo
+              </Button>
+            </Space>
+          }
+          items={[
+            {
+              key: "grupos",
+              label: "Grupos",
+              children: (
+                <Card className="grupos-card" bordered={false}>
+                  <Table
+                    className="grupos-table"
+                    dataSource={grupos}
+                    columns={grupoColumns}
+                    rowKey="id"
+                    pagination={{ pageSize: 30, showSizeChanger: false }}
+                    loading={loading}
+                  />
+                </Card>
+              ),
+            },
+            {
+              key: "miembros",
+              label: "Miembros",
+              children: (
+                <div className="grupos-collapse">
+                  <Collapse
+                    ghost
+                    expandIconPosition="end"
+                    items={membersCollapseItems}
+                  />
+                </div>
+              ),
+            },
+          ]}
+        />
+      )}
 
       <Modal
         title={editingGrupo ? "Editar Grupo" : "Crear Grupo"}

@@ -2,6 +2,91 @@
   align-items: center;
 }
 
+.pastoreo-mobile {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+}
+
+.pastoreo-mobile__filters .adm-card-body {
+  display: grid;
+  gap: 12px;
+}
+
+.pastoreo-mobile__selector {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.pastoreo-mobile__selector > span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.pastoreo-mobile-group .adm-card-header-title {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.pastoreo-mobile-group__leaders {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.pastoreo-mobile-group__leaders > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface-muted) 92%, transparent);
+}
+
+.pastoreo-mobile-group__leaders span,
+.pastoreo-mobile-member__header span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.pastoreo-mobile-group__leaders strong,
+.pastoreo-mobile-member__header strong {
+  overflow-wrap: anywhere;
+}
+
+.pastoreo-mobile-members {
+  display: grid;
+  gap: 10px;
+}
+
+.pastoreo-mobile-member {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface-muted) 88%, transparent);
+}
+
+.pastoreo-mobile-member__header {
+  display: grid;
+  gap: 4px;
+}
+
+.pastoreo-mobile-member__tags,
+.pastoreo-mobile-member__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .pastoreo-form-sheet {
   background: #ffffff;
   border: 3px solid #2b2b2b;
@@ -251,6 +336,10 @@
 }
 
 @media (max-width: 640px) {
+  .pastoreo-mobile-group__leaders {
+    grid-template-columns: 1fr;
+  }
+
   .pastoreo-s4-row,
   .pastoreo-s21-field {
     grid-template-columns: 1fr;
