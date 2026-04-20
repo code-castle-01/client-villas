@@ -4,6 +4,7 @@ import {
   CalendarOutlined,
   DashboardOutlined,
   TeamOutlined,
+  ToolOutlined,
   UserOutlined,
 } from "@ant-design/icons";
 
@@ -18,6 +19,7 @@ export type MobileResourceMeta = {
   mobileOrder?: number;
   mobileStatus?: MobileResourceStatus;
   mobileTab?: boolean;
+  mobileTabLabel?: string;
   summary?: string;
 };
 
@@ -63,6 +65,7 @@ const baseResources: AppResource[] = [
       mobileOrder: 1,
       mobileStatus: "ready",
       mobileTab: true,
+      mobileTabLabel: "Agenda",
       summary: "Tu agenda y perfil personal.",
     },
   },
@@ -102,6 +105,7 @@ const baseResources: AppResource[] = [
       mobileOrder: 2,
       mobileStatus: "ready",
       mobileTab: true,
+      mobileTabLabel: "Conf.",
       summary: "Agenda pública y oradores.",
     },
   },
@@ -114,7 +118,7 @@ const baseResources: AppResource[] = [
       label: "Reuniones",
       mobileIcon: <span>🏠</span>,
       mobileLabel: "Reuniones",
-      mobileOrder: 3,
+      mobileOrder: 4,
       mobileStatus: "ready",
       mobileTab: true,
       summary: "Lectores, oración y envío.",
@@ -137,10 +141,13 @@ const baseResources: AppResource[] = [
     list: "/mecanicas",
     meta: {
       canDelete: false,
-      icon: <span>🧰</span>,
+      icon: <ToolOutlined />,
       label: "Mecánicas",
+      mobileIcon: <ToolOutlined />,
       mobileLabel: "Mecánicas",
+      mobileOrder: 3,
       mobileStatus: "ready",
+      mobileTab: true,
       summary: "Asignaciones operativas de la reunión.",
     },
   },

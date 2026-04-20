@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { useLogout } from "@refinedev/core";
 import { Outlet, useLocation, useNavigate } from "react-router";
 import {
   Badge,
@@ -16,6 +17,7 @@ import {
   CloseOutlined,
   DownloadOutlined,
   LaptopOutlined,
+  LogoutOutlined,
   SettingOutlined,
   SyncOutlined,
 } from "@ant-design/icons";
@@ -63,11 +65,12 @@ export const MobileAppShell: React.FC<MobileAppShellProps> = ({
 }) => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { mutate: logout } = useLogout();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [installBannerDismissed, setInstallBannerDismissed] = useState(false);
   const { mode, toggleMode } = React.useContext(ColorModeContext);
   const { isStandalone, overrideMode, setOverrideMode } = useAdaptiveUI();
-  const { canInstall, manualInstallPlatform, promptInstall } = usePwaInstallPrompt();
+  const { canInstall, promptInstall } = usePwaInstallPrompt();
   const { applyUpdate, isOfflineReady, isUpdateReady, resetUpdateReady } =
     usePwaLifecycle();
 
@@ -83,6 +86,7 @@ export const MobileAppShell: React.FC<MobileAppShellProps> = ({
   const showInstallBanner =
     location.pathname !== "/login" &&
     location.pathname !== "/migracion" &&
+    canInstall &&
     !isStandalone &&
     !installBannerDismissed;
   const title =
@@ -104,16 +108,15 @@ export const MobileAppShell: React.FC<MobileAppShellProps> = ({
     resetUpdateReady();
   };
 
+  const handleLogout = () => {
+    setSettingsOpen(false);
+    logout();
+  };
+
   const renderInstallBanner = () => {
     if (!showInstallBanner) {
       return null;
     }
-
-    const description = canInstall
-      ? "Instala esta app para abrirla más rápido, usarla a pantalla completa y mejorar la experiencia móvil."
-      : manualInstallPlatform === "ios"
-        ? "En Safari toca Compartir y luego “Añadir a pantalla de inicio” para instalarla."
-        : "Usa el menú del navegador y toca “Instalar aplicación” o “Agregar a pantalla de inicio”.";
 
     return (
       <div className="mobile-app-shell__install-banner" role="status">
@@ -123,15 +126,15 @@ export const MobileAppShell: React.FC<MobileAppShellProps> = ({
 
         <div className="mobile-app-shell__install-copy">
           <div className="mobile-app-shell__install-title">Instala la app</div>
-          <div className="mobile-app-shell__install-description">{description}</div>
+          <div className="mobile-app-shell__install-description">
+            Abre Las Villas a pantalla completa y más rápido desde tu celular.
+          </div>
         </div>
 
         <div className="mobile-app-shell__install-actions">
-          {canInstall ? (
-            <Button color="primary" size="small" onClick={handleInstall}>
-              Instalar
-            </Button>
-          ) : null}
+          <Button color="primary" size="small" onClick={handleInstall}>
+            Instalar
+          </Button>
 
           <HeaderActionButton
             aria-label="Ocultar aviso de instalación"
@@ -225,7 +228,11 @@ export const MobileAppShell: React.FC<MobileAppShellProps> = ({
               {tabResources.map((resource) => (
                 <TabBar.Item
                   key={resource.list}
-                  title={resource.meta.mobileLabel ?? resource.meta.label}
+                  title={
+                    resource.meta.mobileTabLabel ??
+                    resource.meta.mobileLabel ??
+                    resource.meta.label
+                  }
                   icon={resource.meta.mobileIcon ?? resource.meta.icon}
                   onClick={() => navigate(resource.list)}
                 />
@@ -280,23 +287,18 @@ export const MobileAppShell: React.FC<MobileAppShellProps> = ({
               </div>
             )}
 
-            {!canInstall && manualInstallPlatform === "ios" && !isStandalone && (
-              <NoticeBar content="En Safari puedes instalarla desde Compartir > Añadir a pantalla de inicio." />
-            )}
-
-            {!canInstall &&
-              manualInstallPlatform === "android-manual" &&
-              !isStandalone && (
-                <NoticeBar content="En Android puedes instalarla desde el menu del navegador con “Instalar aplicación” o “Agregar a pantalla de inicio”." />
-              )}
-
-            {!canInstall && !manualInstallPlatform && !isStandalone && (
-              <NoticeBar content="Si tu navegador no muestra el boton de instalar, usa la opcion de agregar la app a la pantalla de inicio." />
-            )}
-
             {activeResource?.meta.mobileStatus !== "ready" && (
               <NoticeBar content="Esta sección todavía usa la experiencia de escritorio." />
             )}
+
+            <div className="mobile-app-shell__setting-row">
+              <span className="mobile-app-shell__setting-label">
+                <LogoutOutlined /> Sesión
+              </span>
+              <Button color="danger" fill="outline" size="small" onClick={handleLogout}>
+                Cerrar sesión
+              </Button>
+            </div>
 
             <div className="mobile-app-shell__setting-hint">
               <Badge color="var(--app-color-primary)" />

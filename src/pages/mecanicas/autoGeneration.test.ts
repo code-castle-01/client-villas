@@ -16,6 +16,7 @@ const createMember = (
   id,
   nombre,
   nombramientos: [],
+  limitacion: false,
   roles: ["varon"],
   grupos: [{ id: 1, nombre: "1" }],
   ...overrides,
@@ -160,6 +161,53 @@ describe("mecanicas auto generation", () => {
     ];
 
     expect(new Set(mayFiveRoles)).toEqual(new Set([9, 10, 11, 12, 13, 14]));
+  });
+
+  it("does not auto assign brothers marked with limitacion", () => {
+    const members: DirectoryMember[] = [
+      createMember(1, "Jorge Castillo", { limitacion: true }),
+      createMember(2, "Pedro Luna"),
+      createMember(3, "Henry Trejo"),
+      createMember(4, "Barreto Joel"),
+      createMember(5, "Edgar Hernandez"),
+      createMember(6, "Alexander Perez"),
+      createMember(7, "Harol Hernández"),
+      createMember(8, "Maurisio Sabas"),
+      createMember(9, "Abel Limitado", { limitacion: true }),
+      createMember(10, "Carlos Activo"),
+      createMember(11, "David Activo"),
+      createMember(12, "Enrique Activo"),
+      createMember(13, "Felipe Activo"),
+      createMember(14, "Gabriel Activo"),
+      createMember(15, "Hector Activo"),
+    ];
+
+    const plan = buildMecanicaAutoGenerationPlan({
+      assignments: [],
+      members,
+      groupSequence: [],
+      targetDates: ["2026-05-05"],
+    });
+
+    expect(plan.warnings).toContain(
+      "No están disponibles para Audio y Video estos hermanos: Jorge Castillo.",
+    );
+
+    const payload = plan.operations[0]?.payload;
+    expect(payload?.audioVideo).toBe(2);
+
+    const assignedIds = [
+      payload?.acomodadorDentro,
+      payload?.acomodadorLobby,
+      payload?.acomodadorReja,
+      payload?.micro1,
+      payload?.micro2,
+      payload?.plataforma,
+    ];
+
+    expect(assignedIds).not.toContain(1);
+    expect(assignedIds).not.toContain(9);
+    expect(new Set(assignedIds).size).toBe(6);
   });
 
   it("reuses weekdays from the previous month and resolves the active month range", () => {

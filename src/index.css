@@ -49,10 +49,12 @@ html,
 body,
 #root {
   min-height: 100%;
+  width: 100%;
 }
 
 body {
   margin: 0;
+  overflow-x: hidden;
   font-family: "Manrope", "Segoe UI", sans-serif;
   color: var(--app-color-text);
   background:
@@ -67,16 +69,25 @@ a {
 }
 
 .mobile-app-shell {
+  width: 100%;
   min-height: 100vh;
+  overflow-x: clip;
   background:
     linear-gradient(180deg, rgba(222, 217, 227, 0.92) 0%, rgba(233, 228, 238, 0.88) 19%, transparent 19%),
     var(--app-background);
+}
+
+.mobile-app-shell *,
+.mobile-app-shell *::before,
+.mobile-app-shell *::after {
+  box-sizing: border-box;
 }
 
 .mobile-app-shell__header {
   position: sticky;
   top: 0;
   z-index: 30;
+  max-width: 100%;
   padding: 10px 14px 12px;
   background:
     linear-gradient(180deg, rgba(222, 217, 227, 0.96), rgba(228, 223, 233, 0.86)),
@@ -103,7 +114,7 @@ a {
   font-family: "Space Grotesk", sans-serif;
   font-size: 1.8rem;
   line-height: 1.02;
-  letter-spacing: -0.03em;
+  letter-spacing: 0;
 }
 
 .mobile-app-shell__subtitle {
@@ -142,6 +153,7 @@ a {
 }
 
 .mobile-app-shell__install-banner {
+  max-width: 100%;
   margin-top: 12px;
   padding: 14px 14px 14px 12px;
   border: 1px solid color-mix(in srgb, var(--app-color-primary) 24%, var(--app-border));
@@ -169,6 +181,7 @@ a {
 }
 
 .mobile-app-shell__install-copy {
+  min-width: 0;
   display: grid;
   gap: 4px;
 }
@@ -182,6 +195,7 @@ a {
   color: var(--app-muted);
   font-size: 0.88rem;
   line-height: 1.45;
+  overflow-wrap: anywhere;
 }
 
 .mobile-app-shell__install-actions {
@@ -191,13 +205,16 @@ a {
 }
 
 .mobile-app-shell__content {
+  max-width: 100%;
   min-height: calc(100vh - 110px);
   padding: 12px 12px calc(102px + env(safe-area-inset-bottom));
   box-sizing: border-box;
 }
 
 .mobile-app-shell__surface {
+  max-width: 100%;
   min-height: calc(100vh - 188px);
+  overflow: hidden;
   padding: 14px 12px 18px;
   border: 1px solid color-mix(in srgb, var(--app-border) 86%, transparent);
   border-radius: 28px 28px 22px 22px;
@@ -239,6 +256,15 @@ a {
 
 .mobile-app-shell__tabbar .adm-tab-bar-item {
   color: var(--app-muted);
+}
+
+.mobile-app-shell__tabbar .adm-tab-bar-item-title {
+  max-width: 72px;
+  font-size: 0.72rem;
+  line-height: 1.12;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: clip;
 }
 
 .mobile-app-shell__tabbar .adm-tab-bar-item-active {
@@ -337,6 +363,8 @@ a {
 }
 
 .mobile-screen-card {
+  max-width: 100%;
+  overflow: hidden;
   background: var(--app-surface);
   border: 1px solid var(--app-border);
   box-shadow: var(--app-shadow);
@@ -346,6 +374,7 @@ a {
 .dashboard-mobile {
   display: grid;
   gap: 18px;
+  min-width: 0;
 }
 
 .dashboard-mobile__hero .adm-card-body,
@@ -357,9 +386,11 @@ a {
   display: grid;
   gap: 16px;
   padding: 18px;
+  min-width: 0;
 }
 
 .dashboard-mobile__hero-copy {
+  min-width: 0;
   display: grid;
   gap: 8px;
 }
@@ -375,8 +406,10 @@ a {
 .dashboard-mobile__title {
   margin: 0;
   font-family: "Space Grotesk", sans-serif;
-  font-size: clamp(1.5rem, 5vw, 2rem);
+  font-size: 1.5rem;
   line-height: 1.08;
+  letter-spacing: 0;
+  overflow-wrap: break-word;
 }
 
 .dashboard-mobile__subtitle {
@@ -384,6 +417,7 @@ a {
   color: var(--app-muted);
   font-size: 0.95rem;
   line-height: 1.55;
+  overflow-wrap: anywhere;
 }
 
 .dashboard-mobile__stats {
@@ -486,6 +520,7 @@ a {
 }
 
 .dashboard-mobile__card-copy {
+  min-width: 0;
   display: grid;
   gap: 6px;
 }
@@ -498,12 +533,53 @@ a {
   font-size: 1.02rem;
   font-weight: 800;
   line-height: 1.25;
+  overflow-wrap: anywhere;
 }
 
 .dashboard-mobile__card-summary {
   color: var(--app-muted);
   font-size: 0.92rem;
   line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.login-mobile__install-card .adm-card-body {
+  padding: 0;
+}
+
+.login-mobile__install-body {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 14px;
+}
+
+.login-mobile__install-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  color: var(--app-color-primary);
+  background: rgba(126, 44, 111, 0.12);
+}
+
+.login-mobile__install-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.login-mobile__install-copy strong {
+  line-height: 1.15;
+}
+
+.login-mobile__install-copy span {
+  color: var(--app-muted);
+  font-size: 0.88rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 .dashboard-desktop__cover {

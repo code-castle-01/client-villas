@@ -174,10 +174,13 @@ const isInactiveMember = (member: DirectoryMember) =>
     (group) => normalizeText(group.nombre) === normalizeText(INACTIVE_GROUP_NAME),
   );
 
+const isLimitedMember = (member: DirectoryMember) => member.limitacion === true;
+
 const buildAssignableMemberPool = (members: DirectoryMember[]): MemberOption[] =>
   members
     .filter(isMaleMember)
     .filter((member) => !isInactiveMember(member))
+    .filter((member) => !isLimitedMember(member))
     .map((member) => ({
       id: member.id,
       nombre: member.nombre.trim(),
@@ -310,6 +313,7 @@ const resolveNextAudioSequenceId = (
 const buildAudioSequence = (members: DirectoryMember[]) => {
   const membersByName = new Map(
     members
+      .filter((member) => !isLimitedMember(member))
       .map((member) => [normalizeText(member.nombre), member] as const)
       .filter((entry) => entry[1]?.nombre),
   );
@@ -585,7 +589,7 @@ export const buildMecanicaAutoGenerationPlan = ({
   const { sequenceIds: audioSequenceIds, missingNames } = buildAudioSequence(members);
   if (missingNames.length) {
     warnings.add(
-      `No se encontraron en el directorio estos hermanos de Audio y Video: ${missingNames.join(", ")}.`,
+      `No están disponibles para Audio y Video estos hermanos: ${missingNames.join(", ")}.`,
     );
   }
 

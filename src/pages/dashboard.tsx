@@ -1,6 +1,6 @@
 import type { FC, ReactNode } from "react";
 import { Card, Col, Row } from "antd";
-import { Button as MobileButton, Card as MobileCard, NoticeBar } from "antd-mobile";
+import { Button as MobileButton, Card as MobileCard } from "antd-mobile";
 import { useNavigate } from "react-router";
 import { useAdaptiveUI } from "../adaptive/useAdaptiveUI";
 import type { AppResource } from "../app/resources";
@@ -53,8 +53,6 @@ export const DashboardPage: FC<DashboardPageProps> = ({ resources }) => {
                 abajo y acceso rápido a cada escena.
               </p>
             </div>
-
-            <NoticeBar content="Si instalas la app, la experiencia será más estable y se abrirá como una app completa desde tu pantalla de inicio." />
           </div>
         </MobileCard>
 

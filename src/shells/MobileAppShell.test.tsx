@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AdaptiveUIContext } from "../adaptive/context";
@@ -18,6 +18,14 @@ const lifecycleMock = vi.hoisted(() => ({
   isOfflineReady: false,
   isUpdateReady: false,
   resetUpdateReady: vi.fn(),
+}));
+
+const logoutMock = vi.hoisted(() => vi.fn());
+
+vi.mock("@refinedev/core", () => ({
+  useLogout: () => ({
+    mutate: logoutMock,
+  }),
 }));
 
 vi.mock("../pwa/usePwaInstallPrompt", () => ({
@@ -85,7 +93,7 @@ describe("MobileAppShell", () => {
 
     expect(screen.getByText("contenido móvil")).toBeInTheDocument();
     expect(screen.getByLabelText(/Abrir ajustes/i)).toBeInTheDocument();
-    expect(screen.getByText(/Instala la app/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Instala la app/i)).not.toBeInTheDocument();
   });
 
   it("shows desktop handoff for unsupported routes", () => {
@@ -104,20 +112,20 @@ describe("MobileAppShell", () => {
     expect(screen.getAllByText("Instalar").length).toBeGreaterThan(0);
   });
 
-  it("shows manual install guidance for iOS Safari when there is no native prompt", () => {
+  it("does not show non-actionable iOS install guidance without a native prompt", () => {
     installPromptMock.manualInstallPlatform = "ios";
 
     renderShell("/mis-asignaciones", { child: <div>contenido móvil</div> });
 
-    expect(screen.getByText(/Añadir a pantalla de inicio/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Añadir a pantalla de inicio/i)).not.toBeInTheDocument();
   });
 
-  it("shows generic Android guidance when there is no native prompt", () => {
+  it("does not show non-actionable Android guidance without a native prompt", () => {
     installPromptMock.manualInstallPlatform = "android-manual";
 
     renderShell("/mis-asignaciones", { child: <div>contenido móvil</div> });
 
-    expect(screen.getByText(/Instalar aplicación/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Instalar aplicación/i)).not.toBeInTheDocument();
   });
 
   it("hides install banner when the app is already running standalone", () => {
@@ -129,5 +137,20 @@ describe("MobileAppShell", () => {
     });
 
     expect(screen.queryByText(/Instala la app/i)).not.toBeInTheDocument();
+  });
+
+  it("includes Mecánicas in the mobile bottom menu", () => {
+    renderShell("/", { child: <div>inicio</div> });
+
+    expect(screen.getByText("Mecánicas")).toBeInTheDocument();
+  });
+
+  it("offers logout from the settings panel", () => {
+    renderShell("/", { child: <div>inicio</div> });
+
+    fireEvent.click(screen.getByLabelText(/Abrir ajustes/i));
+    fireEvent.click(screen.getByText(/Cerrar sesión/i));
+
+    expect(logoutMock).toHaveBeenCalledTimes(1);
   });
 });

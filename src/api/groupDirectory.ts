@@ -45,6 +45,7 @@ type RawMember = {
   fechaInmersion?: string;
   genero?: "hombre" | "mujer";
   nombramientos?: unknown;
+  limitacion?: boolean | null;
   categoria?: string;
   roles?: unknown;
   usuario?: RawUserRelation;
@@ -69,6 +70,7 @@ export type DirectoryMember = {
   fechaInmersion?: string;
   genero?: "hombre" | "mujer";
   nombramientos: string[];
+  limitacion: boolean;
   roles: string[];
   usuarioId?: number;
   usuarioEmail?: string;
@@ -168,6 +170,7 @@ const normalizeMember = (member: RawMember): DirectoryMember => ({
   fechaInmersion: member.fechaInmersion,
   genero: member.genero,
   nombramientos: normalizeNombramientos(member.nombramientos, member.categoria),
+  limitacion: Boolean(member.limitacion),
   roles: normalizeRoles(member.roles),
   grupos: normalizeLinkedGroups(member.grupos),
   ...normalizeUser(member.usuario),

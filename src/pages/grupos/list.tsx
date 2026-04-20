@@ -11,6 +11,7 @@ import {
   Input,
   Modal,
   Popconfirm,
+  Radio,
   Result,
   Row,
   Select,
@@ -98,6 +99,7 @@ type Miembro = {
     | "anciano"
     | "siervo_ministerial"
   >;
+  limitacion: boolean;
   usuarioId?: number;
   usuarioEmail?: string;
   usuarioUsername?: string;
@@ -305,6 +307,7 @@ export const GruposAdminPage: React.FC = () => {
       fechaInmersion?: string;
       genero?: "hombre" | "mujer";
       nombramientos?: Miembro["nombramientos"];
+      limitacion?: boolean | null;
       categoria?: string;
       usuario?:
         | {
@@ -332,6 +335,7 @@ export const GruposAdminPage: React.FC = () => {
         fechaInmersion?: string;
         genero?: "hombre" | "mujer";
         nombramientos?: Miembro["nombramientos"];
+        limitacion?: boolean | null;
         categoria?: string;
         usuario?:
           | {
@@ -370,6 +374,7 @@ export const GruposAdminPage: React.FC = () => {
         : m.categoria
         ? [m.categoria]
         : [],
+      limitacion: Boolean(m.limitacion),
       usuarioId: (m.usuario as any)?.data?.id ?? (m.usuario as any)?.id,
       usuarioEmail:
         (m.usuario as any)?.data?.attributes?.email ??
@@ -526,6 +531,7 @@ export const GruposAdminPage: React.FC = () => {
           return {
             id: groupMember.id,
             nombre: groupMember.nombre,
+            limitacion: false,
             grupos: [g.id],
           } as Miembro;
         }),
@@ -713,11 +719,13 @@ export const GruposAdminPage: React.FC = () => {
         fechaInmersion: parseDateValue(miembro.fechaInmersion),
         genero: miembro.genero,
         nombramientos: miembro.nombramientos,
+        limitacion: miembro.limitacion ?? false,
         grupo: miembro.grupos[0] ?? undefined,
       });
     } else {
       setSelectedLinkedMiembro(null);
       miembroForm.resetFields();
+      miembroForm.setFieldsValue({ limitacion: false });
     }
     setMiembroModalOpen(true);
   };
@@ -804,6 +812,7 @@ export const GruposAdminPage: React.FC = () => {
           fechaInmersion?: string;
           genero?: "hombre" | "mujer";
           nombramientos?: Miembro["nombramientos"];
+          limitacion?: boolean | null;
           usuario?:
             | {
                 data: {
@@ -835,6 +844,7 @@ export const GruposAdminPage: React.FC = () => {
             nombramientos: Array.isArray((fetchedMember as any).nombramientos)
               ? (fetchedMember as any).nombramientos
               : [],
+            limitacion: Boolean(fetchedMember.limitacion),
             usuarioId:
               (fetchedMember.usuario as any)?.data?.id ??
               (fetchedMember.usuario as any)?.id,
@@ -871,6 +881,7 @@ export const GruposAdminPage: React.FC = () => {
             fechaInmersion: parseDateValue(linkedMember.fechaInmersion),
             genero: linkedMember.genero,
             nombramientos: linkedMember.nombramientos,
+            limitacion: linkedMember.limitacion ?? false,
             grupo: linkedMember.grupos[0] ?? undefined,
           }
         : {}),
@@ -930,6 +941,7 @@ export const GruposAdminPage: React.FC = () => {
       fechaInmersion,
       genero: values.genero,
       nombramientos,
+      limitacion: values.limitacion ?? false,
       usuario: userId ?? null,
       grupos: {
         set: values.grupo ? [values.grupo] : [],
@@ -1027,6 +1039,10 @@ export const GruposAdminPage: React.FC = () => {
             <div>{miembro.genero ? generoLabels[miembro.genero] : "N/A"}</div>
           </div>
           <div>
+            <div className="miembro-detail__label">Limitación</div>
+            <div>{miembro.limitacion ? "Sí" : "No"}</div>
+          </div>
+          <div>
             <div className="miembro-detail__label">Nombramientos</div>
             <div>{nombramientos.length ? nombramientos.join(", ") : "N/A"}</div>
           </div>
@@ -1122,6 +1138,22 @@ export const GruposAdminPage: React.FC = () => {
           record.telefono || record.celular
         ) : (
           <span className="text-muted">N/A</span>
+        ),
+    },
+    {
+      title: "Limitación",
+      dataIndex: "limitacion",
+      key: "limitacion",
+      filters: [
+        { text: "Sí", value: "true" },
+        { text: "No", value: "false" },
+      ],
+      onFilter: (value, record) => String(Boolean(record.limitacion)) === value,
+      render: (value?: boolean) =>
+        value ? (
+          <Tag color="warning">Sí</Tag>
+        ) : (
+          <Tag color="default">No</Tag>
         ),
     },
     {
@@ -1590,6 +1622,25 @@ export const GruposAdminPage: React.FC = () => {
                 </Col>
               </Row>
             )}
+
+          <Row gutter={16}>
+            <Col xs={24} md={12}>
+              <Form.Item
+                name="limitacion"
+                label="Limitación"
+                initialValue={false}
+              >
+                <Radio.Group
+                  optionType="button"
+                  buttonStyle="solid"
+                  options={[
+                    { label: "No", value: false },
+                    { label: "Sí", value: true },
+                  ]}
+                />
+              </Form.Item>
+            </Col>
+          </Row>
 
           <MiembroProfileFields
             form={miembroForm}

@@ -1,17 +1,18 @@
 import { useLogin } from "@refinedev/core";
+import { DownloadOutlined } from "@ant-design/icons";
 import { useEffect, useState } from "react";
 import {
   AutoCenter,
   Button as MobileButton,
   Card as MobileCard,
   Input as MobileInput,
-  NoticeBar,
   SafeArea,
   Toast,
 } from "antd-mobile";
 import { Button, Card, Flex, Form, Input, Typography } from "antd";
 import { useAdaptiveUI } from "../adaptive/useAdaptiveUI";
 import { appName } from "../config/env";
+import { usePwaInstallPrompt } from "../pwa/usePwaInstallPrompt";
 
 // Array of landscape image URLs from Pixabay
 const landscapeImages = [
@@ -27,7 +28,8 @@ export const Login: React.FC = () => {
     identifier: string;
     password: string;
   }>();
-  const { resolvedMode } = useAdaptiveUI();
+  const { isStandalone, resolvedMode } = useAdaptiveUI();
+  const { canInstall, promptInstall } = usePwaInstallPrompt();
   const [backgroundImage, setBackgroundImage] = useState<string>("");
   const [mobileValues, setMobileValues] = useState({
     identifier: "",
@@ -56,6 +58,28 @@ export const Login: React.FC = () => {
     });
   };
 
+  const handleInstall = async () => {
+    if (!canInstall) {
+      Toast.show({
+        content: "El navegador todavía no tiene lista la instalación.",
+      });
+      return;
+    }
+
+    const installed = await promptInstall();
+    if (installed) {
+      Toast.show({
+        content: "La app quedó lista para abrirse desde tu pantalla de inicio.",
+      });
+    } else {
+      Toast.show({
+        content: "Instalación cancelada.",
+      });
+    }
+  };
+
+  const showInstallCta = !isStandalone;
+
   if (resolvedMode === "mobile") {
     return (
       <div
@@ -81,10 +105,13 @@ export const Login: React.FC = () => {
                   "linear-gradient(160deg, var(--app-color-primary), var(--app-color-primary-accent))",
                 color: "#fff",
                 fontSize: 32,
+                fontWeight: 800,
+                letterSpacing: 0,
+                fontFamily: '"Space Grotesk", sans-serif',
                 boxShadow: "var(--app-shadow)",
               }}
             >
-              ⛪
+              JW
             </div>
           </AutoCenter>
 
@@ -100,7 +127,22 @@ export const Login: React.FC = () => {
             </Typography.Text>
           </div>
 
-          <NoticeBar content="Instálala como PWA para abrirla a pantalla completa." />
+          {showInstallCta && (
+            <MobileCard className="mobile-screen-card login-mobile__install-card">
+              <div className="login-mobile__install-body">
+                <div className="login-mobile__install-icon">
+                  <DownloadOutlined />
+                </div>
+                <div className="login-mobile__install-copy">
+                  <strong>Instala la app</strong>
+                  <span>Entra a Las Villas como app de pantalla completa.</span>
+                </div>
+                <MobileButton color="primary" size="small" onClick={handleInstall}>
+                  Instalar
+                </MobileButton>
+              </div>
+            </MobileCard>
+          )}
 
           <MobileCard className="mobile-screen-card">
             <div style={{ display: "grid", gap: 14 }}>
