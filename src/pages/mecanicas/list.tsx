@@ -24,10 +24,20 @@ import {
   Tabs,
   Tag,
   Typography,
+  message,
+  notification,
 } from "antd";
+import {
+  AUTO_GENERATION_WEEKDAY_OPTIONS,
+  buildMecanicaAutoGenerationPlan,
+  buildWeekdayDatesInRange,
+  inferAutoGenerationWeekdays,
+  resolveAutoGenerationMonthRange,
+  type MechanicsAssignmentRecord,
+} from "./autoGeneration";
 import { EditOutlined, DeleteOutlined } from "@ant-design/icons";
 import { ColumnsType } from "antd/es/table";
-import dayjs from "dayjs";
+import dayjs, { type Dayjs } from "dayjs";
 import "dayjs/locale/es";
 import { useAdaptiveUI } from "../../adaptive/useAdaptiveUI";
 import {
@@ -55,7 +65,12 @@ const normalizeGroupName = (value?: string) =>
     .trim()
     .toUpperCase();
 
-interface ScheduleData {
+type AutoGenerateFormValues = {
+  range?: [Dayjs, Dayjs];
+  weekdays?: number[];
+};
+
+interface ScheduleData extends MechanicsAssignmentRecord {
   key: string;
   documentId?: string;
   dateValue: string;
@@ -232,6 +247,7 @@ export const ScheduleTable: React.FC = () => {
   const { resolvedMode, setOverrideMode } = useAdaptiveUI();
   const isNativeMobile = resolvedMode === "mobile";
   const [form] = Form.useForm();
+  const [autoForm] = Form.useForm<AutoGenerateFormValues>();
   const [data, setData] = useState<ScheduleData[]>([]);
   const isAdminApp = useIsAdminApp();
   const canEditInCurrentView = isAdminApp && !isNativeMobile;
@@ -244,19 +260,43 @@ export const ScheduleTable: React.FC = () => {
       }, {}),
     [miembros],
   );
-  const assignmentGroupOptions = useMemo(() => {
+  const activeGroupSequence = useMemo(() => {
     const totalActiveGroups = grupos.filter(
       (group) => normalizeGroupName(group.nombre) !== INACTIVE_GROUP_NAME,
     ).length;
 
-    return Array.from({ length: totalActiveGroups }, (_, index) => ({
-      label: String(index + 1),
-      value: String(index + 1),
-    }));
+    return Array.from({ length: totalActiveGroups }, (_, index) =>
+      String(index + 1),
+    );
   }, [grupos]);
+
+  const assignmentGroupOptions = useMemo(
+    () =>
+      activeGroupSequence.map((value) => ({
+        label: value,
+        value,
+      })),
+    [activeGroupSequence],
+  );
+
+  const watchedAutoRange = Form.useWatch("range", autoForm);
+  const watchedAutoWeekdays = Form.useWatch("weekdays", autoForm) ?? [];
+  const autoPreviewDates = useMemo(() => {
+    if (!watchedAutoRange?.[0] || !watchedAutoRange?.[1]) {
+      return [];
+    }
+
+    return buildWeekdayDatesInRange(
+      watchedAutoRange[0],
+      watchedAutoRange[1],
+      watchedAutoWeekdays,
+    );
+  }, [watchedAutoRange, watchedAutoWeekdays]);
 
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
+  const [isAutoModalVisible, setIsAutoModalVisible] = useState(false);
+  const [isAutoGenerating, setIsAutoGenerating] = useState(false);
   const [duplicateError, setDuplicateError] = useState<string | null>(null);
   const [selectedMonthKey, setSelectedMonthKey] = useState<string | null>(null);
 
@@ -313,6 +353,132 @@ export const ScheduleTable: React.FC = () => {
   );
 
   const activeMonthLabel = MONTH_LABELS[Number(activeMonthKey)] ?? "este mes";
+  const autoGenerationMonthRange = useMemo(
+    () => resolveAutoGenerationMonthRange(data, activeMonthKey),
+    [activeMonthKey, data],
+  );
+  const inferredAutoWeekdays = useMemo(
+    () => inferAutoGenerationWeekdays(data, autoGenerationMonthRange.start),
+    [autoGenerationMonthRange.start, data],
+  );
+
+  const openAutoGenerateModal = () => {
+    if (!canEditInCurrentView) return;
+
+    autoForm.setFieldsValue({
+      range: [autoGenerationMonthRange.start, autoGenerationMonthRange.end],
+      weekdays: inferredAutoWeekdays,
+    });
+    setIsAutoModalVisible(true);
+  };
+
+  const closeAutoGenerateModal = () => {
+    setIsAutoModalVisible(false);
+    autoForm.resetFields();
+  };
+
+  const showAutoGenerationWarnings = (warnings: string[]) => {
+    if (!warnings.length) return;
+
+    notification.warning({
+      message: "Detalles de la autogeneración",
+      duration: 8,
+      placement: "topRight",
+      description: (
+        <div style={{ display: "grid", gap: 6 }}>
+          {warnings.map((warning) => (
+            <div key={warning}>{warning}</div>
+          ))}
+        </div>
+      ),
+    });
+  };
+
+  const handleAutoGenerateAssignments = async () => {
+    if (!canEditInCurrentView) return;
+
+    try {
+      const values = await autoForm.validateFields();
+      const range = values.range;
+      const weekdays = [...new Set(values.weekdays ?? [])];
+
+      if (!range?.[0] || !range?.[1] || !weekdays.length) {
+        return;
+      }
+
+      const targetDates = buildWeekdayDatesInRange(range[0], range[1], weekdays);
+      if (!targetDates.length) {
+        message.warning("No hay fechas para autogenerar con esa selección.");
+        return;
+      }
+
+      setIsAutoGenerating(true);
+
+      const plan = buildMecanicaAutoGenerationPlan({
+        assignments: data,
+        members: miembros,
+        groupSequence: activeGroupSequence,
+        targetDates,
+      });
+
+      if (!plan.operations.length) {
+        closeAutoGenerateModal();
+        message.info(
+          plan.skippedCount
+            ? `No hubo cambios: ${plan.skippedCount} fecha(s) ya estaban completas.`
+            : "No hubo cambios para aplicar.",
+        );
+        showAutoGenerationWarnings(plan.warnings);
+        return;
+      }
+
+      for (const operation of plan.operations) {
+        if (operation.mode === "update" && operation.targetId) {
+          await updateEntry(MECANICAS_RESOURCE, operation.targetId, operation.payload);
+        } else {
+          await createEntry(MECANICAS_RESOURCE, operation.payload);
+        }
+      }
+
+      const createdCount = plan.operations.filter(
+        (operation) => operation.mode === "create",
+      ).length;
+      const updatedCount = plan.operations.filter(
+        (operation) => operation.mode === "update",
+      ).length;
+
+      setData(await fetchAssignments());
+      closeAutoGenerateModal();
+
+      const summaryParts = [
+        createdCount ? `${createdCount} creada(s)` : null,
+        updatedCount ? `${updatedCount} actualizada(s)` : null,
+        plan.skippedCount ? `${plan.skippedCount} sin cambios` : null,
+      ].filter(Boolean);
+
+      message.success(
+        summaryParts.length
+          ? `Autogeneración completada: ${summaryParts.join(", ")}.`
+          : "Autogeneración completada.",
+      );
+      showAutoGenerationWarnings(plan.warnings);
+    } catch (error) {
+      if ((error as { errorFields?: unknown[] })?.errorFields) {
+        return;
+      }
+
+      const detail =
+        (error as { response?: { data?: { error?: { message?: string }; message?: string } } })
+          ?.response?.data?.error?.message ??
+        (error as { response?: { data?: { message?: string } } })?.response?.data
+          ?.message ??
+        "No se pudieron autogenerar las asignaciones.";
+
+      message.error(detail);
+    } finally {
+      setIsAutoGenerating(false);
+    }
+  };
 
   const handleAddOrUpdateAssignment = () => {
     if (!canEditInCurrentView) return;
@@ -682,17 +848,20 @@ export const ScheduleTable: React.FC = () => {
 
             <Space wrap size={12}>
               {canEditInCurrentView && (
-                <Button
-                  type="primary"
-                  onClick={() => {
-                    setEditingKey(null);
-                    setDuplicateError(null);
-                    form.resetFields();
-                    setIsModalVisible(true);
-                  }}
-                >
-                  Nueva Asignación
-                </Button>
+                <>
+                  <Button onClick={openAutoGenerateModal}>Autogenerar Mes</Button>
+                  <Button
+                    type="primary"
+                    onClick={() => {
+                      setEditingKey(null);
+                      setDuplicateError(null);
+                      form.resetFields();
+                      setIsModalVisible(true);
+                    }}
+                  >
+                    Nueva Asignación
+                  </Button>
+                </>
               )}
               <PDFMecanicas data={filteredData} />
             </Space>
@@ -714,6 +883,100 @@ export const ScheduleTable: React.FC = () => {
           />
         )}
       </Flex>
+
+      {canEditInCurrentView && (
+        <Modal
+          title={`Autogenerar asignaciones de ${activeMonthLabel}`}
+          open={isAutoModalVisible}
+          width={isSmallScreen ? "100%" : 760}
+          confirmLoading={isAutoGenerating}
+          okText="Generar"
+          cancelText="Cancelar"
+          onOk={handleAutoGenerateAssignments}
+          onCancel={closeAutoGenerateModal}
+        >
+          <Form form={autoForm} layout="vertical">
+            <Alert
+              showIcon
+              type="info"
+              style={{ marginBottom: 16 }}
+              message="Se crearán o completarán las fechas del rango elegido."
+              description="Limpieza y hospitalidad seguirán la secuencia del historial. Audio y Video principal continuará con la lista fija. El auxiliar quedará vacío y los acomodadores/micrófonos intentarán variar respecto al mes anterior."
+            />
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: isSmallScreen
+                  ? "1fr"
+                  : "minmax(0, 1.1fr) minmax(0, 0.9fr)",
+                gap: 16,
+              }}
+            >
+              <Form.Item
+                label="Rango de fechas"
+                name="range"
+                rules={[
+                  {
+                    required: true,
+                    message: "Selecciona el rango de fechas a procesar.",
+                  },
+                ]}
+              >
+                <DatePicker.RangePicker
+                  style={{ width: "100%" }}
+                  format="DD-MM-YYYY"
+                  disabledDate={(currentDate) =>
+                    currentDate.year() !== autoGenerationMonthRange.start.year() ||
+                    currentDate.month() !== autoGenerationMonthRange.start.month()
+                  }
+                />
+              </Form.Item>
+
+              <Form.Item
+                label="Días de reunión"
+                name="weekdays"
+                rules={[
+                  {
+                    required: true,
+                    type: "array",
+                    min: 1,
+                    message: "Selecciona al menos un día.",
+                  },
+                ]}
+              >
+                <Select
+                  mode="multiple"
+                  options={[...AUTO_GENERATION_WEEKDAY_OPTIONS]}
+                  placeholder="Selecciona los días"
+                />
+              </Form.Item>
+            </div>
+          </Form>
+
+          <Alert
+            showIcon
+            type={autoPreviewDates.length ? "success" : "warning"}
+            style={{ marginTop: 8 }}
+            message={
+              autoPreviewDates.length
+                ? `${autoPreviewDates.length} fecha(s) lista(s) para crear o completar`
+                : "Selecciona un rango y uno o más días para ver la vista previa."
+            }
+            description={
+              autoPreviewDates.length ? (
+                <Space wrap>
+                  {autoPreviewDates.map((dateValue) => (
+                    <Tag key={dateValue} color="blue">
+                      {formatDateLabel(dateValue)}
+                    </Tag>
+                  ))}
+                </Space>
+              ) : null
+            }
+          />
+        </Modal>
+      )}
 
       {canEditInCurrentView && (
         <Modal
