@@ -7,6 +7,7 @@ export type AdaptiveUIState = {
   overrideMode: AdaptiveUIOverrideMode;
   isStandalone: boolean;
   isTouchLike: boolean;
+  screenShortSide: number;
   viewportWidth: number;
   setOverrideMode: (mode: AdaptiveUIOverrideMode) => void;
 };

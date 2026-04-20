@@ -26,6 +26,13 @@ describe("AdaptiveUIProvider", () => {
       configurable: true,
       value: 390,
     });
+    Object.defineProperty(window, "screen", {
+      configurable: true,
+      value: {
+        width: 390,
+        height: 844,
+      },
+    });
     window.matchMedia = ((query: string) => ({
       matches: query === "(pointer: coarse)",
       media: query,

@@ -8,7 +8,24 @@ interface BeforeInstallPromptEvent extends Event {
   }>;
 }
 
-const getManualInstallPlatform = () => {
+type ManualInstallPlatform = "ios" | "android-manual" | null;
+
+type InstallPromptSnapshot = {
+  installPrompt: BeforeInstallPromptEvent | null;
+  manualInstallPlatform: ManualInstallPlatform;
+};
+
+let isInstallPromptCaptureInitialized = false;
+let currentInstallPrompt: BeforeInstallPromptEvent | null = null;
+let currentManualInstallPlatform: ManualInstallPlatform = null;
+
+const listeners = new Set<() => void>();
+
+const notifyListeners = () => {
+  listeners.forEach((listener) => listener());
+};
+
+const getManualInstallPlatform = (): ManualInstallPlatform => {
   if (typeof window === "undefined") {
     return null;
   }
@@ -20,47 +37,71 @@ const getManualInstallPlatform = () => {
   const isSafariBrowser =
     /Safari/i.test(userAgent) && !/CriOS|FxiOS|EdgiOS|OPiOS|YaBrowser/i.test(userAgent);
 
-  return isIosDevice && isSafariBrowser ? "ios" : null;
+  if (isIosDevice && isSafariBrowser) {
+    return "ios";
+  }
+
+  return /Android/i.test(userAgent) ? "android-manual" : null;
+};
+
+const readSnapshot = (): InstallPromptSnapshot => ({
+  installPrompt: currentInstallPrompt,
+  manualInstallPlatform: currentManualInstallPlatform,
+});
+
+export const initPwaInstallPromptCapture = () => {
+  if (typeof window === "undefined" || isInstallPromptCaptureInitialized) {
+    return;
+  }
+
+  isInstallPromptCaptureInitialized = true;
+  currentManualInstallPlatform = getManualInstallPlatform();
+
+  const handleBeforeInstallPrompt = (event: Event) => {
+    event.preventDefault();
+    currentInstallPrompt = event as BeforeInstallPromptEvent;
+    notifyListeners();
+  };
+
+  const handleAppInstalled = () => {
+    currentInstallPrompt = null;
+    notifyListeners();
+  };
+
+  window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+  window.addEventListener("appinstalled", handleAppInstalled);
 };
 
 export const usePwaInstallPrompt = () => {
-  const [installPrompt, setInstallPrompt] =
-    useState<BeforeInstallPromptEvent | null>(null);
-  const [manualInstallPlatform] = useState(() => getManualInstallPlatform());
+  const [snapshot, setSnapshot] = useState<InstallPromptSnapshot>(() => readSnapshot());
 
   useEffect(() => {
-    const handleBeforeInstallPrompt = (event: Event) => {
-      event.preventDefault();
-      setInstallPrompt(event as BeforeInstallPromptEvent);
+    initPwaInstallPromptCapture();
+
+    const handleSnapshotChange = () => {
+      setSnapshot(readSnapshot());
     };
 
-    const handleAppInstalled = () => {
-      setInstallPrompt(null);
-    };
-
-    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
-    window.addEventListener("appinstalled", handleAppInstalled);
+    listeners.add(handleSnapshotChange);
+    handleSnapshotChange();
 
     return () => {
-      window.removeEventListener(
-        "beforeinstallprompt",
-        handleBeforeInstallPrompt,
-      );
-      window.removeEventListener("appinstalled", handleAppInstalled);
+      listeners.delete(handleSnapshotChange);
     };
   }, []);
 
   return {
-    canInstall: Boolean(installPrompt),
-    manualInstallPlatform,
+    canInstall: Boolean(snapshot.installPrompt),
+    manualInstallPlatform: snapshot.manualInstallPlatform,
     promptInstall: async () => {
-      if (!installPrompt) {
+      if (!currentInstallPrompt) {
         return false;
       }
 
-      await installPrompt.prompt();
-      const result = await installPrompt.userChoice;
-      setInstallPrompt(null);
+      await currentInstallPrompt.prompt();
+      const result = await currentInstallPrompt.userChoice;
+      currentInstallPrompt = null;
+      notifyListeners();
       return result.outcome === "accepted";
     },
   };

@@ -139,6 +139,22 @@
   white-space: pre-wrap;
 }
 
+.revisitas-mobile-list {
+  display: grid;
+  gap: 14px;
+}
+
+.revisitas-mobile-card.ant-card {
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+  background: var(--surface);
+}
+
+.revisitas-mobile-card .ant-card-body {
+  padding: 16px;
+}
+
 @media (max-width: 768px) {
   .revisitas-sheet__header {
     align-items: flex-start;

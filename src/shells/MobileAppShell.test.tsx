@@ -9,7 +9,7 @@ import { MobileAppShell } from "./MobileAppShell";
 
 const installPromptMock = vi.hoisted(() => ({
   canInstall: false,
-  manualInstallPlatform: null as "ios" | null,
+  manualInstallPlatform: null as "ios" | "android-manual" | null,
   promptInstall: vi.fn(async () => true),
 }));
 
@@ -58,6 +58,7 @@ const renderShell = (
             overrideMode: "auto",
             isStandalone,
             isTouchLike: true,
+            screenShortSide: 390,
             viewportWidth: 390,
             setOverrideMode: () => undefined,
           }}
@@ -84,6 +85,7 @@ describe("MobileAppShell", () => {
 
     expect(screen.getByText("contenido móvil")).toBeInTheDocument();
     expect(screen.getByLabelText(/Abrir ajustes/i)).toBeInTheDocument();
+    expect(screen.getByText(/Instala la app/i)).toBeInTheDocument();
   });
 
   it("shows desktop handoff for unsupported routes", () => {
@@ -108,6 +110,14 @@ describe("MobileAppShell", () => {
     renderShell("/mis-asignaciones", { child: <div>contenido móvil</div> });
 
     expect(screen.getByText(/Añadir a pantalla de inicio/i)).toBeInTheDocument();
+  });
+
+  it("shows generic Android guidance when there is no native prompt", () => {
+    installPromptMock.manualInstallPlatform = "android-manual";
+
+    renderShell("/mis-asignaciones", { child: <div>contenido móvil</div> });
+
+    expect(screen.getByText(/Instalar aplicación/i)).toBeInTheDocument();
   });
 
   it("hides install banner when the app is already running standalone", () => {

@@ -456,6 +456,11 @@ a {
   min-height: 100%;
 }
 
+.dashboard-mobile__card-body--centered {
+  justify-items: center;
+  text-align: center;
+}
+
 .dashboard-mobile__card-icon {
   width: 56px;
   height: 56px;
@@ -485,6 +490,10 @@ a {
   gap: 6px;
 }
 
+.dashboard-mobile__card-copy--centered {
+  justify-items: center;
+}
+
 .dashboard-mobile__card-title {
   font-size: 1.02rem;
   font-weight: 800;
@@ -511,16 +520,9 @@ a {
 }
 
 .dashboard-desktop__summary {
-  margin: 0 0 8px;
+  margin: 0;
   color: var(--app-muted);
   line-height: 1.5;
-}
-
-.dashboard-desktop__status {
-  margin: 0;
-  color: var(--app-color-primary);
-  font-size: 0.92rem;
-  font-weight: 700;
 }
 
 .mobile-assignment-item,

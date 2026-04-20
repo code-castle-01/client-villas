@@ -14,6 +14,7 @@ import type { ColumnsType } from "antd/es/table";
 import { ReloadOutlined } from "@ant-design/icons";
 import { ColorModeContext } from "../../contexts/color-mode";
 import { useDirectory } from "../../contexts/directory";
+import useMediaQuery from "../../hooks/useMediaQuery";
 import "../grupos/styles.css";
 import "./styles.css";
 
@@ -69,6 +70,7 @@ const nombramientoTagClass: Record<string, string> = {
 export const NombramientosPorGrupo: React.FC = () => {
   const { mode } = useContext(ColorModeContext);
   const { notification } = AntdApp.useApp();
+  const isSmallScreen = useMediaQuery("(max-width: 768px)");
   const {
     grupos: directoryGroups,
     miembros: directoryMembers,
@@ -313,14 +315,80 @@ export const NombramientosPorGrupo: React.FC = () => {
       </Card>
 
       <Card className="grupos-card nombramientos-card" bordered={false}>
-        <Table<Row>
-          className="grupos-table nombramientos-table"
-          rowKey="key"
-          columns={columns}
-          dataSource={filteredRows}
-          loading={loading}
-          pagination={{ pageSize: 40, showSizeChanger: false }}
-        />
+        {isSmallScreen ? (
+          filteredRows.length ? (
+            <div className="nombramientos-mobile-list">
+              {filteredRows.map((row) => (
+                <Card
+                  key={row.key}
+                  className="nombramientos-card nombramientos-mobile-card"
+                  bordered={false}
+                >
+                  <Space direction="vertical" size={12} style={{ width: "100%" }}>
+                    <div>
+                      <Typography.Title level={5} style={{ margin: 0 }}>
+                        {row.miembroNombre}
+                      </Typography.Title>
+                      <Typography.Text className="nombramientos-page__subtitle">
+                        {row.grupoNombre}
+                      </Typography.Text>
+                    </div>
+
+                    <div className="nombramientos-mobile-card__grid">
+                      <div>
+                        <Typography.Text strong>Genero</Typography.Text>
+                        <div>{row.genero === "mujer" ? "Mujer" : row.genero === "hombre" ? "Hombre" : "N/A"}</div>
+                      </div>
+                      <div>
+                        <Typography.Text strong>Email</Typography.Text>
+                        <div>{row.email || "N/A"}</div>
+                      </div>
+                      <div>
+                        <Typography.Text strong>Celular</Typography.Text>
+                        <div>{row.celular || "N/A"}</div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <Typography.Text strong>Nombramientos</Typography.Text>
+                      <div style={{ marginTop: 8 }}>
+                        {row.nombramientos?.length ? (
+                          <Space wrap>
+                            {row.nombramientos.map((value) => (
+                              <Tag
+                                key={value}
+                                className={
+                                  nombramientoTagClass[value] ?? "nombramientos-tag"
+                                }
+                              >
+                                {nombramientoLabels[value] ?? value}
+                              </Tag>
+                            ))}
+                          </Space>
+                        ) : (
+                          "N/A"
+                        )}
+                      </div>
+                    </div>
+                  </Space>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <Typography.Text type="secondary">
+              No hay miembros que coincidan con los filtros.
+            </Typography.Text>
+          )
+        ) : (
+          <Table<Row>
+            className="grupos-table nombramientos-table"
+            rowKey="key"
+            columns={columns}
+            dataSource={filteredRows}
+            loading={loading}
+            pagination={{ pageSize: 40, showSizeChanger: false }}
+          />
+        )}
       </Card>
     </section>
   );

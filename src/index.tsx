@@ -11,6 +11,7 @@ import "dayjs/locale/es";
 import App from "./App";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { initPwaRegistration } from "./pwa/register";
+import { initPwaInstallPromptCapture } from "./pwa/usePwaInstallPrompt";
 
 dayjs.extend(weekday);
 dayjs.extend(localeData);
@@ -18,6 +19,8 @@ dayjs.extend(weekOfYear);
 dayjs.extend(weekYear);
 dayjs.extend(customParseFormat);
 dayjs.locale("es");
+
+initPwaInstallPromptCapture();
 
 const container = document.getElementById("root") as HTMLElement;
 const root = createRoot(container);

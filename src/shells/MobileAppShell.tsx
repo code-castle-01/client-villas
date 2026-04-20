@@ -84,8 +84,7 @@ export const MobileAppShell: React.FC<MobileAppShellProps> = ({
     location.pathname !== "/login" &&
     location.pathname !== "/migracion" &&
     !isStandalone &&
-    !installBannerDismissed &&
-    Boolean(canInstall || manualInstallPlatform);
+    !installBannerDismissed;
   const title =
     activeResource?.meta.mobileLabel ?? activeResource?.meta.label ?? "Congregación";
   const subtitle = appName || "Las Villas";
@@ -112,7 +111,9 @@ export const MobileAppShell: React.FC<MobileAppShellProps> = ({
 
     const description = canInstall
       ? "Instala esta app para abrirla más rápido, usarla a pantalla completa y mejorar la experiencia móvil."
-      : "En Safari toca Compartir y luego “Añadir a pantalla de inicio” para instalarla.";
+      : manualInstallPlatform === "ios"
+        ? "En Safari toca Compartir y luego “Añadir a pantalla de inicio” para instalarla."
+        : "Usa el menú del navegador y toca “Instalar aplicación” o “Agregar a pantalla de inicio”.";
 
     return (
       <div className="mobile-app-shell__install-banner" role="status">
@@ -281,6 +282,16 @@ export const MobileAppShell: React.FC<MobileAppShellProps> = ({
 
             {!canInstall && manualInstallPlatform === "ios" && !isStandalone && (
               <NoticeBar content="En Safari puedes instalarla desde Compartir > Añadir a pantalla de inicio." />
+            )}
+
+            {!canInstall &&
+              manualInstallPlatform === "android-manual" &&
+              !isStandalone && (
+                <NoticeBar content="En Android puedes instalarla desde el menu del navegador con “Instalar aplicación” o “Agregar a pantalla de inicio”." />
+              )}
+
+            {!canInstall && !manualInstallPlatform && !isStandalone && (
+              <NoticeBar content="Si tu navegador no muestra el boton de instalar, usa la opcion de agregar la app a la pantalla de inicio." />
             )}
 
             {activeResource?.meta.mobileStatus !== "ready" && (

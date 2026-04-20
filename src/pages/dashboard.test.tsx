@@ -18,6 +18,7 @@ const renderDashboard = (
           overrideMode: "auto",
           isStandalone: false,
           isTouchLike: true,
+          screenShortSide: 390,
           viewportWidth: 390,
           setOverrideMode: () => undefined,
         }}
@@ -40,15 +41,14 @@ describe("DashboardPage", () => {
     expect(screen.getByText("Conferencias")).toBeInTheDocument();
     expect(screen.queryByText("Pastoreo")).not.toBeInTheDocument();
     expect(screen.queryByText("Usuarios")).not.toBeInTheDocument();
-    expect(screen.queryByText("Disponible en desktop")).not.toBeInTheDocument();
+    expect(screen.getAllByText("Abrir").length).toBeGreaterThan(0);
   });
 
-  it("separates desktop-only sections from mobile-ready sections", () => {
+  it("renders the mobile dashboard as a clean app launcher", () => {
     renderDashboard();
 
-    expect(screen.getByText("Listo para celular")).toBeInTheDocument();
-    expect(screen.getByText("Disponible en desktop")).toBeInTheDocument();
+    expect(screen.getByText("Todo listo para usar desde tu celular")).toBeInTheDocument();
     expect(screen.getByText("Pastoreo")).toBeInTheDocument();
-    expect(screen.getAllByText("Abrir en desktop").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Abrir").length).toBeGreaterThan(3);
   });
 });

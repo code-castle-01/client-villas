@@ -21,6 +21,7 @@ import {
   updateSingle,
 } from "../../api/client";
 import { useDirectory } from "../../contexts/directory";
+import useMediaQuery from "../../hooks/useMediaQuery";
 import { useIsAdminApp } from "../../hooks/useIsAdminApp";
 
 const { Title } = Typography;
@@ -51,6 +52,7 @@ export const MeetingInstructionsForm = () => {
   const [form] = Form.useForm();
   const isAdminApp = useIsAdminApp();
   const isReadOnly = !isAdminApp;
+  const isSmallScreen = useMediaQuery("(max-width: 768px)");
 
   const [conferencias, setConferencias] = useState<any>({});
   const [conferenceRows, setConferenceRows] = useState<ConferenceSummary[]>([]);
@@ -279,7 +281,7 @@ export const MeetingInstructionsForm = () => {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "2fr 1fr",
+            gridTemplateColumns: isSmallScreen ? "1fr" : "2fr 1fr",
             gap: "16px",
           }}>
           <Form.Item
@@ -305,7 +307,7 @@ export const MeetingInstructionsForm = () => {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "2fr 1fr",
+            gridTemplateColumns: isSmallScreen ? "1fr" : "2fr 1fr",
             gap: "16px",
           }}>
           <Form.Item
@@ -345,7 +347,11 @@ export const MeetingInstructionsForm = () => {
         </Form.Item>
 
         <div
-          style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+          style={{
+            display: "grid",
+            gridTemplateColumns: isSmallScreen ? "1fr" : "1fr 1fr",
+            gap: "16px",
+          }}>
           <Form.Item
             label="Orador"
             name="speaker"
@@ -385,13 +391,28 @@ export const MeetingInstructionsForm = () => {
         </Form.Item>
 
         <Form.Item>
-          <Flex wrap gap={16} justify="end" style={{ marginTop: 24 }}>
+          <Flex
+            wrap
+            gap={16}
+            justify={isSmallScreen ? "stretch" : "end"}
+            vertical={isSmallScreen}
+            style={{ marginTop: 24 }}
+          >
             {isAdminApp && (
               <>
-                <Button onClick={handleReset} icon={<span>🗑️</span>}>
+                <Button
+                  onClick={handleReset}
+                  icon={<span>🗑️</span>}
+                  style={{ width: isSmallScreen ? "100%" : undefined }}
+                >
                   Limpiar
                 </Button>
-                <Button type="primary" htmlType="submit" icon={<span>💾</span>}>
+                <Button
+                  type="primary"
+                  htmlType="submit"
+                  icon={<span>💾</span>}
+                  style={{ width: isSmallScreen ? "100%" : undefined }}
+                >
                   Guardar
                 </Button>
               </>

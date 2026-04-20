@@ -335,141 +335,200 @@ export const RevisitasPage: React.FC = () => {
       </Row>
 
       <Card className="grupos-card" bordered={false}>
-        <Table<RevisitaRecord>
-          className="grupos-table"
-          rowKey="id"
-          loading={loading}
-          dataSource={filteredRecords}
-          pagination={{ pageSize: 10, showSizeChanger: false }}
-          locale={{
-            emptyText: (
-              <Empty description="Todavía no tienes revisitas registradas." />
-            ),
-          }}
-          expandable={{
-            expandedRowRender: (record) => (
-              <div className="revisitas-detail">
-                {[
-                  ["Descripción física", record.descripcionFisica],
-                  ["Dirección", record.direccion],
-                  ["Tema conversado", record.temaConversado],
-                  ["Textos usados", record.textosUsados],
-                  ["Publicación dejada", record.publicacionDejada],
-                  ["Religión o ideología", record.religionIdeologia],
-                  ["Familia", record.familia],
-                  ["Asuntos de interés", record.asuntosInteres],
-                  ["Otros detalles", record.otrosDetalles],
-                  ["Pregunta pendiente", record.preguntaPendiente],
-                ].map(([label, value]) => (
-                  <div key={String(label)} className="revisitas-detail__item">
-                    <span className="revisitas-detail__label">{label}</span>
-                    <p className="revisitas-detail__value">{value || "Sin registrar"}</p>
-                  </div>
-                ))}
-              </div>
-            ),
-          }}
-          title={() => (
-            <Flex
-              wrap="wrap"
-              justify="space-between"
-              align="center"
-              style={{ padding: "20px 24px 0", gap: 12 }}
-            >
-              <div>
-                <Typography.Title level={5} style={{ margin: 0 }}>
-                  Registro individual
-                </Typography.Title>
-                <Typography.Text type="secondary">
-                  Solo tú puedes ver y administrar estas revisitas.
-                </Typography.Text>
-              </div>
-
-              <Input
-                allowClear
-                prefix={<SearchOutlined />}
-                placeholder="Buscar por nombre, dirección o tema"
-                style={{ width: isSmallScreen ? "100%" : 320 }}
-                value={searchValue}
-                onChange={(event) => setSearchValue(event.target.value)}
-              />
-            </Flex>
-          )}
-          scroll={{ x: true }}
+        <Flex
+          wrap="wrap"
+          justify="space-between"
+          align="center"
+          style={{ padding: "0 0 20px", gap: 12 }}
         >
-          <Table.Column<RevisitaRecord>
-            title="Nombre"
-            dataIndex="nombre"
-            sorter={(left, right) => left.nombre.localeCompare(right.nombre, "es")}
-            render={(value: string) => (
-              <span className="grupos-table__name">{value}</span>
-            )}
+          <div>
+            <Typography.Title level={5} style={{ margin: 0 }}>
+              Registro individual
+            </Typography.Title>
+            <Typography.Text type="secondary">
+              Solo tú puedes ver y administrar estas revisitas.
+            </Typography.Text>
+          </div>
+
+          <Input
+            allowClear
+            prefix={<SearchOutlined />}
+            placeholder="Buscar por nombre, dirección o tema"
+            style={{ width: isSmallScreen ? "100%" : 320 }}
+            value={searchValue}
+            onChange={(event) => setSearchValue(event.target.value)}
           />
-          <Table.Column<RevisitaRecord>
-            title="Visita"
-            dataIndex="fechaHoraVisita"
-            sorter={(left, right) =>
-              dayjs(left.fechaHoraVisita ?? 0).valueOf() -
-              dayjs(right.fechaHoraVisita ?? 0).valueOf()
-            }
-            render={(value?: string | null) => formatDateTime(value)}
-          />
-          <Table.Column<RevisitaRecord>
-            title="Próxima visita"
-            dataIndex="proximaVisita"
-            sorter={(left, right) =>
-              dayjs(left.proximaVisita ?? 0).valueOf() -
-              dayjs(right.proximaVisita ?? 0).valueOf()
-            }
-            render={(value?: string | null, record?: RevisitaRecord) => (
-              <Space direction="vertical" size={2}>
-                <span>{formatDateTime(value)}</span>
-                {record ? getStatusTag(record) : null}
-              </Space>
-            )}
-          />
-          <Table.Column<RevisitaRecord>
-            title="Tema"
-            dataIndex="temaConversado"
-            render={(value?: string) =>
-              value ? value : <Typography.Text type="secondary">Sin registrar</Typography.Text>
-            }
-          />
-          <Table.Column<RevisitaRecord>
-            title="Dirección"
-            dataIndex="direccion"
-            render={(value?: string) =>
-              value ? value : <Typography.Text type="secondary">Sin registrar</Typography.Text>
-            }
-          />
-          <Table.Column<RevisitaRecord>
-            title="Acciones"
-            key="actions"
-            width={120}
-            render={(_, record) => (
-              <Space>
-                <Button
-                  className="grupos-action-btn"
-                  icon={<EditOutlined />}
-                  onClick={() => openEditModal(record)}
-                />
-                <Popconfirm
-                  title="Eliminar revisita"
-                  description="Esta acción no se puede deshacer."
-                  okText="Eliminar"
-                  cancelText="Cancelar"
-                  onConfirm={() => void handleDelete(record)}
-                >
+        </Flex>
+
+        {isSmallScreen ? (
+          filteredRecords.length ? (
+            <div className="revisitas-mobile-list">
+              {filteredRecords.map((record) => (
+                <Card key={record.id} className="revisitas-mobile-card" bordered={false}>
+                  <Flex justify="space-between" align="flex-start" gap={12}>
+                    <div>
+                      <Typography.Title level={5} style={{ margin: 0 }}>
+                        {record.nombre}
+                      </Typography.Title>
+                      <Typography.Text type="secondary">
+                        Ultima visita: {formatDateTime(record.fechaHoraVisita)}
+                      </Typography.Text>
+                    </div>
+                    {getStatusTag(record)}
+                  </Flex>
+
+                  <div className="revisitas-detail" style={{ paddingTop: 14 }}>
+                    {[
+                      ["Proxima visita", formatDateTime(record.proximaVisita)],
+                      ["Tema", record.temaConversado],
+                      ["Direccion", record.direccion],
+                      ["Textos usados", record.textosUsados],
+                      ["Pregunta pendiente", record.preguntaPendiente],
+                    ].map(([label, value]) => (
+                      <div key={String(label)} className="revisitas-detail__item">
+                        <span className="revisitas-detail__label">{label}</span>
+                        <p className="revisitas-detail__value">{value || "Sin registrar"}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <Flex justify="flex-end" gap={8} style={{ marginTop: 14 }}>
+                    <Button
+                      className="grupos-action-btn"
+                      icon={<EditOutlined />}
+                      onClick={() => openEditModal(record)}
+                    />
+                    <Popconfirm
+                      title="Eliminar revisita"
+                      description="Esta acción no se puede deshacer."
+                      okText="Eliminar"
+                      cancelText="Cancelar"
+                      onConfirm={() => void handleDelete(record)}
+                    >
+                      <Button
+                        danger
+                        className="grupos-action-btn grupos-action-btn--danger"
+                        icon={<DeleteOutlined />}
+                      />
+                    </Popconfirm>
+                  </Flex>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <Empty description="Todavía no tienes revisitas registradas." />
+          )
+        ) : (
+          <Table<RevisitaRecord>
+            className="grupos-table"
+            rowKey="id"
+            loading={loading}
+            dataSource={filteredRecords}
+            pagination={{ pageSize: 10, showSizeChanger: false }}
+            locale={{
+              emptyText: (
+                <Empty description="Todavía no tienes revisitas registradas." />
+              ),
+            }}
+            expandable={{
+              expandedRowRender: (record) => (
+                <div className="revisitas-detail">
+                  {[
+                    ["Descripción física", record.descripcionFisica],
+                    ["Dirección", record.direccion],
+                    ["Tema conversado", record.temaConversado],
+                    ["Textos usados", record.textosUsados],
+                    ["Publicación dejada", record.publicacionDejada],
+                    ["Religión o ideología", record.religionIdeologia],
+                    ["Familia", record.familia],
+                    ["Asuntos de interés", record.asuntosInteres],
+                    ["Otros detalles", record.otrosDetalles],
+                    ["Pregunta pendiente", record.preguntaPendiente],
+                  ].map(([label, value]) => (
+                    <div key={String(label)} className="revisitas-detail__item">
+                      <span className="revisitas-detail__label">{label}</span>
+                      <p className="revisitas-detail__value">{value || "Sin registrar"}</p>
+                    </div>
+                  ))}
+                </div>
+              ),
+            }}
+            scroll={{ x: true }}
+          >
+            <Table.Column<RevisitaRecord>
+              title="Nombre"
+              dataIndex="nombre"
+              sorter={(left, right) => left.nombre.localeCompare(right.nombre, "es")}
+              render={(value: string) => (
+                <span className="grupos-table__name">{value}</span>
+              )}
+            />
+            <Table.Column<RevisitaRecord>
+              title="Visita"
+              dataIndex="fechaHoraVisita"
+              sorter={(left, right) =>
+                dayjs(left.fechaHoraVisita ?? 0).valueOf() -
+                dayjs(right.fechaHoraVisita ?? 0).valueOf()
+              }
+              render={(value?: string | null) => formatDateTime(value)}
+            />
+            <Table.Column<RevisitaRecord>
+              title="Próxima visita"
+              dataIndex="proximaVisita"
+              sorter={(left, right) =>
+                dayjs(left.proximaVisita ?? 0).valueOf() -
+                dayjs(right.proximaVisita ?? 0).valueOf()
+              }
+              render={(value?: string | null, record?: RevisitaRecord) => (
+                <Space direction="vertical" size={2}>
+                  <span>{formatDateTime(value)}</span>
+                  {record ? getStatusTag(record) : null}
+                </Space>
+              )}
+            />
+            <Table.Column<RevisitaRecord>
+              title="Tema"
+              dataIndex="temaConversado"
+              render={(value?: string) =>
+                value ? value : <Typography.Text type="secondary">Sin registrar</Typography.Text>
+              }
+            />
+            <Table.Column<RevisitaRecord>
+              title="Dirección"
+              dataIndex="direccion"
+              render={(value?: string) =>
+                value ? value : <Typography.Text type="secondary">Sin registrar</Typography.Text>
+              }
+            />
+            <Table.Column<RevisitaRecord>
+              title="Acciones"
+              key="actions"
+              width={120}
+              render={(_, record) => (
+                <Space>
                   <Button
-                    danger
-                    className="grupos-action-btn grupos-action-btn--danger"
-                    icon={<DeleteOutlined />}
+                    className="grupos-action-btn"
+                    icon={<EditOutlined />}
+                    onClick={() => openEditModal(record)}
                   />
-                </Popconfirm>
-              </Space>
-            )}
-          />
-        </Table>
+                  <Popconfirm
+                    title="Eliminar revisita"
+                    description="Esta acción no se puede deshacer."
+                    okText="Eliminar"
+                    cancelText="Cancelar"
+                    onConfirm={() => void handleDelete(record)}
+                  >
+                    <Button
+                      danger
+                      className="grupos-action-btn grupos-action-btn--danger"
+                      icon={<DeleteOutlined />}
+                    />
+                  </Popconfirm>
+                </Space>
+              )}
+            />
+          </Table>
+        )}
       </Card>
 
       <Modal

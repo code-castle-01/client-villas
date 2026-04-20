@@ -5,10 +5,12 @@ import type {
 
 export const ADAPTIVE_UI_BREAKPOINT = 768;
 export const ADAPTIVE_UI_STORAGE_KEY = "uiModeOverride";
+export const ADAPTIVE_UI_HANDSET_SHORT_SIDE = 540;
 
 export type AdaptiveDeviceSnapshot = {
   isStandalone: boolean;
   isTouchLike: boolean;
+  screenShortSide: number;
   viewportWidth: number;
 };
 
@@ -30,7 +32,22 @@ export const getViewportWidth = () => {
     return ADAPTIVE_UI_BREAKPOINT + 1;
   }
 
-  return window.innerWidth;
+  const visualViewportWidth = Math.round(
+    window.visualViewport?.width ?? window.innerWidth,
+  );
+
+  return Math.min(window.innerWidth, visualViewportWidth);
+};
+
+export const getScreenShortSide = () => {
+  if (typeof window === "undefined") {
+    return ADAPTIVE_UI_BREAKPOINT + 1;
+  }
+
+  const screenWidth = window.screen?.width ?? window.innerWidth;
+  const screenHeight = window.screen?.height ?? window.innerHeight;
+
+  return Math.min(screenWidth, screenHeight);
 };
 
 export const getIsStandalone = () => {
@@ -81,6 +98,7 @@ export const writeAdaptiveOverrideMode = (mode: AdaptiveUIOverrideMode) => {
 export const getAdaptiveDeviceSnapshot = (): AdaptiveDeviceSnapshot => ({
   isStandalone: getIsStandalone(),
   isTouchLike: getIsTouchLike(),
+  screenShortSide: getScreenShortSide(),
   viewportWidth: getViewportWidth(),
 });
 
@@ -89,6 +107,7 @@ export const resolveAdaptiveMode = ({
   roleType,
   isStandalone,
   isTouchLike,
+  screenShortSide,
   viewportWidth,
 }: ResolveAdaptiveModeInput): AdaptiveUIResolvedMode => {
   if (overrideMode === "mobile" || overrideMode === "desktop") {
@@ -99,7 +118,17 @@ export const resolveAdaptiveMode = ({
     return "desktop";
   }
 
-  return viewportWidth <= ADAPTIVE_UI_BREAKPOINT && (isTouchLike || isStandalone)
-    ? "mobile"
-    : "desktop";
+  if (!isTouchLike && !isStandalone) {
+    return "desktop";
+  }
+
+  if (viewportWidth <= ADAPTIVE_UI_BREAKPOINT) {
+    return "mobile";
+  }
+
+  if (screenShortSide <= ADAPTIVE_UI_HANDSET_SHORT_SIDE) {
+    return "mobile";
+  }
+
+  return isStandalone ? "mobile" : "desktop";
 };

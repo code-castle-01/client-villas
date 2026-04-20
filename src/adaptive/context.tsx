@@ -9,6 +9,7 @@ import {
   getAdaptiveDeviceSnapshot,
   getIsStandalone,
   getIsTouchLike,
+  getScreenShortSide,
   getViewportWidth,
   readAdaptiveOverrideMode,
   resolveAdaptiveMode,
@@ -21,6 +22,7 @@ const defaultState: AdaptiveUIState = {
   overrideMode: "auto",
   isStandalone: false,
   isTouchLike: false,
+  screenShortSide: 1024,
   viewportWidth: 1024,
   setOverrideMode: () => undefined,
 };
@@ -47,6 +49,7 @@ export const AdaptiveUIProvider: React.FC<AdaptiveUIProviderProps> = ({
       setDeviceSnapshot({
         isStandalone: getIsStandalone(),
         isTouchLike: getIsTouchLike(),
+        screenShortSide: getScreenShortSide(),
         viewportWidth: getViewportWidth(),
       });
     };
