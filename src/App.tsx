@@ -13,11 +13,16 @@ import routerBindings, {
 import { App as AntdApp, Spin } from "antd";
 import { isAxiosError } from "axios";
 import { Suspense, useEffect, useMemo, useState } from "react";
-import { BrowserRouter, Outlet, Route, Routes } from "react-router";
+import { BrowserRouter, Outlet, Route, Routes, useLocation } from "react-router";
 import { AdaptiveUIProvider } from "./adaptive/context";
 import { useAdaptiveUI } from "./adaptive/useAdaptiveUI";
 import { lazyNamed } from "./app/lazyNamed";
-import { buildResources, type AppResource } from "./app/resources";
+import {
+  buildResources,
+  getActiveResource,
+  isKnownResourcePath,
+  type AppResource,
+} from "./app/resources";
 import { api } from "./api/client";
 import { ColorModeContextProvider } from "./contexts/color-mode";
 import { DirectoryContextProvider } from "./contexts/directory";
@@ -160,6 +165,19 @@ const AdaptiveAuthenticatedShell: React.FC<{
   }
 
   return <DesktopAppShell />;
+};
+
+const ResourceAccessGuard: React.FC<{
+  resources: AppResource[];
+}> = ({ resources }) => {
+  const location = useLocation();
+  const activeResource = getActiveResource(location.pathname, resources);
+
+  if (!activeResource && isKnownResourcePath(location.pathname)) {
+    return <CatchAllNavigate to="/" />;
+  }
+
+  return <Outlet />;
 };
 
 function App() {
@@ -350,21 +368,23 @@ function App() {
                             </Authenticated>
                           }
                         >
-                          <Route index element={<DashboardPage />} />
-                          <Route path="/mis-asignaciones" element={<MisAsignacionesPage />} />
-                          <Route path="/pastoreo" element={<MiembrosList />} />
-                          <Route path="/revisitas" element={<RevisitasPage />} />
-                          <Route path="/conferencias" element={<ConferenciasTable />} />
-                          <Route path="/reuniones" element={<ReunionesTable />} />
-                          <Route path="/escuela" element={<MeetingAssignmentUI />} />
-                          <Route path="/mecanicas" element={<ScheduleTable />} />
-                          <Route path="/territorio" element={<TerritoriosTable />} />
-                          <Route path="/presidencia" element={<MeetingInstructionsForm />} />
-                          <Route path="/transporte" element={<GruposMiembrosList />} />
-                          <Route path="/grupos" element={<GruposAdminPage />} />
-                          <Route path="/usuarios" element={<UsuariosList />} />
-                          <Route path="/nombramientos" element={<NombramientosPorGrupo />} />
-                          <Route path="*" element={<ErrorComponent />} />
+                          <Route element={<ResourceAccessGuard resources={resources} />}>
+                            <Route index element={<DashboardPage resources={resources} />} />
+                            <Route path="/mis-asignaciones" element={<MisAsignacionesPage />} />
+                            <Route path="/pastoreo" element={<MiembrosList />} />
+                            <Route path="/revisitas" element={<RevisitasPage />} />
+                            <Route path="/conferencias" element={<ConferenciasTable />} />
+                            <Route path="/reuniones" element={<ReunionesTable />} />
+                            <Route path="/escuela" element={<MeetingAssignmentUI />} />
+                            <Route path="/mecanicas" element={<ScheduleTable />} />
+                            <Route path="/territorio" element={<TerritoriosTable />} />
+                            <Route path="/presidencia" element={<MeetingInstructionsForm />} />
+                            <Route path="/transporte" element={<GruposMiembrosList />} />
+                            <Route path="/grupos" element={<GruposAdminPage />} />
+                            <Route path="/usuarios" element={<UsuariosList />} />
+                            <Route path="/nombramientos" element={<NombramientosPorGrupo />} />
+                            <Route path="*" element={<ErrorComponent />} />
+                          </Route>
                         </Route>
                         <Route
                           element={

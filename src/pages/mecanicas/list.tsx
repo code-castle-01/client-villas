@@ -28,6 +28,7 @@ import {
 import { EditOutlined, DeleteOutlined } from "@ant-design/icons";
 import { ColumnsType } from "antd/es/table";
 import dayjs from "dayjs";
+import "dayjs/locale/es";
 import { useAdaptiveUI } from "../../adaptive/useAdaptiveUI";
 import {
   createEntry,
@@ -44,6 +45,7 @@ import { useIsAdminApp } from "../../hooks/useIsAdminApp";
 
 const MECANICAS_RESOURCE = "mecanica-asignacions";
 const INACTIVE_GROUP_NAME = "HNOS. INACTIVOS";
+const EMPTY_ASSIGNMENT_LABEL = "- - -";
 
 const normalizeGroupName = (value?: string) =>
   (value ?? "")
@@ -58,6 +60,7 @@ interface ScheduleData {
   documentId?: string;
   dateValue: string;
   date: string;
+  weekday: string;
   accommodators: {
     dentroId?: number;
     dentro: string;
@@ -102,11 +105,25 @@ type MecanicaResponse = {
   hospitalidad?: string[];
 };
 
+const capitalize = (value: string) =>
+  value ? value.charAt(0).toUpperCase() + value.slice(1) : value;
+
+const formatDateLabel = (value: string) => dayjs(value).format("DD-MM-YYYY");
+
+const formatWeekdayLabel = (value: string) =>
+  capitalize(dayjs(value).locale("es").format("dddd"));
+
+const getDisplayValue = (value?: string) => value?.trim() || EMPTY_ASSIGNMENT_LABEL;
+
+const getDisplayGroups = (values: string[]) =>
+  values.length ? values.join(" - ") : EMPTY_ASSIGNMENT_LABEL;
+
 const mapAssignment = (item: MecanicaResponse & { id: number }) => ({
   key: item.id.toString(),
   documentId: item.documentId,
   dateValue: item.fecha,
-  date: dayjs(item.fecha).format("DD-MM-YYYY"),
+  date: formatDateLabel(item.fecha),
+  weekday: formatWeekdayLabel(item.fecha),
   accommodators: {
     dentroId: item.acomodadorDentro?.id ?? undefined,
     dentro: item.acomodadorDentro?.nombre ?? "",
@@ -196,7 +213,7 @@ const getMonthKeyFromAssignment = (assignment: ScheduleData) =>
 
 const renderGroupTags = (values: string[]) => {
   if (values.length === 0) {
-    return <MobileTag fill="outline">Pendiente</MobileTag>;
+    return <MobileTag fill="outline">{EMPTY_ASSIGNMENT_LABEL}</MobileTag>;
   }
 
   return (
@@ -395,7 +412,16 @@ export const ScheduleTable: React.FC = () => {
       title: "Fecha",
       dataIndex: "date",
       key: "date",
-      render: (date) => <Tag color="blue">{date}</Tag>,
+      render: (_: string, record) => (
+        <Flex vertical gap={6}>
+          <Tag color="blue" style={{ width: "fit-content", marginInlineEnd: 0 }}>
+            {record.date}
+          </Tag>
+          <Typography.Text style={{ color: "#ff4d4f", fontSize: 14 }}>
+            {record.weekday}
+          </Typography.Text>
+        </Flex>
+      ),
     },
     {
       title: "Acomodadores",
@@ -407,19 +433,19 @@ export const ScheduleTable: React.FC = () => {
             <Tag bordered={false} color="orange" style={{ width: 50 }}>
               Dentro
             </Tag>{" "}
-            <Typography.Text>{accommodators.dentro || "Pendiente"}</Typography.Text>
+            <Typography.Text>{getDisplayValue(accommodators.dentro)}</Typography.Text>
           </div>
           <div>
             <Tag bordered={false} color="orange" style={{ width: 50 }}>
               Lobby
             </Tag>{" "}
-            <Typography.Text>{accommodators.lobby || "Pendiente"}</Typography.Text>
+            <Typography.Text>{getDisplayValue(accommodators.lobby)}</Typography.Text>
           </div>
           <div>
             <Tag bordered={false} color="orange" style={{ width: 50 }}>
               Reja
             </Tag>{" "}
-            <Typography.Text>{accommodators.reja || "Pendiente"}</Typography.Text>
+            <Typography.Text>{getDisplayValue(accommodators.reja)}</Typography.Text>
           </div>
         </Flex>
       ),
@@ -434,19 +460,19 @@ export const ScheduleTable: React.FC = () => {
             <Tag bordered={false} color="green" style={{ width: 70 }}>
               Micrófono
             </Tag>{" "}
-            <Typography.Text>{microphone.micro1 || "Pendiente"}</Typography.Text>
+            <Typography.Text>{getDisplayValue(microphone.micro1)}</Typography.Text>
           </div>
           <div>
             <Tag bordered={false} color="green" style={{ width: 70 }}>
               Micrófono
             </Tag>{" "}
-            <Typography.Text>{microphone.micro2 || "Pendiente"}</Typography.Text>
+            <Typography.Text>{getDisplayValue(microphone.micro2)}</Typography.Text>
           </div>
           <div>
             <Tag bordered={false} color="green" style={{ width: 70 }}>
               Plataforma
             </Tag>{" "}
-            <Typography.Text>{microphone.plataforma || "Pendiente"}</Typography.Text>
+            <Typography.Text>{getDisplayValue(microphone.plataforma)}</Typography.Text>
           </div>
         </Flex>
       ),
@@ -461,14 +487,14 @@ export const ScheduleTable: React.FC = () => {
             <Tag bordered={false} color="blue" style={{ width: 62 }}>
               Principal
             </Tag>{" "}
-            <Typography.Text>{record.audioVideo || "Pendiente"}</Typography.Text>
+            <Typography.Text>{getDisplayValue(record.audioVideo)}</Typography.Text>
           </div>
           <div>
             <Tag bordered={false} color="cyan" style={{ width: 62 }}>
               Auxiliar
             </Tag>{" "}
             <Typography.Text>
-              {record.audioVideoAuxiliar || "Pendiente"}
+              {getDisplayValue(record.audioVideoAuxiliar)}
             </Typography.Text>
           </div>
         </Flex>
@@ -479,9 +505,7 @@ export const ScheduleTable: React.FC = () => {
       dataIndex: "cleaning",
       key: "cleaning",
       render: (cleaning: string[]) => (
-        <Tag color="magenta">
-          {cleaning.length ? cleaning.join(" - ") : "Pendiente"}
-        </Tag>
+        <Tag color="magenta">{getDisplayGroups(cleaning)}</Tag>
       ),
     },
     {
@@ -489,9 +513,7 @@ export const ScheduleTable: React.FC = () => {
       dataIndex: "hospitality",
       key: "hospitality",
       render: (hospitality: string[]) => (
-        <Tag color="purple">
-          {hospitality.length ? hospitality.join(" - ") : "Pendiente"}
-        </Tag>
+        <Tag color="purple">{getDisplayGroups(hospitality)}</Tag>
       ),
     },
     {
@@ -572,7 +594,12 @@ export const ScheduleTable: React.FC = () => {
           <MobileCard
             key={item.key}
             className="mobile-screen-card"
-            title={item.date}
+            title={
+              <div style={{ display: "grid", gap: 4 }}>
+                <span>{item.date}</span>
+                <span style={{ color: "#ff4d4f", fontSize: 14 }}>{item.weekday}</span>
+              </div>
+            }
             extra={
               <MobileTag color="primary" fill="outline">
                 {activeMonthLabel}
@@ -591,24 +618,24 @@ export const ScheduleTable: React.FC = () => {
               <div>
                 <strong>Acomodadores</strong>
                 <div style={{ marginTop: 8, display: "grid", gap: 6 }}>
-                  <div>Dentro: {item.accommodators.dentro || "Pendiente"}</div>
-                  <div>Lobby: {item.accommodators.lobby || "Pendiente"}</div>
-                  <div>Reja: {item.accommodators.reja || "Pendiente"}</div>
+                  <div>Dentro: {getDisplayValue(item.accommodators.dentro)}</div>
+                  <div>Lobby: {getDisplayValue(item.accommodators.lobby)}</div>
+                  <div>Reja: {getDisplayValue(item.accommodators.reja)}</div>
                 </div>
               </div>
               <div>
                 <strong>Micrófonos</strong>
                 <div style={{ marginTop: 8, display: "grid", gap: 6 }}>
-                  <div>Micrófono 1: {item.microphone.micro1 || "Pendiente"}</div>
-                  <div>Micrófono 2: {item.microphone.micro2 || "Pendiente"}</div>
-                  <div>Plataforma: {item.microphone.plataforma || "Pendiente"}</div>
+                  <div>Micrófono 1: {getDisplayValue(item.microphone.micro1)}</div>
+                  <div>Micrófono 2: {getDisplayValue(item.microphone.micro2)}</div>
+                  <div>Plataforma: {getDisplayValue(item.microphone.plataforma)}</div>
                 </div>
               </div>
               <div>
                 <strong>Audio y video</strong>
                 <div style={{ marginTop: 8, display: "grid", gap: 6 }}>
-                  <div>Principal: {item.audioVideo || "Pendiente"}</div>
-                  <div>Auxiliar: {item.audioVideoAuxiliar || "Pendiente"}</div>
+                  <div>Principal: {getDisplayValue(item.audioVideo)}</div>
+                  <div>Auxiliar: {getDisplayValue(item.audioVideoAuxiliar)}</div>
                 </div>
               </div>
               <div style={{ display: "flex", justifyContent: "flex-end" }}>

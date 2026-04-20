@@ -18,6 +18,7 @@ export type MobileResourceMeta = {
   mobileOrder?: number;
   mobileStatus?: MobileResourceStatus;
   mobileTab?: boolean;
+  summary?: string;
 };
 
 export type AppResource = {
@@ -47,6 +48,7 @@ const baseResources: AppResource[] = [
       mobileOrder: 0,
       mobileStatus: "ready",
       mobileTab: true,
+      summary: "Vista general de la congregación y accesos rápidos.",
     },
   },
   {
@@ -61,6 +63,7 @@ const baseResources: AppResource[] = [
       mobileOrder: 1,
       mobileStatus: "ready",
       mobileTab: true,
+      summary: "Tu agenda y perfil personal.",
     },
   },
   {
@@ -71,6 +74,7 @@ const baseResources: AppResource[] = [
       icon: <BookOutlined />,
       label: "Revisitas",
       mobileStatus: "planned",
+      summary: "Seguimiento de revisitas y visitas.",
     },
   },
   {
@@ -81,6 +85,7 @@ const baseResources: AppResource[] = [
       icon: <span>🐑</span>,
       label: "Pastoreo",
       mobileStatus: "planned",
+      summary: "Seguimiento pastoral y formulario S-4.",
     },
   },
   {
@@ -95,6 +100,7 @@ const baseResources: AppResource[] = [
       mobileOrder: 2,
       mobileStatus: "ready",
       mobileTab: true,
+      summary: "Agenda pública y oradores.",
     },
   },
   {
@@ -109,6 +115,7 @@ const baseResources: AppResource[] = [
       mobileOrder: 3,
       mobileStatus: "ready",
       mobileTab: true,
+      summary: "Lectores, oración y envío.",
     },
   },
   {
@@ -119,6 +126,7 @@ const baseResources: AppResource[] = [
       icon: <span>📑</span>,
       label: "Escuela",
       mobileStatus: "planned",
+      summary: "Programa y asignaciones de la escuela.",
     },
   },
   {
@@ -130,6 +138,7 @@ const baseResources: AppResource[] = [
       label: "Mecánicas",
       mobileLabel: "Mecánicas",
       mobileStatus: "ready",
+      summary: "Asignaciones operativas de la reunión.",
     },
   },
   {
@@ -141,6 +150,7 @@ const baseResources: AppResource[] = [
       label: "Territorios",
       mobileLabel: "Territorios",
       mobileStatus: "ready",
+      summary: "Mapas, registros y seguimiento del territorio.",
     },
   },
   {
@@ -151,6 +161,7 @@ const baseResources: AppResource[] = [
       icon: <span>📄</span>,
       label: "Presidencia",
       mobileStatus: "planned",
+      summary: "Discursos, preguntas y notas para presidencia.",
     },
   },
   {
@@ -161,6 +172,7 @@ const baseResources: AppResource[] = [
       icon: <span>🚙</span>,
       label: "Transporte",
       mobileStatus: "planned",
+      summary: "Traslados, grupos y coordinación logística.",
     },
   },
   {
@@ -171,6 +183,7 @@ const baseResources: AppResource[] = [
       icon: <TeamOutlined />,
       label: "Nombramientos",
       mobileStatus: "planned",
+      summary: "Seguimiento de nombramientos por grupo.",
     },
   },
 ];
@@ -184,6 +197,7 @@ const adminResources: AppResource[] = [
       icon: <span>🧩</span>,
       label: "Grupos",
       mobileStatus: "desktop-only",
+      summary: "Administración de grupos y miembros.",
     },
   },
   {
@@ -194,9 +208,12 @@ const adminResources: AppResource[] = [
       icon: <UserOutlined />,
       label: "Usuarios",
       mobileStatus: "desktop-only",
+      summary: "Roles, permisos y control de acceso.",
     },
   },
 ];
+
+const allResources: AppResource[] = [...baseResources, ...adminResources];
 
 export const buildResources = ({
   isAdminApp,
@@ -210,6 +227,9 @@ export const buildResources = ({
   ),
   ...(isAdminApp ? adminResources : []),
 ];
+
+export const isKnownResourcePath = (pathname: string) =>
+  Boolean(getActiveResource(pathname, allResources));
 
 export const getActiveResource = (
   pathname: string,
