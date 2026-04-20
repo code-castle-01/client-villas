@@ -10,9 +10,15 @@ import {
   Space,
   TabBar,
   Toast,
-  NavBar,
 } from "antd-mobile";
-import { BulbOutlined, DownloadOutlined, LaptopOutlined } from "@ant-design/icons";
+import {
+  BulbOutlined,
+  CloseOutlined,
+  DownloadOutlined,
+  LaptopOutlined,
+  SettingOutlined,
+  SyncOutlined,
+} from "@ant-design/icons";
 import {
   type AppResource,
   getActiveResource,
@@ -20,6 +26,7 @@ import {
 } from "../app/resources";
 import { MobileRouteUnavailable } from "../components/mobile/MobileRouteUnavailable";
 import { useAdaptiveUI } from "../adaptive/useAdaptiveUI";
+import { appName } from "../config/env";
 import { usePwaInstallPrompt } from "../pwa/usePwaInstallPrompt";
 import { usePwaLifecycle } from "../pwa/usePwaLifecycle";
 import { ColorModeContext } from "../contexts/color-mode";
@@ -29,6 +36,27 @@ type MobileAppShellProps = {
   children?: React.ReactNode;
 };
 
+type HeaderActionButtonProps = {
+  "aria-label": string;
+  children: React.ReactNode;
+  onClick: () => void;
+};
+
+const HeaderActionButton: React.FC<HeaderActionButtonProps> = ({
+  children,
+  onClick,
+  ...props
+}) => (
+  <button
+    type="button"
+    className="mobile-app-shell__action-button"
+    onClick={onClick}
+    {...props}
+  >
+    {children}
+  </button>
+);
+
 export const MobileAppShell: React.FC<MobileAppShellProps> = ({
   resources,
   children,
@@ -36,9 +64,10 @@ export const MobileAppShell: React.FC<MobileAppShellProps> = ({
   const location = useLocation();
   const navigate = useNavigate();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [installBannerDismissed, setInstallBannerDismissed] = useState(false);
   const { mode, toggleMode } = React.useContext(ColorModeContext);
-  const { overrideMode, setOverrideMode } = useAdaptiveUI();
-  const { canInstall, promptInstall } = usePwaInstallPrompt();
+  const { isStandalone, overrideMode, setOverrideMode } = useAdaptiveUI();
+  const { canInstall, manualInstallPlatform, promptInstall } = usePwaInstallPrompt();
   const { applyUpdate, isOfflineReady, isUpdateReady, resetUpdateReady } =
     usePwaLifecycle();
 
@@ -51,12 +80,22 @@ export const MobileAppShell: React.FC<MobileAppShellProps> = ({
     location.pathname === "/login" ||
     location.pathname === "/migracion" ||
     activeResource?.meta.mobileStatus === "ready";
+  const showInstallBanner =
+    location.pathname !== "/login" &&
+    location.pathname !== "/migracion" &&
+    !isStandalone &&
+    !installBannerDismissed &&
+    Boolean(canInstall || manualInstallPlatform);
+  const title =
+    activeResource?.meta.mobileLabel ?? activeResource?.meta.label ?? "Congregación";
+  const subtitle = appName || "Las Villas";
 
   const handleInstall = async () => {
     const installed = await promptInstall();
     if (installed) {
+      setInstallBannerDismissed(true);
       Toast.show({
-        content: "La app quedó lista para instalarse desde tu dispositivo.",
+        content: "La app quedó lista para abrirse desde tu pantalla de inicio.",
       });
     }
   };
@@ -66,63 +105,132 @@ export const MobileAppShell: React.FC<MobileAppShellProps> = ({
     resetUpdateReady();
   };
 
+  const renderInstallBanner = () => {
+    if (!showInstallBanner) {
+      return null;
+    }
+
+    const description = canInstall
+      ? "Instala esta app para abrirla más rápido, usarla a pantalla completa y mejorar la experiencia móvil."
+      : "En Safari toca Compartir y luego “Añadir a pantalla de inicio” para instalarla.";
+
+    return (
+      <div className="mobile-app-shell__install-banner" role="status">
+        <div className="mobile-app-shell__install-icon">
+          <DownloadOutlined />
+        </div>
+
+        <div className="mobile-app-shell__install-copy">
+          <div className="mobile-app-shell__install-title">Instala la app</div>
+          <div className="mobile-app-shell__install-description">{description}</div>
+        </div>
+
+        <div className="mobile-app-shell__install-actions">
+          {canInstall ? (
+            <Button color="primary" size="small" onClick={handleInstall}>
+              Instalar
+            </Button>
+          ) : null}
+
+          <HeaderActionButton
+            aria-label="Ocultar aviso de instalación"
+            onClick={() => setInstallBannerDismissed(true)}
+          >
+            <CloseOutlined />
+          </HeaderActionButton>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="mobile-app-shell">
       <SafeArea position="top" />
-      <NavBar
-        className="mobile-app-shell__navbar"
-        backArrow={false}
-        right={
-          <Button
-            size="small"
-            fill="none"
-            className="mobile-app-shell__settings-trigger"
-            onClick={() => setSettingsOpen(true)}
-          >
-            Ajustes
-          </Button>
-        }
-      >
-        {activeResource?.meta.mobileLabel ?? activeResource?.meta.label ?? "Congregación"}
-      </NavBar>
+
+      <header className="mobile-app-shell__header">
+        <div className="mobile-app-shell__header-bar">
+          <div className="mobile-app-shell__heading">
+            <h1 className="mobile-app-shell__title">{title}</h1>
+            <p className="mobile-app-shell__subtitle">{subtitle}</p>
+          </div>
+
+          <div className="mobile-app-shell__header-actions">
+            {isUpdateReady ? (
+              <HeaderActionButton
+                aria-label="Actualizar aplicación"
+                onClick={handleApplyUpdate}
+              >
+                <SyncOutlined />
+              </HeaderActionButton>
+            ) : null}
+
+            {canInstall && showInstallBanner ? (
+              <HeaderActionButton
+                aria-label="Instalar aplicación"
+                onClick={handleInstall}
+              >
+                <DownloadOutlined />
+              </HeaderActionButton>
+            ) : null}
+
+            <HeaderActionButton
+              aria-label="Abrir ajustes"
+              onClick={() => setSettingsOpen(true)}
+            >
+              <SettingOutlined />
+            </HeaderActionButton>
+          </div>
+        </div>
+
+        {renderInstallBanner()}
+      </header>
 
       <div className="mobile-app-shell__content">
-        {isUpdateReady && (
-          <NoticeBar
-            content="Hay una nueva versión lista para instalarse."
-            extra={<Button size="mini" onClick={handleApplyUpdate}>Actualizar</Button>}
-          />
-        )}
-        {!isUpdateReady && isOfflineReady && (
-          <NoticeBar content="La app ya puede usarse sin conexión básica." />
-        )}
+        <div className="mobile-app-shell__surface">
+          {isUpdateReady && (
+            <NoticeBar
+              content="Hay una nueva versión lista para instalarse."
+              extra={
+                <Button size="mini" onClick={handleApplyUpdate}>
+                  Actualizar
+                </Button>
+              }
+            />
+          )}
 
-        {isMobileReadyRoute ? (
-          children ?? <Outlet />
-        ) : (
-          <MobileRouteUnavailable
-            activeResource={activeResource}
-            onSwitchToDesktop={() => setOverrideMode("desktop")}
-          />
-        )}
+          {!isUpdateReady && isOfflineReady && (
+            <NoticeBar content="La app ya puede usarse sin conexión básica." />
+          )}
+
+          {isMobileReadyRoute ? (
+            children ?? <Outlet />
+          ) : (
+            <MobileRouteUnavailable
+              activeResource={activeResource}
+              onSwitchToDesktop={() => setOverrideMode("desktop")}
+            />
+          )}
+        </div>
       </div>
 
       {tabResources.length > 0 && location.pathname !== "/login" && (
         <>
-          <TabBar
-            className="mobile-app-shell__tabbar"
-            safeArea={false}
-            activeKey={location.pathname}
-          >
-            {tabResources.map((resource) => (
-              <TabBar.Item
-                key={resource.list}
-                title={resource.meta.mobileLabel ?? resource.meta.label}
-                icon={resource.meta.mobileIcon ?? resource.meta.icon}
-                onClick={() => navigate(resource.list)}
-              />
-            ))}
-          </TabBar>
+          <div className="mobile-app-shell__tabbar-shell">
+            <TabBar
+              className="mobile-app-shell__tabbar"
+              safeArea={false}
+              activeKey={location.pathname}
+            >
+              {tabResources.map((resource) => (
+                <TabBar.Item
+                  key={resource.list}
+                  title={resource.meta.mobileLabel ?? resource.meta.label}
+                  icon={resource.meta.mobileIcon ?? resource.meta.icon}
+                  onClick={() => navigate(resource.list)}
+                />
+              ))}
+            </TabBar>
+          </div>
           <SafeArea position="bottom" />
         </>
       )}
@@ -160,7 +268,7 @@ export const MobileAppShell: React.FC<MobileAppShellProps> = ({
               </Button>
             </div>
 
-            {canInstall && (
+            {canInstall && !isStandalone && (
               <div className="mobile-app-shell__setting-row">
                 <span className="mobile-app-shell__setting-label">
                   <DownloadOutlined /> Instalar PWA
@@ -169,6 +277,10 @@ export const MobileAppShell: React.FC<MobileAppShellProps> = ({
                   Instalar
                 </Button>
               </div>
+            )}
+
+            {!canInstall && manualInstallPlatform === "ios" && !isStandalone && (
+              <NoticeBar content="En Safari puedes instalarla desde Compartir > Añadir a pantalla de inicio." />
             )}
 
             {activeResource?.meta.mobileStatus !== "ready" && (

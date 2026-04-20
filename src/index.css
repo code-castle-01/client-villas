@@ -68,33 +68,181 @@ a {
 
 .mobile-app-shell {
   min-height: 100vh;
-  background: var(--app-background);
+  background:
+    linear-gradient(180deg, rgba(222, 217, 227, 0.92) 0%, rgba(233, 228, 238, 0.88) 19%, transparent 19%),
+    var(--app-background);
 }
 
-.mobile-app-shell__navbar {
-  background: var(--app-surface);
+.mobile-app-shell__header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  padding: 10px 14px 12px;
+  background:
+    linear-gradient(180deg, rgba(222, 217, 227, 0.96), rgba(228, 223, 233, 0.86)),
+    color-mix(in srgb, var(--app-surface-elevated) 88%, transparent);
   backdrop-filter: blur(18px);
   border-bottom: 1px solid var(--app-border);
 }
 
-.mobile-app-shell__settings-trigger {
+.mobile-app-shell__header-bar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.mobile-app-shell__heading {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.mobile-app-shell__title {
+  margin: 0;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 1.8rem;
+  line-height: 1.02;
+  letter-spacing: -0.03em;
+}
+
+.mobile-app-shell__subtitle {
+  margin: 0;
+  color: var(--app-muted);
+  font-size: 1rem;
+}
+
+.mobile-app-shell__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.mobile-app-shell__action-button {
+  width: 42px;
+  height: 42px;
+  border: 1px solid var(--app-border);
+  border-radius: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
   color: var(--app-color-primary);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.76), rgba(255, 255, 255, 0.28)),
+    var(--app-surface-strong);
+  box-shadow: 0 8px 24px rgba(75, 43, 118, 0.08);
+  font-size: 1.05rem;
+  cursor: pointer;
+}
+
+.mobile-app-shell__action-button:active {
+  transform: scale(0.98);
+}
+
+.mobile-app-shell__install-banner {
+  margin-top: 12px;
+  padding: 14px 14px 14px 12px;
+  border: 1px solid color-mix(in srgb, var(--app-color-primary) 24%, var(--app-border));
+  border-radius: 20px;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 10px;
+  align-items: start;
+  background:
+    radial-gradient(circle at top right, rgba(126, 44, 111, 0.18), transparent 44%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.84), rgba(255, 255, 255, 0.62)),
+    var(--app-surface-strong);
+  box-shadow: 0 18px 32px rgba(75, 43, 118, 0.08);
+}
+
+.mobile-app-shell__install-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  font-size: 1rem;
+  color: var(--app-color-primary);
+  background: rgba(126, 44, 111, 0.12);
+}
+
+.mobile-app-shell__install-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.mobile-app-shell__install-title {
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.mobile-app-shell__install-description {
+  color: var(--app-muted);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.mobile-app-shell__install-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .mobile-app-shell__content {
-  min-height: calc(100vh - 108px);
-  padding: 12px 12px 96px;
+  min-height: calc(100vh - 110px);
+  padding: 12px 12px calc(102px + env(safe-area-inset-bottom));
   box-sizing: border-box;
 }
 
-.mobile-app-shell__tabbar {
+.mobile-app-shell__surface {
+  min-height: calc(100vh - 188px);
+  padding: 14px 12px 18px;
+  border: 1px solid color-mix(in srgb, var(--app-border) 86%, transparent);
+  border-radius: 28px 28px 22px 22px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(255, 255, 255, 0.88)),
+    var(--app-surface-strong);
+  box-shadow:
+    0 24px 60px rgba(75, 43, 118, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.65);
+}
+
+.mobile-app-shell__surface .adm-notice-bar {
+  margin-bottom: 12px;
+  border-radius: 16px;
+}
+
+.mobile-app-shell__tabbar-shell {
   position: fixed;
   inset-inline: 0;
   bottom: 0;
   z-index: 40;
-  border-top: 1px solid var(--app-border);
-  background: color-mix(in srgb, var(--app-surface-elevated) 92%, transparent);
+  padding: 12px 10px calc(10px + env(safe-area-inset-bottom));
+  background: linear-gradient(180deg, transparent, rgba(20, 15, 26, 0.03));
+}
+
+.mobile-app-shell__tabbar {
+  border: 1px solid color-mix(in srgb, var(--app-border) 92%, transparent);
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, rgba(236, 232, 240, 0.96), rgba(231, 226, 236, 0.92)),
+    var(--app-surface-elevated);
   backdrop-filter: blur(22px);
+  box-shadow: 0 20px 38px rgba(75, 43, 118, 0.12);
+}
+
+.mobile-app-shell__tabbar .adm-tab-bar-wrap {
+  min-height: 74px;
+}
+
+.mobile-app-shell__tabbar .adm-tab-bar-item {
+  color: var(--app-muted);
+}
+
+.mobile-app-shell__tabbar .adm-tab-bar-item-active {
+  color: var(--app-color-primary);
 }
 
 .mobile-app-shell__settings {
@@ -127,6 +275,55 @@ a {
   gap: 8px;
   color: var(--app-muted);
   font-size: 0.93rem;
+}
+
+:root[data-color-mode="dark"] .mobile-app-shell {
+  background:
+    linear-gradient(180deg, rgba(43, 35, 53, 0.94) 0%, rgba(30, 23, 39, 0.88) 19%, transparent 19%),
+    var(--app-background);
+}
+
+:root[data-color-mode="dark"] .mobile-app-shell__header {
+  background:
+    linear-gradient(180deg, rgba(37, 29, 46, 0.98), rgba(28, 22, 36, 0.9)),
+    color-mix(in srgb, var(--app-surface-elevated) 82%, transparent);
+}
+
+:root[data-color-mode="dark"] .mobile-app-shell__action-button {
+  background:
+    linear-gradient(145deg, rgba(58, 46, 71, 0.86), rgba(31, 24, 40, 0.9)),
+    var(--app-surface-strong);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.24);
+}
+
+:root[data-color-mode="dark"] .mobile-app-shell__install-banner {
+  background:
+    radial-gradient(circle at top right, rgba(126, 44, 111, 0.28), transparent 44%),
+    linear-gradient(145deg, rgba(44, 34, 56, 0.94), rgba(28, 22, 36, 0.94)),
+    var(--app-surface-strong);
+}
+
+:root[data-color-mode="dark"] .mobile-app-shell__install-icon {
+  background: rgba(126, 44, 111, 0.2);
+}
+
+:root[data-color-mode="dark"] .mobile-app-shell__surface {
+  background:
+    linear-gradient(180deg, rgba(29, 22, 38, 0.98), rgba(25, 19, 33, 0.96)),
+    var(--app-surface-strong);
+  box-shadow:
+    0 24px 56px rgba(0, 0, 0, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+:root[data-color-mode="dark"] .mobile-app-shell__tabbar-shell {
+  background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.16));
+}
+
+:root[data-color-mode="dark"] .mobile-app-shell__tabbar {
+  background:
+    linear-gradient(180deg, rgba(35, 27, 45, 0.97), rgba(24, 19, 31, 0.96)),
+    var(--app-surface-elevated);
 }
 
 .mobile-route-unavailable {

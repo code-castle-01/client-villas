@@ -8,9 +8,25 @@ interface BeforeInstallPromptEvent extends Event {
   }>;
 }
 
+const getManualInstallPlatform = () => {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const { userAgent, platform, maxTouchPoints } = window.navigator;
+  const isIosDevice =
+    /iPad|iPhone|iPod/i.test(userAgent) ||
+    (platform === "MacIntel" && (maxTouchPoints ?? 0) > 1);
+  const isSafariBrowser =
+    /Safari/i.test(userAgent) && !/CriOS|FxiOS|EdgiOS|OPiOS|YaBrowser/i.test(userAgent);
+
+  return isIosDevice && isSafariBrowser ? "ios" : null;
+};
+
 export const usePwaInstallPrompt = () => {
   const [installPrompt, setInstallPrompt] =
     useState<BeforeInstallPromptEvent | null>(null);
+  const [manualInstallPlatform] = useState(() => getManualInstallPlatform());
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (event: Event) => {
@@ -36,6 +52,7 @@ export const usePwaInstallPrompt = () => {
 
   return {
     canInstall: Boolean(installPrompt),
+    manualInstallPlatform,
     promptInstall: async () => {
       if (!installPrompt) {
         return false;
