@@ -1,0 +1,25 @@
+.organigrama-page {
+  min-height: calc(100vh - 64px);
+  padding: 24px;
+}
+
+.organigrama-page__header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 18px;
+}
+
+.organigrama-page__title.ant-typography {
+  margin: 0;
+}
+
+.organigrama-page__subtitle.ant-typography {
+  color: var(--app-muted);
+}
+
+@media (max-width: 768px) {
+  .organigrama-page {
+    padding: 16px;
+  }
+}

@@ -18,6 +18,11 @@ describe("app resources", () => {
     expect(isMobileRouteReady("/territorio", resources)).toBe(true);
   });
 
+  it("exposes organigrama as a routed mobile-ready resource", () => {
+    expect(isKnownResourcePath("/organigrama")).toBe(true);
+    expect(isMobileRouteReady("/organigrama", resources)).toBe(true);
+  });
+
   it("recognizes protected routes even when a role cannot access them", () => {
     const viewerResources = buildResources({
       isAdminApp: false,

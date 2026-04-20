@@ -38,6 +38,7 @@ describe("DashboardPage", () => {
     );
 
     expect(screen.getByText("Asignaciones")).toBeInTheDocument();
+    expect(screen.getByText("Organigrama")).toBeInTheDocument();
     expect(screen.getByText("Conferencias")).toBeInTheDocument();
     expect(screen.queryByText("Pastoreo")).not.toBeInTheDocument();
     expect(screen.queryByText("Usuarios")).not.toBeInTheDocument();
@@ -48,6 +49,7 @@ describe("DashboardPage", () => {
     renderDashboard();
 
     expect(screen.getByText("Todo listo para usar desde tu celular")).toBeInTheDocument();
+    expect(screen.getByText("Organigrama")).toBeInTheDocument();
     expect(screen.getByText("Pastoreo")).toBeInTheDocument();
     expect(screen.getAllByText("Abrir").length).toBeGreaterThan(3);
   });

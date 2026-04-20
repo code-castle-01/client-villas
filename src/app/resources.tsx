@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import {
+  ApartmentOutlined,
   BookOutlined,
   CalendarOutlined,
   DashboardOutlined,
@@ -36,6 +37,7 @@ const viewerVisibleResources = new Set([
   "Reuniones",
   "Mecánicas",
   "Territorios",
+  "Organigrama",
 ]);
 
 const baseResources: AppResource[] = [
@@ -51,6 +53,19 @@ const baseResources: AppResource[] = [
       mobileStatus: "ready",
       mobileTab: true,
       summary: "Vista general de la congregación y accesos rápidos.",
+    },
+  },
+  {
+    name: "Organigrama",
+    list: "/organigrama",
+    meta: {
+      canDelete: false,
+      icon: <ApartmentOutlined />,
+      label: "Organigrama",
+      mobileIcon: <ApartmentOutlined />,
+      mobileLabel: "Organigrama",
+      mobileStatus: "ready",
+      summary: "Estructura de servicio, encargos y grupos.",
     },
   },
   {

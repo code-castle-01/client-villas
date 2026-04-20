@@ -40,6 +40,10 @@ type AuthIdentity = {
 };
 
 const DashboardPage = lazyNamed(() => import("./pages/dashboard"), "DashboardPage");
+const OrganigramaPage = lazyNamed(
+  () => import("./pages/organigrama"),
+  "OrganigramaPage",
+);
 const MisAsignacionesPage = lazyNamed(
   () => import("./pages/mis-asignaciones"),
   "MisAsignacionesPage",
@@ -370,6 +374,7 @@ function App() {
                         >
                           <Route element={<ResourceAccessGuard resources={resources} />}>
                             <Route index element={<DashboardPage resources={resources} />} />
+                            <Route path="/organigrama" element={<OrganigramaPage />} />
                             <Route path="/mis-asignaciones" element={<MisAsignacionesPage />} />
                             <Route path="/pastoreo" element={<MiembrosList />} />
                             <Route path="/revisitas" element={<RevisitasPage />} />
