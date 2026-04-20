@@ -114,10 +114,6 @@ export const resolveAdaptiveMode = ({
     return overrideMode;
   }
 
-  if (roleType === "admin-app") {
-    return "desktop";
-  }
-
   if (!isTouchLike && !isStandalone) {
     return "desktop";
   }

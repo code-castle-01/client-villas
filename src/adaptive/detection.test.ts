@@ -22,7 +22,7 @@ describe("adaptive detection", () => {
     ).toBe("mobile");
   });
 
-  it("stays on desktop for admin-app in auto mode", () => {
+  it("lets admin-app use mobile mode on mobile devices", () => {
     expect(
       resolveAdaptiveMode({
         overrideMode: "auto",
@@ -32,7 +32,7 @@ describe("adaptive detection", () => {
         screenShortSide: 390,
         viewportWidth: 390,
       }),
-    ).toBe("desktop");
+    ).toBe("mobile");
   });
 
   it("honors explicit override", () => {

@@ -40,15 +40,21 @@ const resources = buildResources({
   isAdminApp: false,
   isViewer: false,
 });
+const adminResources = buildResources({
+  isAdminApp: true,
+  isViewer: false,
+});
 
 const renderShell = (
   pathname: string,
   {
     child,
     isStandalone = false,
+    shellResources = resources,
   }: {
     child?: React.ReactNode;
     isStandalone?: boolean;
+    shellResources?: ReturnType<typeof buildResources>;
   } = {},
 ) =>
   render(
@@ -71,7 +77,7 @@ const renderShell = (
             setOverrideMode: () => undefined,
           }}
         >
-          <MobileAppShell resources={resources}>{child}</MobileAppShell>
+          <MobileAppShell resources={shellResources}>{child}</MobileAppShell>
         </AdaptiveUIContext.Provider>
       </ColorModeContext.Provider>
     </MemoryRouter>,
@@ -152,5 +158,14 @@ describe("MobileAppShell", () => {
     fireEvent.click(screen.getByText(/Cerrar sesión/i));
 
     expect(logoutMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders admin-app mobile routes for inspection", () => {
+    renderShell("/usuarios", {
+      child: <div>usuarios móvil</div>,
+      shellResources: adminResources,
+    });
+
+    expect(screen.getByText("usuarios móvil")).toBeInTheDocument();
   });
 });

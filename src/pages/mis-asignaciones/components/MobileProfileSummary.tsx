@@ -25,51 +25,48 @@ export const MobileProfileSummary: React.FC<MobileProfileSummaryProps> = ({
   const profileInitial = profileDisplayName.charAt(0).toUpperCase() || "U";
 
   return (
-    <div style={{ display: "grid", gap: 12 }}>
+    <div className="mobile-assignments-stack">
       {!currentMember && (
         <NoticeBar content="Tu usuario todavía no tiene un miembro vinculado. Completa tu perfil para ver tus asignaciones." />
       )}
 
       <Card className="mobile-screen-card" title="Mi perfil">
         <Space direction="vertical" block style={{ width: "100%" }}>
-          <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
+          <div className="mobile-profile-summary__identity">
             <div
+              className="mobile-profile-summary__avatar"
               style={{
-                width: 56,
-                height: 56,
-                borderRadius: 18,
-                display: "grid",
-                placeItems: "center",
                 background:
                   "linear-gradient(160deg, var(--app-color-primary), var(--app-color-primary-accent))",
-                color: "#fff",
-                fontWeight: 800,
-                fontSize: 22,
               }}
             >
               {profileInitial}
             </div>
-            <div>
-              <div style={{ fontSize: 18, fontWeight: 800 }}>{profileDisplayName}</div>
-              <div style={{ color: "var(--app-muted)", fontSize: 14 }}>
+            <div className="mobile-profile-summary__identity-copy">
+              <div className="mobile-profile-summary__name">{profileDisplayName}</div>
+              <div className="mobile-profile-summary__email">
                 {profile?.user?.email || "Sin correo"}
               </div>
             </div>
           </div>
 
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-            <Tag color="primary" fill="outline">
+          <div className="mobile-profile-summary__tags">
+            <Tag className="mobile-profile-summary__tag" color="primary" fill="outline">
               Usuario: {profile?.user?.username || "Sin usuario"}
             </Tag>
-            <Tag color={currentMember ? "success" : "warning"} fill="outline">
+            <Tag
+              className="mobile-profile-summary__tag"
+              color={currentMember ? "success" : "warning"}
+              fill="outline"
+            >
               {currentMember ? `Miembro: ${currentMember.nombre}` : "Sin miembro"}
             </Tag>
-            <Tag color="primary" fill="outline">
+            <Tag className="mobile-profile-summary__tag" color="primary" fill="outline">
               {assignmentCount} asignaciones
             </Tag>
           </div>
 
-          <div style={{ display: "grid", gap: 8, color: "var(--app-muted)", fontSize: 14 }}>
+          <div className="mobile-profile-summary__details">
             <div>Celular: {member?.celular || "No registrado"}</div>
             <div>Grupo: {member?.grupos?.[0]?.nombre || "Sin grupo"}</div>
             <div>
@@ -80,7 +77,7 @@ export const MobileProfileSummary: React.FC<MobileProfileSummaryProps> = ({
             </div>
           </div>
 
-          <Space direction="vertical" block style={{ width: "100%" }}>
+          <div className="mobile-profile-summary__actions">
             <Button block color="primary" fill="outline" onClick={onSchedule}>
               Agendar
             </Button>
@@ -103,7 +100,7 @@ export const MobileProfileSummary: React.FC<MobileProfileSummaryProps> = ({
             >
               Usuario JW Login
             </Button>
-          </Space>
+          </div>
         </Space>
       </Card>
     </div>

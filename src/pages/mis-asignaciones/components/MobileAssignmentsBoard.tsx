@@ -66,28 +66,23 @@ export const MobileAssignmentsBoard: React.FC<MobileAssignmentsBoardProps> = ({
   ).sort((a, b) => a.localeCompare(b));
 
   return (
-    <div style={{ display: "grid", gap: 12 }}>
+    <div className="mobile-assignments-stack">
       <Card className="mobile-screen-card" title="Tu agenda del mes">
         <Space direction="vertical" block style={{ width: "100%" }}>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 12,
-            }}
-          >
+          <div className="mobile-assignments-month-nav">
             <Button size="small" onClick={() => moveMonth(-1)}>
-              Mes anterior
+              Anterior
             </Button>
-            <strong>{monthTitle(panelMonth)}</strong>
+            <strong className="mobile-assignments-month-nav__title">
+              {monthTitle(panelMonth)}
+            </strong>
             <Button size="small" onClick={() => moveMonth(1)}>
               Siguiente
             </Button>
           </div>
 
           {monthDateOptions.length ? (
-            <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 }}>
+            <div className="mobile-assignments-date-strip">
               {monthDateOptions.map((date) => {
                 const selected = date === selectedDateValue.format("YYYY-MM-DD");
                 return (
@@ -116,13 +111,13 @@ export const MobileAssignmentsBoard: React.FC<MobileAssignmentsBoardProps> = ({
           <Space direction="vertical" block style={{ width: "100%" }}>
             {selectedDateItems.map((item) => (
               <div key={item.id} className="mobile-assignment-item">
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                <div className="mobile-assignment-item__heading">
                   <strong>{item.title}</strong>
                   <Tag color={mobileTagColor(item.category)} fill="outline">
                     {categoryMeta[item.category].label}
                   </Tag>
                 </div>
-                <div style={{ color: "var(--app-muted)", fontSize: 14 }}>
+                <div className="mobile-assignment-item__details">
                   {item.details.join(" • ")}
                 </div>
               </div>
@@ -138,13 +133,13 @@ export const MobileAssignmentsBoard: React.FC<MobileAssignmentsBoardProps> = ({
           <Space direction="vertical" block style={{ width: "100%" }}>
             {selectedDateAppointments.map((appointment) => (
               <div key={appointment.id} className="mobile-assignment-item">
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                <div className="mobile-assignment-item__heading">
                   <strong>{appointment.title}</strong>
                   <Tag color="danger" fill="outline">
                     Cita personal
                   </Tag>
                 </div>
-                <div style={{ color: "var(--app-muted)", fontSize: 14 }}>
+                <div className="mobile-assignment-item__details">
                   {appointment.description}
                 </div>
               </div>
@@ -161,7 +156,7 @@ export const MobileAssignmentsBoard: React.FC<MobileAssignmentsBoardProps> = ({
             {groupedMonthItems.map((group) => (
               <div key={group.date} className="mobile-assignment-summary">
                 <strong>{dayjs(group.date).locale("es").format("ddd, D MMM YYYY")}</strong>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
+                <div className="mobile-assignment-summary__tags">
                   {group.items.map((item) => (
                     <Tag
                       key={item.id}
@@ -186,7 +181,7 @@ export const MobileAssignmentsBoard: React.FC<MobileAssignmentsBoardProps> = ({
             {groupedMonthAppointments.map((group) => (
               <div key={group.date} className="mobile-assignment-summary">
                 <strong>{dayjs(group.date).locale("es").format("ddd, D MMM YYYY")}</strong>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
+                <div className="mobile-assignment-summary__tags">
                   {group.items.map((appointment) => (
                     <Tag
                       key={appointment.id}

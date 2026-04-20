@@ -27,4 +27,14 @@ describe("app resources", () => {
     expect(isKnownResourcePath("/usuarios")).toBe(true);
     expect(isMobileRouteReady("/usuarios", viewerResources)).toBe(false);
   });
+
+  it("lets admin-app inspect admin routes from mobile", () => {
+    const adminResources = buildResources({
+      isAdminApp: true,
+      isViewer: false,
+    });
+
+    expect(isMobileRouteReady("/grupos", adminResources)).toBe(true);
+    expect(isMobileRouteReady("/usuarios", adminResources)).toBe(true);
+  });
 });
