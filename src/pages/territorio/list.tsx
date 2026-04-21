@@ -75,6 +75,7 @@ type LugarSalida = {
 
 interface Territorio {
   id?: number;
+  documentId?: string;
   sitio: string;
   n: number;
   img: string;
@@ -91,6 +92,7 @@ interface TerritorioData {
 }
 
 type TerritorioApiResponse = {
+  documentId?: string;
   sitio: string;
   numero: number;
   lugares?: unknown;
@@ -188,6 +190,7 @@ const mapTerritoryRecord = (
 
   return {
     id: territorio.id,
+    documentId: territorio.documentId,
     sitio: territorio.sitio || fallbackTerritory?.sitio || "Territorio",
     n: territorio.numero,
     img:
@@ -272,9 +275,12 @@ export const TerritoriosTable: React.FC = () => {
     Array<{ id: number; numero: number }>
   >([]);
   const [isNewTerritoryModalOpen, setIsNewTerritoryModalOpen] = useState(false);
+  const [editingTerritory, setEditingTerritory] = useState<Territorio | null>(
+    null,
+  );
   const [territoryImageFile, setTerritoryImageFile] =
     useState<UploadFile | null>(null);
-  const [isCreatingTerritory, setIsCreatingTerritory] = useState(false);
+  const [isSavingTerritory, setIsSavingTerritory] = useState(false);
   const [mapPolygon, setMapPolygon] =
     useState<LatLngExpression[]>(fallbackPolygon);
   const [activeTab, setActiveTab] = useState<string>("1");
@@ -463,19 +469,35 @@ export const TerritoriosTable: React.FC = () => {
 
   const openNewTerritoryModal = () => {
     if (!canEditInCurrentView) return;
+    setEditingTerritory(null);
     newTerritoryForm.resetFields();
     newTerritoryForm.setFieldsValue({ lugares: [{ nombre: "" }] });
     setTerritoryImageFile(null);
     setIsNewTerritoryModalOpen(true);
   };
 
+  const openEditTerritoryModal = (territorio: Territorio) => {
+    if (!canEditInCurrentView) return;
+    setEditingTerritory(territorio);
+    setTerritoryImageFile(null);
+    newTerritoryForm.setFieldsValue({
+      sitio: territorio.sitio,
+      numero: territorio.n,
+      lugares: territorio.lugares?.length
+        ? territorio.lugares
+        : [{ nombre: "" }],
+    });
+    setIsNewTerritoryModalOpen(true);
+  };
+
   const closeNewTerritoryModal = () => {
     setIsNewTerritoryModalOpen(false);
+    setEditingTerritory(null);
     setTerritoryImageFile(null);
     newTerritoryForm.resetFields();
   };
 
-  const handleCreateTerritory = async () => {
+  const handleSaveTerritory = async () => {
     if (!canEditInCurrentView) return;
 
     const values = await newTerritoryForm.validateFields();
@@ -487,7 +509,7 @@ export const TerritoriosTable: React.FC = () => {
       })
       .filter((lugar): lugar is LugarSalida => Boolean(lugar));
 
-    setIsCreatingTerritory(true);
+    setIsSavingTerritory(true);
 
     try {
       let imagen: number | undefined;
@@ -506,20 +528,53 @@ export const TerritoriosTable: React.FC = () => {
         imagen = data[0]?.id;
       }
 
-      await createEntry("territorios", {
+      const payload = {
         sitio: values.sitio.trim(),
         numero: values.numero,
         lugares,
         ...(imagen ? { imagen } : {}),
-      });
+      };
 
-      message.success("Territorio creado");
+      if (editingTerritory?.id || editingTerritory?.documentId) {
+        await updateEntry(
+          "territorios",
+          editingTerritory.documentId ?? editingTerritory.id ?? "",
+          payload,
+        );
+      } else {
+        await createEntry("territorios", payload);
+      }
+
+      message.success(
+        editingTerritory ? "Territorio actualizado" : "Territorio creado",
+      );
       closeNewTerritoryModal();
       await loadTerritoryResources();
     } catch {
-      message.error("No se pudo crear el territorio");
+      message.error(
+        editingTerritory
+          ? "No se pudo actualizar el territorio"
+          : "No se pudo crear el territorio",
+      );
     } finally {
-      setIsCreatingTerritory(false);
+      setIsSavingTerritory(false);
+    }
+  };
+
+  const handleDeleteTerritory = async (territorio: Territorio) => {
+    if (!canEditInCurrentView || (!territorio.id && !territorio.documentId)) return;
+
+    try {
+      await deleteEntry(
+        "territorios",
+        territorio.documentId ?? territorio.id ?? "",
+      );
+      message.success("Territorio eliminado");
+      await loadTerritoryResources();
+    } catch {
+      message.error(
+        "No se pudo eliminar el territorio. Revisa si tiene asignaciones registradas.",
+      );
     }
   };
 
@@ -883,6 +938,35 @@ export const TerritoriosTable: React.FC = () => {
                   extra={
                     <div className="territorio-card-actions">
                       <TerritoryS12DownloadButton territory={territorio} />
+                      {canEditInCurrentView && (
+                        <>
+                          <Button
+                            size="small"
+                            type="default"
+                            icon={<EditFilled />}
+                            onClick={() => openEditTerritoryModal(territorio)}
+                            disabled={!territorio.id && !territorio.documentId}
+                          >
+                            Editar
+                          </Button>
+                          <Popconfirm
+                            title="¿Eliminar este territorio?"
+                            description="Esta acción borra la ficha del territorio. Si tiene asignaciones, el servidor puede impedirlo."
+                            onConfirm={() => handleDeleteTerritory(territorio)}
+                            okText="Sí"
+                            cancelText="No"
+                          >
+                            <Button
+                              danger
+                              size="small"
+                              icon={<DeleteFilled />}
+                              disabled={!territorio.id && !territorio.documentId}
+                            >
+                              Eliminar
+                            </Button>
+                          </Popconfirm>
+                        </>
+                      )}
                       <Button
                         size="small"
                         type="default"
@@ -1090,13 +1174,13 @@ export const TerritoriosTable: React.FC = () => {
 
       {canEditInCurrentView && (
         <Modal
-          title="Nuevo territorio"
+          title={editingTerritory ? "Editar territorio" : "Nuevo territorio"}
           open={isNewTerritoryModalOpen}
-          onOk={handleCreateTerritory}
+          onOk={handleSaveTerritory}
           onCancel={closeNewTerritoryModal}
-          okText="Crear territorio"
+          okText={editingTerritory ? "Guardar cambios" : "Crear territorio"}
           cancelText="Cancelar"
-          confirmLoading={isCreatingTerritory}
+          confirmLoading={isSavingTerritory}
           destroyOnHidden
         >
           <Form
@@ -1123,7 +1207,14 @@ export const TerritoriosTable: React.FC = () => {
                 {
                   validator: async (_, value: number | undefined) => {
                     if (value === undefined || value === null) return;
-                    if (territorios.some((territorio) => territorio.n === value)) {
+                    if (
+                      territorios.some(
+                        (territorio) =>
+                          territorio.n === value &&
+                          territorio.id !== editingTerritory?.id &&
+                          territorio.documentId !== editingTerritory?.documentId,
+                      )
+                    ) {
                       throw new Error("Ya existe un territorio con ese número");
                     }
                   },
@@ -1134,6 +1225,11 @@ export const TerritoriosTable: React.FC = () => {
             </Form.Item>
 
             <Form.Item label="Imagen del mapa">
+              {editingTerritory && !territoryImageFile && (
+                <div className="territorio-current-image-note">
+                  Se conservará la imagen actual si no subes una nueva.
+                </div>
+              )}
               <Upload
                 accept="image/*"
                 beforeUpload={(file) => {
