@@ -68,6 +68,48 @@ a {
   color: inherit;
 }
 
+.app-month-tabs-card {
+  padding: 0 16px;
+  border: 1px solid var(--app-border);
+  border-radius: 16px;
+  background: var(--app-surface-elevated);
+  box-shadow: 0 10px 30px rgba(75, 43, 118, 0.06);
+}
+
+.app-month-tabs-card .ant-tabs-nav::before {
+  border-bottom-color: var(--app-border);
+}
+
+.app-month-tabs-card .ant-tabs-tab {
+  color: var(--app-muted);
+}
+
+.app-month-tabs-card .ant-tabs-tab:hover,
+.app-month-tabs-card .ant-tabs-tab-active .ant-tabs-tab-btn {
+  color: var(--app-color-primary);
+}
+
+.app-month-tabs-card .ant-tabs-tab-btn {
+  color: inherit;
+}
+
+:root[data-color-mode="dark"] .app-month-tabs-card {
+  background: color-mix(in srgb, var(--app-surface-strong) 92%, #000 8%);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.26);
+}
+
+:root[data-color-mode="dark"] .app-month-tabs-card .ant-tabs-tab {
+  color: color-mix(in srgb, var(--app-muted) 82%, transparent);
+}
+
+:root[data-color-mode="dark"] .app-month-tabs-card .ant-tabs-tab:hover,
+:root[data-color-mode="dark"]
+  .app-month-tabs-card
+  .ant-tabs-tab-active
+  .ant-tabs-tab-btn {
+  color: #f4eff7;
+}
+
 .mobile-app-shell {
   width: 100%;
   min-height: 100vh;

@@ -2147,13 +2147,8 @@ export const MeetingAssignmentUI: React.FC = () => {
   const assignmentsContent = (
     <>
       <div
-        style={{
-          marginBottom: 16,
-          padding: "0 16px",
-          background: "#fff",
-          border: "1px solid #f0f0f0",
-          borderRadius: 16,
-        }}
+        className="app-month-tabs-card"
+        style={{ marginBottom: 16 }}
       >
         <Tabs
           activeKey={activeAssignmentsMonthKey}

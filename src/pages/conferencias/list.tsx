@@ -437,14 +437,8 @@ export const ConferenciasTable: React.FC = () => {
           wrap="wrap"
         >
           <div
-            style={{
-              flex: 1,
-              minWidth: 0,
-              padding: "0 16px",
-              background: "#fff",
-              border: "1px solid #f0f0f0",
-              borderRadius: 16,
-            }}
+            className="app-month-tabs-card"
+            style={{ flex: 1, minWidth: 0 }}
           >
             <Tabs
               activeKey={activeMonthKey}

@@ -1,6 +1,7 @@
 import type { RefineThemedLayoutHeaderProps } from "@refinedev/antd";
 import { useGetIdentity } from "@refinedev/core";
 import {
+  Button,
   Layout as AntdLayout,
   Avatar,
   Space,
@@ -8,8 +9,10 @@ import {
   theme,
   Typography,
 } from "antd";
+import { MobileOutlined } from "@ant-design/icons";
 import React, { useContext } from "react";
 import { ColorModeContext } from "../../contexts/color-mode";
+import { useAdaptiveUI } from "../../adaptive/useAdaptiveUI";
 
 const { Text } = Typography;
 const { useToken } = theme;
@@ -26,6 +29,7 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
   const { token } = useToken();
   const { data: user } = useGetIdentity<IUser>();
   const { mode, toggleMode } = useContext(ColorModeContext);
+  const { overrideMode, setOverrideMode } = useAdaptiveUI();
 
   const headerStyles: React.CSSProperties = {
     backgroundColor: token.colorBgElevated,
@@ -45,6 +49,17 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
   return (
     <AntdLayout.Header style={headerStyles}>
       <Space>
+        {overrideMode === "desktop" && (
+          <Button
+            size="small"
+            type="primary"
+            ghost
+            icon={<MobileOutlined />}
+            onClick={() => setOverrideMode("mobile")}
+          >
+            Ir a mobile
+          </Button>
+        )}
         <Switch
           checkedChildren="🌛"
           unCheckedChildren="🔆"
