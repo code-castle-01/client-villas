@@ -140,6 +140,13 @@
   border-radius: 18px;
 }
 
+.territorio-tab-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  margin-top: 16px;
+}
+
 .territorio-card-actions {
   display: flex;
   align-items: center;
@@ -159,6 +166,32 @@
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.territorio-places-form {
+  display: grid;
+  gap: 8px;
+}
+
+.territorio-place-input {
+  flex: 1;
+  min-width: 180px;
+  margin-bottom: 8px;
+}
+
+.territorio-place-detail-input {
+  flex: 1.4;
+  min-width: 220px;
+  margin-bottom: 8px;
+}
+
+.territorio-place-details {
+  display: grid;
+  gap: 4px;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
 }
 
 @media (max-width: 768px) {

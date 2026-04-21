@@ -1,4 +1,11 @@
-import React, { useContext, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Button as MobileButton,
   Card as MobileCard,
@@ -14,15 +21,20 @@ import {
   Flex,
   Form,
   Image,
+  Input,
+  InputNumber,
+  message,
   Modal,
   Popconfirm,
   Table,
   Tabs as AntTabs,
   Tag,
   Typography,
+  Upload,
 } from "antd";
-import { EditFilled, DeleteFilled } from "@ant-design/icons";
+import { DeleteFilled, EditFilled, PlusOutlined } from "@ant-design/icons";
 import { ColumnsType } from "antd/es/table";
+import type { UploadFile } from "antd/es/upload/interface";
 import dayjs from "dayjs";
 import territorio_1 from "../../assets/img/territorio-1.png";
 import territorio_2 from "../../assets/img/territorio-2.png";
@@ -41,6 +53,7 @@ import "./styles.css";
 import { useAdaptiveUI } from "../../adaptive/useAdaptiveUI";
 import {
   apiUrl,
+  api,
   createEntry,
   deleteEntry,
   getCollection,
@@ -53,11 +66,17 @@ import { TerritoryS12DownloadButton } from "./TerritoryS12Pdf";
 
 const { Title, Text, Paragraph } = Typography;
 
+type LugarSalida = {
+  nombre: string;
+  detalle?: string;
+};
+
 interface Territorio {
+  id?: number;
   sitio: string;
   n: number;
   img: string;
-  lugares?: string[];
+  lugares?: LugarSalida[];
 }
 
 interface TerritorioData {
@@ -70,7 +89,23 @@ interface TerritorioData {
 }
 
 type TerritorioApiResponse = {
+  sitio: string;
   numero: number;
+  lugares?: unknown;
+  imagen?: {
+    data?: {
+      attributes?: {
+        url?: string;
+      };
+    } | null;
+    url?: string;
+  } | null;
+};
+
+type NewTerritoryFormValues = {
+  sitio: string;
+  numero: number;
+  lugares?: Array<{ nombre?: string; detalle?: string }>;
 };
 
 type TerritorioAsignacionResponse = {
@@ -82,26 +117,84 @@ type TerritorioAsignacionResponse = {
 
 type MobileSectionKey = "territorios" | "registro" | "zona";
 
-const territorios: Territorio[] = [
+const fallbackTerritorios: Territorio[] = [
   {
     sitio: "Barrio Antonio Nariño (A)",
     n: 1,
     img: territorio_1,
-    lugares: ["Cancha Techada"],
+    lugares: [{ nombre: "Cancha Techada" }],
   },
   {
     sitio: "Barrio Antonio Nariño (B)",
     n: 2,
     img: territorio_2,
-    lugares: ["Cancha Techada"],
+    lugares: [{ nombre: "Cancha Techada" }],
   },
   {
     sitio: "La Parada",
     n: 10,
     img: territorio_10,
-    lugares: ["Casa Miriam", "Casa Solfanis"],
+    lugares: [{ nombre: "Casa Miriam" }, { nombre: "Casa Solfanis" }],
   },
 ];
+
+const fallbackTerritoryImageByNumber = new Map(
+  fallbackTerritorios.map((territorio) => [territorio.n, territorio.img]),
+);
+
+const getMediaUrl = (url?: string) => {
+  if (!url) return "";
+  return url.startsWith("http") ? url : `${apiUrl}${url}`;
+};
+
+const normalizeLugares = (lugares: unknown): LugarSalida[] => {
+  if (!Array.isArray(lugares)) return [];
+
+  return lugares
+    .map((lugar) => {
+      if (typeof lugar === "string") {
+        const nombre = lugar.trim();
+        return nombre ? { nombre } : null;
+      }
+      if (
+        lugar &&
+        typeof lugar === "object" &&
+        "nombre" in lugar &&
+        typeof lugar.nombre === "string"
+      ) {
+        const nombre = lugar.nombre.trim();
+        const detalle =
+          "detalle" in lugar && typeof lugar.detalle === "string"
+            ? lugar.detalle.trim()
+            : "";
+        return nombre ? { nombre, ...(detalle ? { detalle } : {}) } : null;
+      }
+      return null;
+    })
+    .filter((lugar): lugar is LugarSalida => Boolean(lugar));
+};
+
+const mapTerritoryRecord = (
+  territorio: TerritorioApiResponse & { id: number },
+): Territorio => {
+  const mediaUrl =
+    territorio.imagen?.data?.attributes?.url ?? territorio.imagen?.url ?? "";
+  const fallbackTerritory = fallbackTerritorios.find(
+    (item) => item.n === territorio.numero,
+  );
+  const lugares = normalizeLugares(territorio.lugares);
+
+  return {
+    id: territorio.id,
+    sitio: territorio.sitio || fallbackTerritory?.sitio || "Territorio",
+    n: territorio.numero,
+    img:
+      getMediaUrl(mediaUrl) ||
+      fallbackTerritoryImageByNumber.get(territorio.numero) ||
+      territorio_1,
+    lugares: lugares.length ? lugares : fallbackTerritory?.lugares ?? [],
+  };
+};
 
 const mapCenter: LatLngExpression = [7.835953, -72.471225];
 const fallbackPolygon: LatLngExpression[] = [
@@ -169,10 +262,17 @@ export const TerritoriosTable: React.FC = () => {
   const mapRef = useRef<LeafletMap | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [form] = Form.useForm();
+  const [newTerritoryForm] = Form.useForm<NewTerritoryFormValues>();
   const [territorioData, setTerritorioData] = useState<TerritorioData[]>([]);
+  const [territorios, setTerritorios] =
+    useState<Territorio[]>(fallbackTerritorios);
   const [territoriosDb, setTerritoriosDb] = useState<
     Array<{ id: number; numero: number }>
   >([]);
+  const [isNewTerritoryModalOpen, setIsNewTerritoryModalOpen] = useState(false);
+  const [territoryImageFile, setTerritoryImageFile] =
+    useState<UploadFile | null>(null);
+  const [isCreatingTerritory, setIsCreatingTerritory] = useState(false);
   const [mapPolygon, setMapPolygon] =
     useState<LatLngExpression[]>(fallbackPolygon);
   const [activeTab, setActiveTab] = useState<string>("1");
@@ -186,26 +286,31 @@ export const TerritoriosTable: React.FC = () => {
   const canEditInCurrentView = isAdminApp && !isNativeMobile;
   const { mode } = useContext(ColorModeContext);
 
-  const loadAssignments = async () => {
-    const territoriosData = await getCollection<TerritorioApiResponse>("territorios", {
-      "pagination[pageSize]": 1000,
-    });
+  const loadTerritoryResources = useCallback(async () => {
+    const [territoriosData, asignaciones] = await Promise.all([
+      getCollection<TerritorioApiResponse>("territorios", {
+        populate: ["imagen"],
+        "pagination[pageSize]": 1000,
+        sort: "numero:asc",
+      }),
+      getCollection<TerritorioAsignacionResponse>("territorio-asignaciones", {
+        populate: ["territorio", "asignadoA"],
+        "pagination[pageSize]": 1000,
+      }),
+    ]);
+
     const mappedTerritorios = territoriosData.map((territorio) => ({
       id: territorio.id,
       numero: territorio.numero,
     }));
+    const mappedCards = territoriosData
+      .map(mapTerritoryRecord)
+      .sort((a, b) => a.n - b.n);
 
-    const asignaciones = await getCollection<TerritorioAsignacionResponse>(
-      "territorio-asignaciones",
-      {
-        populate: ["territorio", "asignadoA"],
-        "pagination[pageSize]": 1000,
-      },
-    );
-
+    setTerritorios(mappedCards.length ? mappedCards : fallbackTerritorios);
     setTerritoriosDb(mappedTerritorios);
     setTerritorioData(asignaciones.map(mapAssignmentRecord));
-  };
+  }, []);
 
   useEffect(() => {
     const loadKml = async () => {
@@ -249,40 +354,8 @@ export const TerritoriosTable: React.FC = () => {
   }, [activeTab]);
 
   useEffect(() => {
-    let mounted = true;
-
-    const load = async () => {
-      const territoriosData = await getCollection<TerritorioApiResponse>(
-        "territorios",
-        {
-          "pagination[pageSize]": 1000,
-        },
-      );
-      const mappedTerritorios = territoriosData.map((territorio) => ({
-        id: territorio.id,
-        numero: territorio.numero,
-      }));
-
-      const asignaciones = await getCollection<TerritorioAsignacionResponse>(
-        "territorio-asignaciones",
-        {
-          populate: ["territorio", "asignadoA"],
-          "pagination[pageSize]": 1000,
-        },
-      );
-
-      if (!mounted) return;
-
-      setTerritoriosDb(mappedTerritorios);
-      setTerritorioData(asignaciones.map(mapAssignmentRecord));
-    };
-
-    void load();
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
+    void loadTerritoryResources();
+  }, [loadTerritoryResources]);
 
   const sortedAssignments = useMemo(
     () => [...territorioData].sort((a, b) => a.n - b.n),
@@ -373,7 +446,7 @@ export const TerritoriosTable: React.FC = () => {
         await createEntry("territorio-asignaciones", payload);
       }
 
-      await loadAssignments();
+      await loadTerritoryResources();
       setIsModalOpen(false);
       form.resetFields();
       setEditId(null);
@@ -384,6 +457,68 @@ export const TerritoriosTable: React.FC = () => {
     setIsModalOpen(false);
     form.resetFields();
     setEditId(null);
+  };
+
+  const openNewTerritoryModal = () => {
+    if (!canEditInCurrentView) return;
+    newTerritoryForm.resetFields();
+    newTerritoryForm.setFieldsValue({ lugares: [{ nombre: "" }] });
+    setTerritoryImageFile(null);
+    setIsNewTerritoryModalOpen(true);
+  };
+
+  const closeNewTerritoryModal = () => {
+    setIsNewTerritoryModalOpen(false);
+    setTerritoryImageFile(null);
+    newTerritoryForm.resetFields();
+  };
+
+  const handleCreateTerritory = async () => {
+    if (!canEditInCurrentView) return;
+
+    const values = await newTerritoryForm.validateFields();
+    const lugares = (values.lugares ?? [])
+      .map((lugar) => {
+        const nombre = lugar.nombre?.trim() ?? "";
+        const detalle = lugar.detalle?.trim() ?? "";
+        return nombre ? { nombre, ...(detalle ? { detalle } : {}) } : null;
+      })
+      .filter((lugar): lugar is LugarSalida => Boolean(lugar));
+
+    setIsCreatingTerritory(true);
+
+    try {
+      let imagen: number | undefined;
+      const file = territoryImageFile?.originFileObj;
+
+      if (file) {
+        const formData = new FormData();
+        formData.append("files", file);
+        const { data } = await api.post<Array<{ id: number }>>(
+          "/upload",
+          formData,
+          {
+            headers: { "Content-Type": "multipart/form-data" },
+          },
+        );
+        imagen = data[0]?.id;
+      }
+
+      await createEntry("territorios", {
+        sitio: values.sitio.trim(),
+        numero: values.numero,
+        lugares,
+        ...(imagen ? { imagen } : {}),
+      });
+
+      message.success("Territorio creado");
+      closeNewTerritoryModal();
+      await loadTerritoryResources();
+    } catch {
+      message.error("No se pudo crear el territorio");
+    } finally {
+      setIsCreatingTerritory(false);
+    }
   };
 
   const handleDelete = async (id: number) => {
@@ -563,11 +698,22 @@ export const TerritoriosTable: React.FC = () => {
                   <div style={{ marginTop: 8 }}>
                     <MobileSpace wrap>
                       {(territorio.lugares ?? []).map((lugar) => (
-                        <MobileTag key={lugar} fill="outline">
-                          {lugar}
+                        <MobileTag key={lugar.nombre} fill="outline">
+                          {lugar.nombre}
                         </MobileTag>
                       ))}
                     </MobileSpace>
+                    {territorio.lugares?.some((lugar) => lugar.detalle) && (
+                      <div className="territorio-place-details">
+                        {territorio.lugares.map((lugar) =>
+                          lugar.detalle ? (
+                            <div key={`${lugar.nombre}-${lugar.detalle}`}>
+                              <strong>{lugar.nombre}:</strong> {lugar.detalle}
+                            </div>
+                          ) : null,
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -711,6 +857,17 @@ export const TerritoriosTable: React.FC = () => {
           onChange={(key) => setActiveTab(key)}
         >
           <AntTabs.TabPane tab="Territorios" key="1" icon={<span>🏔️</span>}>
+            <div className="territorio-tab-toolbar">
+              {canEditInCurrentView && (
+                <Button
+                  type="primary"
+                  icon={<PlusOutlined />}
+                  onClick={openNewTerritoryModal}
+                >
+                  Nuevo territorio
+                </Button>
+              )}
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-4">
               {territorios.map((territorio) => (
                 <Card
@@ -738,11 +895,27 @@ export const TerritoriosTable: React.FC = () => {
                 >
                   <Card.Meta
                     title="Lugares de salida"
-                    description={(territorio.lugares ?? []).map((lugar) => (
-                      <Tag key={lugar} bordered={false} color="volcano">
-                        {lugar}
-                      </Tag>
-                    ))}
+                    description={
+                      <>
+                        {(territorio.lugares ?? []).map((lugar) => (
+                          <Tag key={lugar.nombre} bordered={false} color="volcano">
+                            {lugar.nombre}
+                          </Tag>
+                        ))}
+                        {territorio.lugares?.some((lugar) => lugar.detalle) && (
+                          <div className="territorio-place-details">
+                            {territorio.lugares.map((lugar) =>
+                              lugar.detalle ? (
+                                <div key={`${lugar.nombre}-${lugar.detalle}`}>
+                                  <Text strong>{lugar.nombre}: </Text>
+                                  <Text>{lugar.detalle}</Text>
+                                </div>
+                              ) : null,
+                            )}
+                          </div>
+                        )}
+                      </>
+                    }
                   />
                 </Card>
               ))}
@@ -909,6 +1082,117 @@ export const TerritoriosTable: React.FC = () => {
             >
               <DatePicker style={{ width: "100%" }} format="DD-MM-YYYY" />
             </Form.Item>
+          </Form>
+        </Modal>
+      )}
+
+      {canEditInCurrentView && (
+        <Modal
+          title="Nuevo territorio"
+          open={isNewTerritoryModalOpen}
+          onOk={handleCreateTerritory}
+          onCancel={closeNewTerritoryModal}
+          okText="Crear territorio"
+          cancelText="Cancelar"
+          confirmLoading={isCreatingTerritory}
+          destroyOnHidden
+        >
+          <Form
+            form={newTerritoryForm}
+            layout="vertical"
+            initialValues={{ lugares: [{ nombre: "" }] }}
+          >
+            <Form.Item
+              name="sitio"
+              label="Título del territorio"
+              rules={[
+                { required: true, message: "Ingresa el título del territorio" },
+                { whitespace: true, message: "Ingresa un título válido" },
+              ]}
+            >
+              <Input placeholder="Ej. Barrio Antonio Nariño (C)" />
+            </Form.Item>
+
+            <Form.Item
+              name="numero"
+              label="Número de territorio"
+              rules={[
+                { required: true, message: "Ingresa el número del territorio" },
+                {
+                  validator: async (_, value: number | undefined) => {
+                    if (value === undefined || value === null) return;
+                    if (territorios.some((territorio) => territorio.n === value)) {
+                      throw new Error("Ya existe un territorio con ese número");
+                    }
+                  },
+                },
+              ]}
+            >
+              <InputNumber min={1} precision={0} style={{ width: "100%" }} />
+            </Form.Item>
+
+            <Form.Item label="Imagen del mapa">
+              <Upload
+                accept="image/*"
+                beforeUpload={(file) => {
+                  setTerritoryImageFile({
+                    uid: file.uid,
+                    name: file.name,
+                    status: "done",
+                    originFileObj: file,
+                  });
+                  return false;
+                }}
+                fileList={territoryImageFile ? [territoryImageFile] : []}
+                listType="picture"
+                maxCount={1}
+                onRemove={() => {
+                  setTerritoryImageFile(null);
+                }}
+              >
+                <Button icon={<PlusOutlined />}>Subir imagen</Button>
+              </Upload>
+            </Form.Item>
+
+            <Form.List name="lugares">
+              {(fields, { add, remove }) => (
+                <div className="territorio-places-form">
+                  <Text strong>Lugares de salida</Text>
+                  {fields.map((field) => (
+                    <Flex key={field.key} gap={8} align="baseline" wrap>
+                      <Form.Item
+                        {...field}
+                        name={[field.name, "nombre"]}
+                        rules={[
+                          {
+                            required: fields.length === 1,
+                            message: "Agrega al menos un lugar de salida",
+                          },
+                        ]}
+                        className="territorio-place-input"
+                      >
+                        <Input placeholder="Ej. Cancha Techada" />
+                      </Form.Item>
+                      <Form.Item
+                        {...field}
+                        name={[field.name, "detalle"]}
+                        className="territorio-place-detail-input"
+                      >
+                        <Input placeholder="Detalle o dirección (opcional)" />
+                      </Form.Item>
+                      {fields.length > 1 && (
+                        <Button danger onClick={() => remove(field.name)}>
+                          Quitar
+                        </Button>
+                      )}
+                    </Flex>
+                  ))}
+                  <Button type="dashed" icon={<PlusOutlined />} onClick={() => add()}>
+                    Agregar lugar
+                  </Button>
+                </div>
+              )}
+            </Form.List>
           </Form>
         </Modal>
       )}
