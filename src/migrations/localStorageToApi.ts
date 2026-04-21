@@ -171,7 +171,7 @@ export const migrateLocalStorageToApi = async () => {
 
   const territoriosData = getLocal<LocalTerritorio>("territorioData");
   for (const t of territoriosData) {
-    await createEntry("territorio-asignaciones", {
+    await createEntry("territorio-asignacions", {
       territorio: territoriosByNumero.get(t.n) ?? null,
       asignadoA: miembrosByName.get(t.asignadoA) ?? null,
       fechaAsignado: t.fechaAsignado || null,

@@ -66,6 +66,8 @@ import { TerritoryS12DownloadButton } from "./TerritoryS12Pdf";
 
 const { Title, Text, Paragraph } = Typography;
 
+const TERRITORY_ASSIGNMENTS_ENDPOINT = "territorio-asignacions";
+
 type LugarSalida = {
   nombre: string;
   detalle?: string;
@@ -293,7 +295,7 @@ export const TerritoriosTable: React.FC = () => {
         "pagination[pageSize]": 1000,
         sort: "numero:asc",
       }),
-      getCollection<TerritorioAsignacionResponse>("territorio-asignaciones", {
+      getCollection<TerritorioAsignacionResponse>(TERRITORY_ASSIGNMENTS_ENDPOINT, {
         populate: ["territorio", "asignadoA"],
         "pagination[pageSize]": 1000,
       }),
@@ -441,9 +443,9 @@ export const TerritoriosTable: React.FC = () => {
       };
 
       if (editId !== null) {
-        await updateEntry("territorio-asignaciones", editId, payload);
+        await updateEntry(TERRITORY_ASSIGNMENTS_ENDPOINT, editId, payload);
       } else {
-        await createEntry("territorio-asignaciones", payload);
+        await createEntry(TERRITORY_ASSIGNMENTS_ENDPOINT, payload);
       }
 
       await loadTerritoryResources();
@@ -524,7 +526,7 @@ export const TerritoriosTable: React.FC = () => {
   const handleDelete = async (id: number) => {
     if (!canEditInCurrentView) return;
 
-    await deleteEntry("territorio-asignaciones", id);
+    await deleteEntry(TERRITORY_ASSIGNMENTS_ENDPOINT, id);
     setTerritorioData((current) => current.filter((item) => item.id !== id));
   };
 
