@@ -3,7 +3,6 @@ import { DeleteOutlined, EditOutlined, UserAddOutlined } from "@ant-design/icons
 import {
   Button as MobileButton,
   Card as MobileCard,
-  NoticeBar,
   Space as MobileSpace,
   Tag as MobileTag,
 } from "antd-mobile";
@@ -154,10 +153,10 @@ const buildConferenceWhatsAppMessage = (conferencia: Conferencia) => {
 
 export const ConferenciasTable: React.FC = () => {
   const isSmallScreen = useMediaQuery("(max-width: 768px)");
-  const { resolvedMode, setOverrideMode } = useAdaptiveUI();
+  const { resolvedMode } = useAdaptiveUI();
   const isAdminApp = useIsAdminApp();
   const isNativeMobile = resolvedMode === "mobile";
-  const canEditInCurrentView = isAdminApp && !isNativeMobile;
+  const canEditInCurrentView = isAdminApp;
 
   const [conferencias, setConferencias] = useState<Conferencia[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -377,17 +376,6 @@ export const ConferenciasTable: React.FC = () => {
 
   const renderMobileView = () => (
     <div style={{ display: "grid", gap: 12 }}>
-      {isAdminApp && (
-        <NoticeBar
-          content="La edición administrativa de conferencias sigue disponible en la vista desktop."
-          extra={
-            <MobileButton size="mini" onClick={() => setOverrideMode("desktop")}>
-              Ir a desktop
-            </MobileButton>
-          }
-        />
-      )}
-
       {filteredConferencias.length === 0 ? (
         <MobileCard className="mobile-screen-card">
           <Empty description={`No hay conferencias para ${activeMonthLabel}`} />
@@ -413,12 +401,41 @@ export const ConferenciasTable: React.FC = () => {
               <div>
                 <strong>Auxiliar:</strong> {item.auxiliar || "N/A"}
               </div>
-              <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 8,
+                  justifyContent: "flex-end",
+                }}
+              >
                 <WhatsAppShareButton
                   message={buildConferenceWhatsAppMessage(item)}
                   shape="round"
                   size="middle"
                 />
+                {canEditInCurrentView && (
+                  <>
+                    <MobileButton
+                      size="small"
+                      color="primary"
+                      fill="outline"
+                      onClick={() => openModal(item)}
+                    >
+                      Editar
+                    </MobileButton>
+                    <Popconfirm
+                      title="¿Estás seguro de eliminar esta conferencia?"
+                      onConfirm={() => handleDelete(item.id)}
+                      okText="Sí"
+                      cancelText="No"
+                    >
+                      <MobileButton size="small" color="danger" fill="outline">
+                        Eliminar
+                      </MobileButton>
+                    </Popconfirm>
+                  </>
+                )}
               </div>
             </MobileSpace>
           </MobileCard>

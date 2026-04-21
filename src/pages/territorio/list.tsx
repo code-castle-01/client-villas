@@ -9,7 +9,6 @@ import React, {
 import {
   Button as MobileButton,
   Card as MobileCard,
-  NoticeBar,
   Selector,
   Space as MobileSpace,
   Tag as MobileTag,
@@ -288,10 +287,10 @@ export const TerritoriosTable: React.FC = () => {
     useState<MobileSectionKey>("territorios");
   const [currentTerritorio, setCurrentTerritorio] = useState<Territorio | null>(null);
   const [editId, setEditId] = useState<number | null>(null);
-  const { resolvedMode, setOverrideMode } = useAdaptiveUI();
+  const { resolvedMode } = useAdaptiveUI();
   const isNativeMobile = resolvedMode === "mobile";
   const isAdminApp = useIsAdminApp();
-  const canEditInCurrentView = isAdminApp && !isNativeMobile;
+  const canEditInCurrentView = isAdminApp;
   const { mode } = useContext(ColorModeContext);
 
   const loadTerritoryResources = useCallback(async () => {
@@ -585,8 +584,6 @@ export const TerritoriosTable: React.FC = () => {
     setTerritorioData((current) => current.filter((item) => item.id !== id));
   };
 
-  const openDesktopView = () => setOverrideMode("desktop");
-
   const columns: ColumnsType<TerritorioData> = [
     {
       fixed: true,
@@ -679,17 +676,6 @@ export const TerritoriosTable: React.FC = () => {
 
   const renderMobileView = () => (
     <div style={{ display: "grid", gap: 12 }}>
-      {isAdminApp && (
-        <NoticeBar
-          content="La edición de territorios y el mapa completo siguen disponibles en la vista desktop."
-          extra={
-            <MobileButton size="mini" onClick={openDesktopView}>
-              Ir a desktop
-            </MobileButton>
-          }
-        />
-      )}
-
       <MobileCard className="mobile-screen-card">
         <div style={{ display: "grid", gap: 12 }}>
           <div>
@@ -720,6 +706,14 @@ export const TerritoriosTable: React.FC = () => {
               {completedCount} completados
             </MobileTag>
           </MobileSpace>
+
+          {canEditInCurrentView && (
+            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              <MobileButton color="primary" size="small" onClick={openNewTerritoryModal}>
+                Nuevo territorio
+              </MobileButton>
+            </div>
+          )}
         </div>
       </MobileCard>
 
@@ -796,10 +790,38 @@ export const TerritoriosTable: React.FC = () => {
                     buttonProps={{ size: "middle" }}
                     label="Descargar S-12"
                   />
-                  {isAdminApp && (
-                    <MobileButton color="primary" fill="outline" onClick={openDesktopView}>
-                      Llenar en desktop
-                    </MobileButton>
+                  {canEditInCurrentView && (
+                    <>
+                      <MobileButton
+                        color="primary"
+                        fill="outline"
+                        onClick={() => openModal(territorio)}
+                      >
+                        Llenar
+                      </MobileButton>
+                      <MobileButton
+                        fill="outline"
+                        onClick={() => openEditTerritoryModal(territorio)}
+                        disabled={!territorio.id && !territorio.documentId}
+                      >
+                        Editar ficha
+                      </MobileButton>
+                      <Popconfirm
+                        title="¿Eliminar este territorio?"
+                        description="Esta acción borra la ficha del territorio. Si tiene asignaciones, el servidor puede impedirlo."
+                        onConfirm={() => handleDeleteTerritory(territorio)}
+                        okText="Sí"
+                        cancelText="No"
+                      >
+                        <MobileButton
+                          color="danger"
+                          fill="outline"
+                          disabled={!territorio.id && !territorio.documentId}
+                        >
+                          Eliminar
+                        </MobileButton>
+                      </Popconfirm>
+                    </>
                   )}
                 </div>
               </MobileSpace>
@@ -839,10 +861,14 @@ export const TerritoriosTable: React.FC = () => {
                 <div>
                   <strong>Se completó:</strong> {formatDateLabel(item.fechaCompletado)}
                 </div>
-                {isAdminApp && (
+                {canEditInCurrentView && (
                   <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                    <MobileButton fill="outline" size="small" onClick={openDesktopView}>
-                      Editar en desktop
+                    <MobileButton
+                      fill="outline"
+                      size="small"
+                      onClick={() => openModal(item, item.id)}
+                    >
+                      Editar
                     </MobileButton>
                   </div>
                 )}

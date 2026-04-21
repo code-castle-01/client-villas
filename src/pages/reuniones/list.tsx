@@ -3,7 +3,6 @@ import { DeleteOutlined, EditOutlined } from "@ant-design/icons";
 import {
   Button as MobileButton,
   Card as MobileCard,
-  NoticeBar,
   Space as MobileSpace,
   Tag as MobileTag,
 } from "antd-mobile";
@@ -109,10 +108,10 @@ export const ReunionesTable: React.FC = () => {
   const [editingReunion, setEditingReunion] = useState<Reunion | null>(null);
   const [selectedMonthKey, setSelectedMonthKey] = useState<string | null>(null);
   const isSmallScreen = useMediaQuery("(max-width: 768px)");
-  const { resolvedMode, setOverrideMode } = useAdaptiveUI();
+  const { resolvedMode } = useAdaptiveUI();
   const isAdminApp = useIsAdminApp();
   const isNativeMobile = resolvedMode === "mobile";
-  const canEditInCurrentView = isAdminApp && !isNativeMobile;
+  const canEditInCurrentView = isAdminApp;
 
   useEffect(() => {
     let mounted = true;
@@ -273,17 +272,6 @@ export const ReunionesTable: React.FC = () => {
 
   const renderMobileView = () => (
     <div style={{ display: "grid", gap: 12 }}>
-      {isAdminApp && (
-        <NoticeBar
-          content="La edición administrativa de reuniones sigue disponible en la vista desktop."
-          extra={
-            <MobileButton size="mini" onClick={() => setOverrideMode("desktop")}>
-              Ir a desktop
-            </MobileButton>
-          }
-        />
-      )}
-
       {filteredReuniones.length === 0 ? (
         <MobileCard className="mobile-screen-card">
           <Empty description={`No hay reuniones para ${activeMonthLabel}`} />
@@ -306,12 +294,41 @@ export const ReunionesTable: React.FC = () => {
               <div>
                 <strong>Oración:</strong> {item.oracion || "Pendiente"}
               </div>
-              <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 8,
+                  justifyContent: "flex-end",
+                }}
+              >
                 <WhatsAppShareButton
                   message={buildReunionWhatsAppMessage(item)}
                   shape="round"
                   size="middle"
                 />
+                {canEditInCurrentView && (
+                  <>
+                    <MobileButton
+                      size="small"
+                      color="primary"
+                      fill="outline"
+                      onClick={() => openModal(item)}
+                    >
+                      Editar
+                    </MobileButton>
+                    <Popconfirm
+                      title="¿Estás seguro de eliminar esta reunión?"
+                      onConfirm={() => handleDelete(item.id)}
+                      okText="Sí"
+                      cancelText="No"
+                    >
+                      <MobileButton size="small" color="danger" fill="outline">
+                        Eliminar
+                      </MobileButton>
+                    </Popconfirm>
+                  </>
+                )}
               </div>
             </MobileSpace>
           </MobileCard>

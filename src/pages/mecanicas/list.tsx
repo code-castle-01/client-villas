@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   Button as MobileButton,
   Card as MobileCard,
-  NoticeBar,
   Selector,
   Space as MobileSpace,
   Tag as MobileTag,
@@ -244,13 +243,13 @@ const renderGroupTags = (values: string[]) => {
 
 export const ScheduleTable: React.FC = () => {
   const isSmallScreen = useMediaQuery("(max-width: 768px)");
-  const { resolvedMode, setOverrideMode } = useAdaptiveUI();
+  const { resolvedMode } = useAdaptiveUI();
   const isNativeMobile = resolvedMode === "mobile";
   const [form] = Form.useForm();
   const [autoForm] = Form.useForm<AutoGenerateFormValues>();
   const [data, setData] = useState<ScheduleData[]>([]);
   const isAdminApp = useIsAdminApp();
-  const canEditInCurrentView = isAdminApp && !isNativeMobile;
+  const canEditInCurrentView = isAdminApp;
   const { grupos, miembros } = useDirectory();
   const memberNamesById = useMemo(
     () =>
@@ -720,17 +719,6 @@ export const ScheduleTable: React.FC = () => {
 
   const renderMobileView = () => (
     <div style={{ display: "grid", gap: 12 }}>
-      {isAdminApp && (
-        <NoticeBar
-          content="La edición administrativa de mecánicas sigue disponible en la vista desktop."
-          extra={
-            <MobileButton size="mini" onClick={() => setOverrideMode("desktop")}>
-              Ir a desktop
-            </MobileButton>
-          }
-        />
-      )}
-
       <MobileCard className="mobile-screen-card">
         <div style={{ display: "grid", gap: 12 }}>
           <div>
@@ -746,7 +734,28 @@ export const ScheduleTable: React.FC = () => {
             onChange={(value) => setSelectedMonthKey(value[0] ?? defaultMonthKey)}
           />
           <div style={{ display: "flex", justifyContent: "flex-end" }}>
-            <PDFMecanicas data={filteredData} />
+            <MobileSpace wrap justify="end">
+              {canEditInCurrentView && (
+                <>
+                  <MobileButton size="small" fill="outline" onClick={openAutoGenerateModal}>
+                    Autogenerar
+                  </MobileButton>
+                  <MobileButton
+                    size="small"
+                    color="primary"
+                    onClick={() => {
+                      setEditingKey(null);
+                      setDuplicateError(null);
+                      form.resetFields();
+                      setIsModalVisible(true);
+                    }}
+                  >
+                    Nueva
+                  </MobileButton>
+                </>
+              )}
+              <PDFMecanicas data={filteredData} />
+            </MobileSpace>
           </div>
         </div>
       </MobileCard>
@@ -804,12 +813,41 @@ export const ScheduleTable: React.FC = () => {
                   <div>Auxiliar: {getDisplayValue(item.audioVideoAuxiliar)}</div>
                 </div>
               </div>
-              <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 8,
+                  justifyContent: "flex-end",
+                }}
+              >
                 <WhatsAppShareButton
                   message={buildMecanicaWhatsAppMessage(item)}
                   shape="round"
                   size="middle"
                 />
+                {canEditInCurrentView && (
+                  <>
+                    <MobileButton
+                      size="small"
+                      color="primary"
+                      fill="outline"
+                      onClick={() => handleEdit(item)}
+                    >
+                      Editar
+                    </MobileButton>
+                    <Popconfirm
+                      title="¿Estás seguro de eliminar esta asignación?"
+                      onConfirm={() => handleDelete(item.key)}
+                      okText="Sí"
+                      cancelText="No"
+                    >
+                      <MobileButton size="small" color="danger" fill="outline">
+                        Eliminar
+                      </MobileButton>
+                    </Popconfirm>
+                  </>
+                )}
               </div>
             </MobileSpace>
           </MobileCard>
