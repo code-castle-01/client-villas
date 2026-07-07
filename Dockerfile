@@ -5,7 +5,6 @@ WORKDIR /app
 
 COPY package.json package-lock.json ./
 
-# Install on Linux so optional native deps (lightningcss) match the build platform.
 RUN npm ci
 
 COPY . .
@@ -18,9 +17,7 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
-COPY package.json package-lock.json ./
-
-RUN npm ci --omit=dev
+RUN npm install -g serve@14.2.6
 
 COPY --from=builder /app/dist ./dist
 
@@ -28,4 +25,4 @@ USER node
 
 EXPOSE 3000
 
-CMD ["npm", "run", "start"]
+CMD ["serve", "-s", "dist"]
