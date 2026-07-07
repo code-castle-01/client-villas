@@ -1,1 +1,4 @@
-window.__APP_ENV__ = window.__APP_ENV__ || {};
+window.__APP_ENV__ = {
+  VITE_API_URL: "https://api-villas-production.up.railway.app",
+  VITE_APP_NAME: "LAS VILLAS",
+};

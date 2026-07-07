@@ -10,9 +10,9 @@ FROM base as deps
 COPY package.json yarn.lock* package-lock.json* pnpm-lock.yaml* .npmrc* ./
 
 RUN \
-  if [ -f yarn.lock ]; then yarn --frozen-lockfile; \
-  elif [ -f package-lock.json ]; then npm ci; \
-  elif [ -f pnpm-lock.yaml ]; then yarn global add pnpm && pnpm i --frozen-lockfile; \
+  if [ -f package-lock.json ]; then npm ci; \
+  elif [ -f yarn.lock ]; then corepack enable && yarn --frozen-lockfile; \
+  elif [ -f pnpm-lock.yaml ]; then corepack enable pnpm && pnpm i --frozen-lockfile; \
   else echo "Lockfile not found." && exit 1; \
   fi
 
@@ -30,10 +30,10 @@ FROM base as runner
 
 ENV NODE_ENV production
 
-RUN npm install -g serve
-
-COPY --from=builder /app/dist ./
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/package.json ./package.json
+COPY --from=deps /app/node_modules ./node_modules
 
 USER node
 
-CMD ["sh", "-c", "serve -s . -l tcp://0.0.0.0:${PORT:-3000}"]
+CMD ["npm", "run", "start"]

@@ -30,6 +30,7 @@
     "react-organizational-chart": "^2.2.1",
     "react-phone-number-input": "^3.4.11",
     "react-router": "^7.13.0",
+    "serve": "^14.2.6",
     "uuid": "^13.0.0",
     "vite-plugin-pwa": "^1.2.0",
     "workbox-build": "^7.4.0",
@@ -61,7 +62,7 @@
   "scripts": {
     "dev": "refine dev",
     "build": "tsc && refine build",
-    "start": "refine start",
+    "start": "serve -s dist",
     "refine": "refine",
     "test": "vitest run",
     "test:watch": "vitest"
@@ -80,5 +81,6 @@
   },
   "refine": {
     "projectId": "zTrlv4-BzCRqD-cdj2mG"
-  }
+  },
+  "packageManager": "yarn@4.13.0+sha512.5c20ba010c99815433e5c8453112165e673f1c7948d8d2b267f4b5e52097538658388ebc9f9580656d9b75c5cc996f990f611f99304a2197d4c56d21eea370e7"
 }
