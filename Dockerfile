@@ -25,4 +25,5 @@ USER node
 
 EXPOSE 3000
 
-CMD ["serve", "-s", "dist"]
+# Railway injects PORT at runtime. Shell form is required to expand it.
+CMD ["sh", "-c", "serve -s dist -l tcp://0.0.0.0:${PORT:-3000}"]
